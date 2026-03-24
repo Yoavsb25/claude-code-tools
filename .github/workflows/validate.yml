@@ -1,0 +1,95 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-manifests:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate all manifest.json files against schema
+        run: |
+          for manifest in tools/*/manifest.json; do
+            echo "Validating $manifest"
+            npx ajv-cli validate --spec draft7 -s manifest.schema.json -d "$manifest"
+          done
+
+      - name: Check install file references exist
+        run: |
+          EXIT=0
+          for manifest in tools/*/manifest.json; do
+            tool_dir=$(dirname "$manifest")
+            srcs=$(node -e "const m = require('./$manifest'); m.install.files.forEach(f => console.log(f.src));")
+            while IFS= read -r src; do
+              if [ ! -f "$tool_dir/$src" ]; then
+                echo "ERROR: $manifest references missing file: $src"
+                EXIT=1
+              fi
+            done <<< "$srcs"
+          done
+          exit $EXIT
+
+  test-python:
+    name: Run Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run tests (tools with tests/ folder)
+        run: |
+          FOUND=0
+          for tests_dir in tools/*/tests; do
+            if [ -d "$tests_dir" ]; then
+              FOUND=1
+              tool_dir=$(dirname "$tests_dir")
+              echo "Running tests in $tool_dir"
+              if [ -f "$tool_dir/requirements.txt" ]; then
+                pip install -r "$tool_dir/requirements.txt" -q
+              fi
+              python -m pytest "$tests_dir" -v
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "No test directories found — skipping"
+          fi
+
+  build-cli:
+    name: Build CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: npm ci
+
+      - name: Build CLI
+        working-directory: cli
+        run: npm run build

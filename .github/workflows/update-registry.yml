@@ -1,0 +1,42 @@
+name: Update Registry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/*/manifest.json"
+
+jobs:
+  update-registry:
+    name: Regenerate registry.json
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate registry.json
+        run: npx ts-node scripts/generate-registry.ts
+
+      - name: Commit updated registry.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet registry.json; then
+            echo "registry.json unchanged — nothing to commit"
+          else
+            git add registry.json
+            git commit -m "chore: auto-update registry.json [skip ci]"
+            git push
+          fi
