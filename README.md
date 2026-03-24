@@ -1,45 +1,62 @@
 # claude-code-tools
 
-My collection of Claude Code skills and automation tools.
+Practical Claude Code skills for daily life — grocery shopping, London transit, personal finance, and task automation. Drop a skill into any project and say the trigger phrase. That's it.
+
+Built for **[Claude Code](https://claude.ai/code)** users who want AI that does things, not just talks about them.
 
 ---
 
-## Tools (with runnable code)
+## Skills
+
+Copy any skill folder into `.claude/skills/<skill-name>/` in your project, then trigger it by phrase or `/command`.
+
+| Skill | Trigger | What it does |
+|-------|---------|-------------|
+| [tube-fare-auditor](./tube-fare-auditor/) | *"audit my Oyster card"* | Full TfL fare audit — checks every journey against the correct fare, flags railcard discount failures, surfaces refund opportunities |
+| [tfl-refund](./tfl-refund/) | *"file a TfL refund"* | Turns an audit report into a ready-to-send TfL refund claim email |
+| [ocado-shopper](./ocado-shopper/) *(macOS)* | *"do my Ocado shop"* | Reads your weekly list from Apple Notes, finds best-value Ocado products, adds to trolley |
+| [amazon-shopper](./amazon-shopper/) *(macOS)* | *"order X on Amazon"* | Searches Amazon UK, picks the best match, adds to basket — never checks out without you |
+| [trip-expense-report](./trip-expense-report/) | *"expense report for my trip"* | Spending breakdown for any trip or date range from a Wise CSV |
+| [github-profile-refactor](./github-profile-refactor/) | *"refactor my GitHub profile"* | Audits and rewrites a GitHub profile README — stronger hook, better brand, curated skills |
+| [add-todo](./add-todo/) *(macOS)* | *"add todo: X"* | Adds a task to an Apple Notes task list |
+| [run-todos](./run-todos/) *(macOS)* | *"run my todos"* | Executes pending tasks from Apple Notes using Claude's tools |
+| [oyster-audit](./oyster-audit/) | *"audit my Oyster"* | Lightweight Oyster charge audit (see `tube-fare-auditor` for the full version with railcard checking) |
+
+---
+
+## Tools
+
+Tools are standalone scripts with their own setup. Unlike skills, they run Python code directly.
 
 ### [grocery](./grocery/) — Basket Price Comparator
-Compare grocery prices across Tesco, Ocado, and Waitrose for any shopping list. Playwright scrapes live prices; Claude matches each item to the best product per retailer.
 
-**Requirements:** Python 3.9+, Playwright, `ANTHROPIC_API_KEY`
+Compare live grocery prices across Tesco, Ocado, and Waitrose for any shopping list. Playwright scrapes prices in real time; Claude matches each item to the best product per retailer and highlights the cheapest basket.
 
----
+```bash
+# First-time setup
+cd grocery && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && playwright install chromium
 
-## Skills (Claude Code skill files)
+# Run a comparison
+source grocery/.venv/bin/activate
+python grocery/basket_compare.py --file /tmp/basket-list.txt
+```
 
-Copy a skill folder into your project's `.claude/skills/<skill-name>/` to use it.
-
-| Skill | What it does |
-|-------|-------------|
-| [oyster-audit](./oyster-audit/) | Audit TfL Oyster card charges against correct fares, detect overcharges |
-| [tfl-refund](./tfl-refund/) | Generate a ready-to-send TfL refund claim email from an audit report |
-| [trip-expense-report](./trip-expense-report/) | Spending breakdown for any trip or date range from a Wise CSV |
-| [add-todo](./add-todo/) *(macOS)* | Add tasks to an Apple Notes task list |
-| [run-todos](./run-todos/) *(macOS)* | Execute pending tasks from Apple Notes using Claude's tools |
-| [amazon-shopper](./amazon-shopper/) *(macOS)* | Search Amazon UK, pick best match, add to basket — never checks out |
-| [ocado-shopper](./ocado-shopper/) *(macOS)* | Read weekly list from Apple Notes, find best-value Ocado products, add to trolley |
-| [tube-fare-auditor](./tube-fare-auditor/) | Audit TfL Oyster charges, check railcard discounts, detect overcharges and refund opportunities |
+**Requires:** Python 3.9+, `ANTHROPIC_API_KEY`
 
 ---
 
-## How to use a skill
+## Quick start
 
-1. Copy the skill folder into your project's `.claude/skills/` directory:
-   ```bash
-   cp -r oyster-audit /path/to/your-project/.claude/skills/
-   ```
-2. In Claude Code, say the trigger phrase (e.g. "audit my Oyster card") or invoke with `/oyster-audit`
-3. Claude will pick up the skill automatically
+```bash
+# Copy a skill into your project
+cp -r tube-fare-auditor /path/to/your-project/.claude/skills/
 
-> **Tools with runnable code** (like `grocery`) have additional setup — see the tool's `README.md`.
+# Then in Claude Code, just say the trigger phrase
+# e.g. "audit my Oyster card" or /tube-fare-auditor
+```
+
+Skills are picked up automatically — no configuration needed beyond the copy.
 
 ---
 
