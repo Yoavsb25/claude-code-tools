@@ -24,6 +24,7 @@ Copy a skill folder into your project's `.claude/skills/<skill-name>/` to use it
 | [trip-expense-report](./trip-expense-report/) | Spending breakdown for any trip or date range from a Wise CSV |
 | [add-todo](./add-todo/) *(macOS)* | Add tasks to an Apple Notes task list |
 | [run-todos](./run-todos/) *(macOS)* | Execute pending tasks from Apple Notes using Claude's tools |
+| [amazon-shopper](./amazon-shopper/) *(macOS)* | Search Amazon UK, pick best match, add to basket — never checks out |
 
 ---
 
