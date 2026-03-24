@@ -25,6 +25,8 @@ Copy a skill folder into your project's `.claude/skills/<skill-name>/` to use it
 | [add-todo](./add-todo/) *(macOS)* | Add tasks to an Apple Notes task list |
 | [run-todos](./run-todos/) *(macOS)* | Execute pending tasks from Apple Notes using Claude's tools |
 | [amazon-shopper](./amazon-shopper/) *(macOS)* | Search Amazon UK, pick best match, add to basket — never checks out |
+| [ocado-shopper](./ocado-shopper/) *(macOS)* | Read weekly list from Apple Notes, find best-value Ocado products, add to trolley |
+| [tube-fare-auditor](./tube-fare-auditor/) | Audit TfL Oyster charges, check railcard discounts, detect overcharges and refund opportunities |
 
 ---
 
