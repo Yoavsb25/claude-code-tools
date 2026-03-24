@@ -1,0 +1,46 @@
+{
+  "name": "@yoavsb25/claude-tools",
+  "version": "1.0.0",
+  "description": "Install Claude Code skills and tools from the claude-code-tools registry",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "skills",
+    "automation"
+  ],
+  "homepage": "https://github.com/Yoavsb25/claude-code-tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yoavsb25/claude-code-tools.git"
+  },
+  "license": "MIT",
+  "author": "Yoav Sborovsky",
+  "bin": {
+    "claude-tools": "./bin/claude-tools.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/node-fetch": "^2.6.13",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
