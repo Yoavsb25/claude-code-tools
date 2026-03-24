@@ -1,0 +1,19 @@
+{
+  "name": "trip-expense-report",
+  "version": "1.0.0",
+  "description": "Generates a structured expense report from trip receipts and bank statements using Claude Code",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "intermediate",
+  "tags": ["finance", "expenses", "travel", "reports"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/trip-expense-report.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "github-profile-refactor",
+  "version": "1.0.0",
+  "description": "Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "intermediate",
+  "tags": ["github", "profile", "documentation", "branding"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/github-profile-refactor.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}
