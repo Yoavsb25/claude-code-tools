@@ -1,0 +1,19 @@
+# Personal data
+*.csv
+*.xlsx
+ocado-shopping-list.md
+
+# Credentials
+.env
+.env.*
+*.local.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+grocery/.venv/
+
+# macOS
+.DS_Store
