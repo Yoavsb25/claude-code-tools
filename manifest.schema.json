@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Yoavsb25/claude-code-tools/manifest.schema.json",
+  "title": "Claude Tool Manifest",
+  "description": "Schema for manifest.json files in claude-code-tools",
+  "type": "object",
+  "required": ["name", "version", "description", "type", "category", "complexity", "tags", "install", "requirements"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Unique kebab-case identifier for the tool"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g. 1.0.0)"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 200,
+      "description": "One-sentence description of what the tool does"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["skill", "tool"],
+      "description": "skill = SKILL.md only; tool = Python code + skill"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["productivity", "shopping", "finance", "developer-tools", "automation"],
+      "description": "Functional category for filtering"
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["simple", "intermediate", "advanced"],
+      "description": "Effort level to set up and use"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Searchable tags"
+    },
+    "install": {
+      "type": "object",
+      "required": ["files"],
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["src", "dest"],
+            "additionalProperties": false,
+            "properties": {
+              "src": { "type": "string" },
+              "dest": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "required": ["platform", "mcp_servers", "env_vars"],
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["any", "macos", "linux", "windows"]
+        },
+        "mcp_servers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "env_vars": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "python": {
+          "type": "string",
+          "description": "Minimum Python version required (e.g. >=3.9)"
+        }
+      }
+    }
+  }
+}

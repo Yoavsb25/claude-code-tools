@@ -1,0 +1,16 @@
+{
+  "name": "claude-code-tools",
+  "version": "1.0.0",
+  "description": "A curated registry of Claude Code skills and automation tools",
+  "private": true,
+  "scripts": {
+    "generate-registry": "ts-node scripts/generate-registry.ts",
+    "validate": "ajv validate -s manifest.schema.json -d 'tools/*/manifest.json'"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ajv-cli": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

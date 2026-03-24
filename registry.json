@@ -1,0 +1,298 @@
+{
+  "generated": "2026-03-24T19:06:52.936Z",
+  "count": 10,
+  "tools": [
+    {
+      "name": "add-todo",
+      "version": "1.0.0",
+      "description": "Adds tasks to your Apple Reminders app via natural language directly from Claude Code",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "simple",
+      "tags": [
+        "macos",
+        "reminders",
+        "automation",
+        "tasks"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/add-todo.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/add-todo"
+    },
+    {
+      "name": "amazon-shopper",
+      "version": "1.0.0",
+      "description": "Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright",
+      "type": "skill",
+      "category": "shopping",
+      "complexity": "intermediate",
+      "tags": [
+        "automation",
+        "shopping",
+        "playwright",
+        "amazon"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/amazon-shopper.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "playwright"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/amazon-shopper"
+    },
+    {
+      "name": "github-profile-refactor",
+      "version": "1.0.0",
+      "description": "Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "github",
+        "profile",
+        "documentation",
+        "branding"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/github-profile-refactor.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/github-profile-refactor"
+    },
+    {
+      "name": "grocery",
+      "version": "1.0.0",
+      "description": "Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent",
+      "type": "tool",
+      "category": "shopping",
+      "complexity": "advanced",
+      "tags": [
+        "python",
+        "scraping",
+        "grocery",
+        "price-comparison"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/grocery.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "python": ">=3.9"
+      },
+      "path": "tools/grocery"
+    },
+    {
+      "name": "ocado-shopper",
+      "version": "1.0.0",
+      "description": "Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley",
+      "type": "skill",
+      "category": "shopping",
+      "complexity": "intermediate",
+      "tags": [
+        "automation",
+        "grocery",
+        "macos",
+        "playwright",
+        "ocado"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ocado-shopper.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [
+          "playwright"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/ocado-shopper"
+    },
+    {
+      "name": "oyster-audit",
+      "version": "1.0.0",
+      "description": "Audits TfL Oyster card travel history against correct fares and detects potential refunds",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "intermediate",
+      "tags": [
+        "tfl",
+        "oyster",
+        "transit",
+        "finance",
+        "uk"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/oyster-audit.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/oyster-audit"
+    },
+    {
+      "name": "run-todos",
+      "version": "1.0.0",
+      "description": "Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "simple",
+      "tags": [
+        "macos",
+        "reminders",
+        "automation",
+        "tasks"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/run-todos.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/run-todos"
+    },
+    {
+      "name": "tfl-refund",
+      "version": "1.0.0",
+      "description": "Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "simple",
+      "tags": [
+        "tfl",
+        "refund",
+        "transit",
+        "finance",
+        "uk"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/tfl-refund.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/tfl-refund"
+    },
+    {
+      "name": "trip-expense-report",
+      "version": "1.0.0",
+      "description": "Generates a structured expense report from trip receipts and bank statements using Claude Code",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "intermediate",
+      "tags": [
+        "finance",
+        "expenses",
+        "travel",
+        "reports"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/trip-expense-report.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/trip-expense-report"
+    },
+    {
+      "name": "tube-fare-auditor",
+      "version": "1.0.0",
+      "description": "Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report",
+      "type": "tool",
+      "category": "finance",
+      "complexity": "advanced",
+      "tags": [
+        "tfl",
+        "oyster",
+        "railcard",
+        "transit",
+        "finance",
+        "uk",
+        "python"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/tube-fare-auditor.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "python": ">=3.9"
+      },
+      "path": "tools/tube-fare-auditor"
+    }
+  ]
+}
