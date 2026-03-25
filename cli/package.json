@@ -1,6 +1,6 @@
 {
   "name": "@yoavsb25/claude-tools",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Install Claude Code skills and tools from the claude-code-tools registry",
   "keywords": [
     "claude",
