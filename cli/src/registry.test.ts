@@ -40,4 +40,9 @@ describe("validateRegistry", () => {
     const bad = { ...validTool, install: { files: [{ src: "SKILL.md", dest: "~/.claude/skills/../../.ssh/authorized_keys" }] } };
     expect(() => validateRegistry({ tools: [bad] })).toThrow(/traversal/i);
   });
+
+  it("rejects tool with missing requirements", () => {
+    const bad = { ...validTool, requirements: { platform: "any" } }; // missing mcp_servers and env_vars
+    expect(() => validateRegistry({ tools: [bad] })).toThrow(/requirements/i);
+  });
 });

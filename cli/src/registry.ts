@@ -62,10 +62,22 @@ export function validateRegistry(data: unknown): asserts data is Registry {
       if (typeof file.src !== "string" || typeof file.dest !== "string") {
         throw new Error(`Invalid registry: tool "${tool.name}" file entry missing 'src' or 'dest'.`);
       }
-      if (file.src.includes("../") || file.src.includes("..\\")) {
+      if (
+        file.src === ".." ||
+        file.src.includes("../") ||
+        file.src.includes("..\\") ||
+        file.src.startsWith("../") ||
+        file.src.endsWith("/..")
+      ) {
         throw new Error(`Security: tool "${tool.name}" has traversal sequence in src: "${file.src}".`);
       }
-      if (file.dest.includes("../") || file.dest.includes("..\\")) {
+      if (
+        file.dest === ".." ||
+        file.dest.includes("../") ||
+        file.dest.includes("..\\") ||
+        file.dest.startsWith("../") ||
+        file.dest.endsWith("/..")
+      ) {
         throw new Error(`Security: tool "${tool.name}" has traversal sequence in dest: "${file.dest}".`);
       }
     }
@@ -77,22 +89,24 @@ export function validateRegistry(data: unknown): asserts data is Registry {
 }
 
 export async function fetchRegistry(): Promise<Registry> {
+  let parsed: unknown;
   try {
     const res = await fetch(REGISTRY_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const parsed = await res.json();
-    validateRegistry(parsed);
-    return parsed;
+    parsed = await res.json();
   } catch {
-    // Fall back to local registry if present (for dev/offline use)
+    // Network/HTTP failure only — fall back to local copy
     const localPath = path.join(__dirname, "..", "..", "registry.json");
     if (fs.existsSync(localPath)) {
-      const parsed = JSON.parse(fs.readFileSync(localPath, "utf-8"));
-      validateRegistry(parsed);
-      return parsed;
+      const localParsed = JSON.parse(fs.readFileSync(localPath, "utf-8"));
+      validateRegistry(localParsed);
+      return localParsed;
     }
     throw new Error(
       "Could not fetch registry. Check your internet connection or clone the repo locally."
     );
   }
+  // Validation happens OUTSIDE the catch — errors abort rather than fall through
+  validateRegistry(parsed);
+  return parsed as Registry;
 }
