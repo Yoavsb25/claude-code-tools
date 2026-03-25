@@ -57,8 +57,16 @@
             "required": ["src", "dest"],
             "additionalProperties": false,
             "properties": {
-              "src": { "type": "string" },
-              "dest": { "type": "string" }
+              "src": {
+                "type": "string",
+                "pattern": "^(?!.*\\.\\.).*$",
+                "description": "Relative path within tool directory — must not contain .."
+              },
+              "dest": {
+                "type": "string",
+                "pattern": "^~/\\.claude/skills/",
+                "description": "Must be within ~/.claude/skills/"
+              }
             }
           }
         }
