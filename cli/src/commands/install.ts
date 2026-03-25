@@ -9,8 +9,19 @@ import { fetchRegistry } from "../registry.js";
 const REPO_RAW =
   "https://raw.githubusercontent.com/Yoavsb25/claude-code-tools/main";
 
-function expandDest(dest: string): string {
-  return dest.startsWith("~/") ? path.join(os.homedir(), dest.slice(2)) : dest;
+const ALLOWED_BASE = path.resolve(os.homedir(), ".claude", "skills");
+
+export function resolveAndValidateDest(dest: string): string {
+  const expanded = dest.startsWith("~/")
+    ? path.join(os.homedir(), dest.slice(2))
+    : dest;
+  const resolved = path.resolve(expanded);
+  if (resolved !== ALLOWED_BASE && !resolved.startsWith(ALLOWED_BASE + path.sep)) {
+    throw new Error(
+      `Security: destination "${dest}" resolves to "${resolved}", which is outside the allowed install directory (${ALLOWED_BASE}). Installation aborted.`
+    );
+  }
+  return resolved;
 }
 
 async function downloadFile(url: string): Promise<string> {
@@ -71,7 +82,7 @@ export async function installCommand(name: string): Promise<void> {
 
   // Download and write files
   for (const file of tool.install.files) {
-    const destPath = expandDest(file.dest);
+    const destPath = resolveAndValidateDest(file.dest);
     const destDir = path.dirname(destPath);
 
     const fileUrl = `${REPO_RAW}/${tool.path}/${file.src}`;
