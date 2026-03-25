@@ -9,9 +9,14 @@ import { fetchRegistry } from "../registry.js";
 const REPO_RAW =
   "https://raw.githubusercontent.com/Yoavsb25/claude-code-tools/main";
 
-const ALLOWED_BASE = path.resolve(os.homedir(), ".claude", "skills");
+export const ALLOWED_BASE = path.resolve(os.homedir(), ".claude", "skills");
 
 export function resolveAndValidateDest(dest: string): string {
+  if (!dest.startsWith("~/")) {
+    throw new Error(
+      `Security: destination must be a tilde-relative path starting with "~/", got "${dest}". Installation aborted.`
+    );
+  }
   const expanded = dest.startsWith("~/")
     ? path.join(os.homedir(), dest.slice(2))
     : dest;

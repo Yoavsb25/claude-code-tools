@@ -18,7 +18,7 @@ describe("resolveAndValidateDest", () => {
 
   it("rejects absolute path outside base", () => {
     expect(() => resolveAndValidateDest("/etc/passwd")).toThrow(
-      /outside the allowed install directory/
+      /must be a tilde-relative path starting with "~\/"/
     );
   });
 
