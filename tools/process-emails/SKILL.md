@@ -41,8 +41,8 @@ Instruct Claude to:
 1. **Filter out** FYI/automated emails: newsletters, marketing, GitHub/Jira/Slack digests, shipping notifications, bank transaction alerts, calendar invites with no required action, automated receipts.
 
 2. **For each actionable email**, extract a structured card:
-   - `task`: one-line action starting with a strong verb (Reply, Review, Book, Call, Pay, etc.). Include who is involved + their email if it's needed to execute.
-     - Good: `Reply to Sarah Chen (sarah@acme.com) — draft consulting contract`
+   - `task`: one-line action starting with a strong verb (Reply, Review, Book, Call, Pay, etc.). Include who is involved + their email if it's needed to execute. The task must be self-contained: include all specifics needed to execute — recipient email, document name, deadline, item model, price range. Someone reading only the task line should know exactly what to do.
+     - Good: `Reply to Sarah Chen (sarah@acme.com) — approve draft consulting contract, sign-off by 28 Mar`
      - Bad: `Reply to Sarah about contract`
    - `classification`: `"🤖"` if Claude can complete end-to-end (send/draft email via Gmail MCP, web search, research, file ops); `"👤"` if it requires physical presence, a phone call, or context Claude can't resolve from the email alone
    - `due`: extract from email if a deadline is mentioned (format as `DD Mon`, e.g. `28 Mar`). Otherwise `"—"`.

@@ -48,7 +48,19 @@ If output is `NOT FOUND`: tell the user "No Claude Tasks note found. Add tasks w
 
 ## Step 2 — Parse pending tasks
 
-Extract all lines matching `- [ ] <task>` that appear in the `⏳ Pending` section (before the `✅ Completed` section). Lines matching `- [x]` are already done — ignore them.
+Extract all pending tasks from the `🤖 Claude` and `👤 Human` sections (stop at `✅ Completed`).
+
+**Detect format per task:**
+
+- **Card format**: a line starting with `📌` followed by up to 3 metadata lines (`Due:`, `Context:`, `Notes:`). Extract all fields.
+- **Legacy format**: a line starting with `- [ ]`. Extract task text only; set Due/Context/Notes to `—`.
+
+Build a list of task objects:
+```
+{task: "Buy black iPhone 15 Pro case — under £20", due: "—", context: "User's device, colour and budget specified", notes: "budget: under £20, colour: black", classification: "🤖", raw_format: "card"}
+```
+
+The `classification` comes from which section the task was in (`🤖 Claude` → 🤖, `👤 Human` → 👤).
 
 If there are no pending tasks: tell the user "No pending tasks found in Claude Tasks." and stop.
 
@@ -56,10 +68,12 @@ If there are no pending tasks: tell the user "No pending tasks found in Claude T
 
 ## Step 3 — Pre-flight assessment (DO THIS BEFORE EXECUTING ANYTHING)
 
-For each pending task, reason carefully about the likelihood of completing it end-to-end using available tools. Consider:
+For each pending task, reason carefully using all available metadata (task text, context, notes) about the likelihood of completing it end-to-end.
+
+Consider:
 - What tools would be needed? (Playwright browser, web search, AppleScript, bash, existing skills, Gmail MCP, file operations)
 - Are there likely blockers? (login walls, missing credentials, physical presence required, ambiguous task)
-- Can each step of execution be completed, not just started?
+- Does the card's `Notes` field remove ambiguity that would otherwise block execution?
 
 Assign a confidence percentage and classify:
 
@@ -70,53 +84,50 @@ Assign a confidence percentage and classify:
 | <70% | 👤 Human task | Skip, leave pending |
 
 **Shopping tasks — check available skills first:**
-When evaluating a "buy" or "order" task, route via available skills before falling back to raw Playwright:
 - Food/grocery items → `ocado-shopper` skill
 - Physical goods, electronics, clothing, accessories, home items → `amazon-shopper` skill
 - Flights, restaurant bookings, professional services → no skill available → 👤 human task
-
-**Examples:**
-- "Run Oyster audit" → 99% 🤖 (invoke `/oyster-audit` skill, known to work)
-- "Research best headphones under £200" → 95% 🤖 (web search + summary)
-- "Buy 2 iPhone 17 cases" → 95% 🤖 (invoke `amazon-shopper` skill)
-- "Order milk and eggs" → 90% 🤖 (invoke `ocado-shopper` skill)
-- "Buy a white pocket square" → 90% 🤖 (invoke `amazon-shopper` skill)
-- "Book dentist appointment" → 75% 🤔 (can navigate booking site but may hit login wall)
-- "Send email to James about the meeting" → 90% 🤖 (can draft via Gmail MCP or compose inline)
-- "Book a flight to Rome" → 5% 👤 (no booking skill available)
-- "Pick up dry cleaning" → 5% 👤 (physical presence required)
-- "Check passport expiry date" → 10% 👤 (requires physical passport)
 
 ---
 
 ## Step 4 — Show classification and wait for confirmation
 
-Present the pre-flight results clearly, then wait for the user to say "yes" (or adjust):
+Present the pre-flight results clearly, using card metadata to explain how each task will be executed. Then wait for the user to say "yes" (or adjust):
 
 ```
 📋 Pre-flight check — N pending tasks
 
 🤖 Claude tasks (N):
-- <task> → <how I'll do it>
-- <task> → <how I'll do it>
+- Buy black iPhone 15 Pro case — under £20
+  → Amazon search: iPhone 15 Pro case, black, ≤£20
+  Context: User's device · Notes: budget £20, colour black
+
+- Reply to Sarah Chen (sarah@acme.com) — draft consulting contract  (Due: 28 Mar)
+  → Draft reply via Gmail MCP, CC James
+  Context: Consulting contract attached, needs sign-off
 
 🤔 Maybe — will attempt, potential failure point (N):
-- <task> → <confidence>% — <risk reason>
+- Book dentist appointment  (85%) — may hit login wall on booking site
 
 👤 Human tasks — staying pending (N):
-- <task> → <why Claude can't do it>
+- Pick up dry cleaning → physical presence required
 
 Proceed with 🤖 + 🤔 tasks? (yes / adjust the list)
 ```
 
-Omit any category that has zero tasks. Wait for user reply before proceeding.
+Omit any category that has zero tasks. Show `Due:` inline when present. Show Context/Notes only for 🤖 tasks. Wait for user reply before proceeding.
 
 ---
 
 ## Step 5 — Execute confirmed tasks
 
-Work through each confirmed task one at a time. Use the most appropriate tools:
-- **Existing skills** (e.g. invoke `/oyster-audit`, `/compare-basket`, `/ocado-shopper` if relevant)
+Work through each confirmed task one at a time. Use card metadata to inform execution:
+- Use the `Notes` field for specific constraints (budget, model, colour, quantity)
+- Use the `Context` field for background understanding
+- Use the `Due` field to flag urgency
+
+Use the most appropriate tools:
+- **Existing skills** (e.g. invoke `/oyster-audit`, `/compare-basket`, `/ocado-shopper`, `/amazon-shopper` if relevant)
 - **Playwright browser** for websites (booking, ordering, searching, checking availability)
 - **Web search** for research, fact-finding, current information
 - **AppleScript / bash** for macOS app interactions
@@ -138,12 +149,23 @@ Get today's date:
 python3 -c "from datetime import date; d=date.today(); print(d.strftime('%d %b %Y'))"
 ```
 
-Re-read the note body (same method as Step 1). Then:
-- Change `- [ ] <task>` to `- [x] <task> — <today's date>` for all Done and Failed tasks
-- Move all `- [x]` lines (new and existing) under `✅ Completed`
-- Leave Human tasks as `- [ ]` in `⏳ Pending`
+Re-read the note body (same method as Step 1). Then update completed/failed tasks:
 
-Write back using the temp AppleScript file pattern (searches all accounts):
+**For card format tasks** (`📌` lines):
+- Find the `📌 <task>` line for each Done/Failed task
+- Replace the entire card block (the `📌` line + the 3 metadata lines that follow) with a single completion line:
+  - Done: `✅ <task> — <today's date>`
+  - Failed: `❌ <task> — <today's date> (failed: <reason>)`
+- Move that line into the `✅ Completed` section
+
+**For legacy format tasks** (`- [ ]` lines):
+- Change `- [ ] <task>` to `- [x] <task> — <today's date>` for Done tasks
+- Change to `- [x] <task> — <today's date> (failed: <reason>)` for Failed tasks
+- Move all `- [x]` lines under `✅ Completed`
+
+Leave 👤 Human tasks as-is (pending).
+
+Write back using the temp AppleScript file pattern:
 
 ```bash
 python3 -c "
@@ -155,10 +177,17 @@ def to_html(text):
     lines = text.split('\n')
     parts = []
     for line in lines:
-        if line.strip() == '':
+        stripped = line.strip()
+        if stripped == '':
             parts.append('<div><br></div>')
-        elif any(line.startswith(e) for e in ('📝', '⏳', '✅')):
-            parts.append(f'<div><b>{line}</b></div>')
+        elif any(stripped.startswith(e) for e in ('📝', '🤖 C', '👤', '✅ C', '⏳')):
+            parts.append(f'<div><b>{stripped}</b></div>')
+        elif stripped.startswith('📌'):
+            parts.append(f'<div><b>{stripped}</b></div>')
+        elif stripped.startswith('Due:') or stripped.startswith('Context:') or stripped.startswith('Notes:'):
+            parts.append(f'<div>&nbsp;&nbsp;&nbsp;{stripped}</div>')
+        elif stripped.startswith('✅ ') or stripped.startswith('❌ '):
+            parts.append(f'<div>{stripped}</div>')
         else:
             parts.append(f'<div>{line}</div>')
     return ''.join(parts)
@@ -334,3 +363,4 @@ Task report saved to Apple Notes: "📋 Task Report — DD Mon YYYY"
 - **Running twice same day**: the report note is updated in-place, not duplicated.
 - **Report note accumulation**: if the user asks to clean them up, delete all notes whose name matches `📋 Task Report —` via AppleScript.
 - **Task invokes another skill**: invoke the skill normally; its output counts as the outcome summary.
+- **Mixed formats in note**: handle both card (`📌`) and legacy (`- [ ]`) formats gracefully in the same run.

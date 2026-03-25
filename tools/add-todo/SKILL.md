@@ -20,7 +20,7 @@ First, detect whether the input contains **multiple tasks**. Tasks may be separa
 - Numbered or bulleted lists
 - Line breaks
 
-Split into individual tasks. Each task becomes its own `- [ ]` line. If the input is clearly one task, keep it as one.
+Split into individual tasks. Each task becomes its own card. If the input is clearly one task, keep it as one.
 
 Then clean up each task individually:
 - Remove filler ("please", "can you", "remind me to", "I need to")
@@ -34,50 +34,62 @@ Then clean up each task individually:
   - `Book dentist appointment`
   - `Call landlord`
   - `Research flights to Rome`
-- "add: buy milk, call mum, renew passport" → 3 tasks:
-  - `Buy milk`
-  - `Call mum`
-  - `Renew passport`
 
-**Rule:** Keep related items that form a single purchase/action together (e.g. "2 cases and 2 screen protectors" = one task). Split when there are clearly separate, independent actions.
+**Rule:** Keep related items that form a single purchase/action together. Split when there are clearly separate, independent actions.
 
 ---
 
-## Step 1b — Executability check
+## Step 1b — Specificity + Executability Check
 
-For each task, ask: does Claude have enough information to either execute it OR correctly identify it as a human task?
+For each task, evaluate **two things**:
 
-**The rule: ask at most ONE question per task, only if the answer changes whether Claude can execute it or would cause a clearly wrong outcome. Default to saving.**
+### A — Specificity check (for 🤖 tasks only)
 
-If the task is clearly a 👤 human task regardless of detail (physical presence, services, etc.) — save it as-is. Don't ask.
+Ask: *would executing this task right now require making a significant assumption the user would likely care about?*
 
-**When to ask vs save:**
+**Key triggers — always evaluate specificity for:**
+- Any "buy/order/get" task → does it need a device model, size, quantity, or budget to buy correctly?
+- Any "book/reserve" task → is the venue, date, and party size known?
+- Any "email/send/reply/call" task → is the recipient unambiguous and the core ask clear?
+
+**The rule: ask at most 2 questions per task (max), only when the answer would change what gets bought/done and a wrong assumption could waste money or time.**
+
+If a safe default clearly exists and the stakes are low — apply it and note the assumption. Don't ask.
+
+If the task is a 👤 human task regardless of specifics (physical presence required, etc.) — save as-is. No questions.
+
+**Reference table:**
 
 | Task | Action |
 |---|---|
-| "Buy a TV" | Ask: "What size and rough budget?" |
+| "Buy a case for my phone" | Ask: "Which phone model?" → after answer, ask: "Any colour or budget preference, or just cheapest?" |
+| "Buy a case for my iPhone 15 Pro" | Ask: "Any colour preference or budget?" |
+| "Buy a black case for my iPhone 15 Pro under £15" | Save — fully specific |
+| "Buy headphones" | Ask: "Any budget and use-case (gym, office, commute)?" |
+| "Buy a TV" | Ask: "What screen size and rough budget?" |
 | "Buy a jacket" | Ask: "What size, and casual or smart?" |
 | "Buy iPhone 17 cases" | Ask: "How many?" |
 | "Buy a tie" | Ask: "Colour preference, or safe default (navy/white)?" |
 | "Buy 2 iPhone 17 cases" | Save — specific |
-| "Buy batteries" | Save as "Buy AA batteries (4-pack)" — safe default, note it |
+| "Buy batteries" | Save as "Buy AA batteries (4-pack)" — safe default |
 | "Buy a white pocket square" | Save — specific |
 | "Order milk and eggs" | Save — food, quantity flexible |
-| "Email James about the meeting" | Ask: "Which James?" only if multiple in contacts — otherwise save |
-| "Send a follow-up to the client" | Ask: "Which client, and about what?" — unexecutable otherwise |
+| "Book a restaurant" | Ask: "Which restaurant and for when / how many people?" |
+| "Book a dentist appointment" | Save — Claude will assess executability at run time |
+| "Email James about the project" | Ask: "Which James?" only if ambiguous — otherwise Save |
+| "Send a follow-up to the client" | Ask: "Which client, and about what?" |
 | "Email mum to say thanks" | Save — clear enough |
-| "Book a table for dinner" | Ask: "Where and for how many?" |
-| "Book a dentist appointment" | Save — Claude will assess executability in pre-flight |
-| "Research headphones" | Save — broad enough to execute |
+| "Research headphones under £200" | Save — specific enough |
 | "Sort out the thing" | Ask: "What thing?" |
-| "Pick up dry cleaning" | Save — clearly a 👤 task, no extra info needed |
+| "Pick up dry cleaning" | Save — clearly 👤, no extra info needed |
 
-**Never ask:**
-- More than one question at a time
-- If the task is unambiguously a 👤 human task (physical presence, no relevant skill)
-- If a safe default exists and the stakes are low — just apply it and note the assumption
+**After getting answers**: incorporate all clarification into the enriched task text and Notes field. Then stop — do not ask a third question.
 
-Once clarified, update the task text with the enriched detail before proceeding to Step 2.
+### B — Classification
+
+After enrichment, classify each task:
+- `🤖` — Claude can complete end-to-end using available tools (Amazon/Ocado shopper skills, Gmail MCP, web search, browser, file ops)
+- `👤` — requires physical presence, a phone call, or context Claude cannot resolve
 
 ---
 
@@ -104,7 +116,7 @@ end tell'
 
 ---
 
-## Step 3a — If note does NOT exist: create it in the "Tasks ✅" folder
+## Step 3a — If note does NOT exist: create it with new structure
 
 ```bash
 osascript -e '
@@ -112,7 +124,7 @@ tell application "Notes"
   repeat with a in accounts
     repeat with f in folders of a
       if name of f is "Tasks ✅" then
-        set noteBody to "<div><b>📝 Claude Tasks</b></div><div><br></div><div><b>⏳ Pending</b></div><div><br></div><div><b>✅ Completed</b></div>"
+        set noteBody to "<div><b>📝 Claude Tasks</b></div><div><br></div><div><b>🤖 Claude</b></div><div><br></div><div><b>👤 Human</b></div><div><br></div><div><b>✅ Completed</b></div>"
         make new note at f with properties {name:"📝 Claude Tasks", body:noteBody}
         return
       end if
@@ -125,7 +137,9 @@ Treat the note body as:
 ```
 📝 Claude Tasks
 
-⏳ Pending
+🤖 Claude
+
+👤 Human
 
 ✅ Completed
 ```
@@ -163,20 +177,32 @@ print(text)
 
 ---
 
-## Step 4 — Insert tasks into the note text
+## Step 4 — Build card blocks and insert into note
 
-You now have the note as plain text and a list of one or more cleaned tasks. Rules:
-- Find the line containing `⏳ Pending`
-- Insert all `- [ ] <task>` lines immediately after it (or after the last existing `- [ ]` line in that section, whichever comes last)
-- Insert each task on its own line
-- Never insert into or after the `✅ Completed` section
-- If the `⏳ Pending` header is missing, add it before the tasks at the top of the note
+You now have the note as plain text and the list of enriched, classified tasks.
+
+### Card format
+
+Each task becomes a 4-line card block:
+```
+📌 <enriched task — specific enough to execute>
+   Due: <extracted date (e.g. 28 Mar) or —>
+   Context: <one sentence: why this task exists, any background>
+   Notes: <execution constraints: device model, budget, quantity, recipient email, etc. — or —>
+```
+
+### Insertion rules
+
+- Detect note structure: if the note has `🤖 Claude` and `👤 Human` headers → new structure. If it only has `⏳ Pending` → old structure, migrate first (rename `⏳ Pending` → `🤖 Claude`, insert `👤 Human` block before `✅ Completed`).
+- Insert 🤖 cards after the last card in the `🤖 Claude` section (or immediately after the `🤖 Claude` header if empty).
+- Insert 👤 cards after the last card in the `👤 Human` section.
+- Never insert into or after the `✅ Completed` section.
 
 ---
 
 ## Step 5 — Write back to the note
 
-Build the HTML and write using a temp AppleScript file (this avoids shell-quoting issues when task text contains single quotes or apostrophes):
+Build the HTML and write using a temp AppleScript file:
 
 ```bash
 python3 -c "
@@ -189,10 +215,17 @@ def to_html(text):
     lines = text.split('\n')
     parts = []
     for line in lines:
-        if line.strip() == '':
+        stripped = line.strip()
+        if stripped == '':
             parts.append('<div><br></div>')
-        elif any(line.startswith(e) for e in ('📝', '⏳', '✅')):
-            parts.append(f'<div><b>{line}</b></div>')
+        elif any(stripped.startswith(e) for e in ('📝', '🤖 C', '👤', '✅ C', '⏳')):
+            parts.append(f'<div><b>{stripped}</b></div>')
+        elif stripped.startswith('📌'):
+            parts.append(f'<div><b>{stripped}</b></div>')
+        elif stripped.startswith('Due:') or stripped.startswith('Context:') or stripped.startswith('Notes:'):
+            parts.append(f'<div>&nbsp;&nbsp;&nbsp;{stripped}</div>')
+        elif stripped.startswith('✅ ') or stripped.startswith('❌ '):
+            parts.append(f'<div>{stripped}</div>')
         else:
             parts.append(f'<div>{line}</div>')
     return ''.join(parts)
@@ -230,15 +263,23 @@ os.unlink(tmp)
 
 If one task was added:
 ```
-Added: "<task>" to Claude Tasks
+Added to Claude Tasks (🤖):
+📌 Buy black iPhone 15 Pro case — under £20
+   Context: User's device, colour and budget specified
 ```
 
 If multiple tasks were added:
 ```
 Added 3 tasks to Claude Tasks:
-- <task 1>
-- <task 2>
-- <task 3>
+
+🤖 📌 Buy black iPhone 15 Pro case — under £20
+      Context: User's device, colour and budget specified
+
+👤 📌 Pick up dry cleaning
+      Context: —
+
+🤖 📌 Research flights to Rome — economy, flexible dates
+      Context: User planning a trip
 ```
 
 ---
@@ -247,5 +288,5 @@ Added 3 tasks to Claude Tasks:
 
 - **`osascript` read returns an error or NOT FOUND**: stop and tell the user. Do not overwrite.
 - **Task input is empty or too vague** (e.g. just "todo"): ask "What task should I add?"
-- **`⏳ Pending` header is missing from the note**: add it before inserting the task rather than failing.
 - **"Tasks ✅" folder not found**: tell the user the folder is missing and ask them to create it in Notes.
+- **Old `⏳ Pending` structure detected**: migrate before inserting (rename header, add `👤 Human` block).
