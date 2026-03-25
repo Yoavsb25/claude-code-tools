@@ -12,5 +12,8 @@
     "ajv-cli": "^5.0.0",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
+  },
+  "overrides": {
+    "fast-json-patch": "^3.1.1"
   }
 }

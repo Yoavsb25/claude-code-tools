@@ -62,7 +62,7 @@ class TflFareFetcher:
             try:
                 with open(path) as f:
                     return json.load(f)
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass
         return {}
 
@@ -91,6 +91,11 @@ class TflFareFetcher:
             params["app_key"] = self._api_key
         if params:
             url += "?" + urllib.parse.urlencode(params)
+        # Defense-in-depth: ensure we only ever call the expected TfL host.
+        # (Bandit may not be able to prove this automatically, but runtime is fail-closed.)
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https" or parsed.netloc != "api.tfl.gov.uk":
+            return None
         req = urllib.request.Request(url, headers=HEADERS)
 
         # StopPoint searches use a different, lighter endpoint; Journey Planner is strictly throttled.
@@ -109,7 +114,7 @@ class TflFareFetcher:
 
             try:
                 self._last_request_time = time.monotonic()
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with urllib.request.urlopen(req, timeout=15) as r:  # nosec: B310
                     self._request_count += 1
                     return json.loads(r.read())
             except urllib.error.HTTPError as e:

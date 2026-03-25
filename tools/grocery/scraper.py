@@ -111,6 +111,7 @@ async def _scrape_playwright(page: Page, item: str, retailer: str) -> list[dict]
     products: list[dict] = []
 
     for container in containers[:MAX_RESULTS_PER_RETAILER]:
+        product: dict | None = None
         try:
             name_el = await container.query_selector(s["name"])
             price_el = await container.query_selector(s["price"])
@@ -136,17 +137,19 @@ async def _scrape_playwright(page: Page, item: str, retailer: str) -> list[dict]
             if price is None:
                 continue
 
-            products.append(
-                {
-                    "retailer": retailer,
-                    "name": name,
-                    "price": price,
-                    "unit_price": unit_price,
-                    "url": href,
-                }
-            )
+            product = {
+                "retailer": retailer,
+                "name": name,
+                "price": price,
+                "unit_price": unit_price,
+                "url": href,
+            }
         except Exception:
-            continue
+            # If selectors return unexpected types/values or parsing fails, skip this entry.
+            product = None
+
+        if product is not None:
+            products.append(product)
 
     return products
 

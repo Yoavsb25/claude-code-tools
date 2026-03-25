@@ -21,6 +21,7 @@ import math
 import os
 import re
 import sys
+import tempfile
 from datetime import datetime, date
 from pathlib import Path
 
@@ -699,14 +700,24 @@ def main():
                         help='Bank/card statement CSV path')
     parser.add_argument('--railcard', default=None,
                         help='Railcard type, e.g. "26-30", "two-together", "senior"')
-    parser.add_argument('--output', default='/tmp/tube_audit_output',
-                        help='Output directory for audit_results.json')
+    parser.add_argument('--output', default=None,
+                        help='Output directory for audit_results.json (default: secure per-run temp dir)')
     parser.add_argument('--tfl-api-key', default=os.environ.get('TFL_API_KEY'),
                         help='TfL API key for higher rate limits (free at api.tfl.gov.uk/registration). '
                              'Can also be set via TFL_API_KEY env var. Without a key, '
                              'first-run fare lookups fall back to zone-based estimates.')
     args = parser.parse_args()
-    run_audit(args.oyster, args.statement, args.railcard, args.output, args.tfl_api_key)
+
+    if args.output is None:
+        output_dir = tempfile.mkdtemp(prefix="tube_audit_output_")
+    else:
+        output_dir = str(Path(args.output).expanduser())
+        # Validate destination early to fail closed on obviously unsafe values.
+        out_path = Path(output_dir)
+        if out_path.exists() and not out_path.is_dir():
+            raise SystemExit(f"--output must be a directory, got file: {output_dir}")
+
+    run_audit(args.oyster, args.statement, args.railcard, output_dir, args.tfl_api_key)
 
 
 if __name__ == '__main__':
