@@ -1,5 +1,5 @@
 #!/usr/bin/env ts-node
-// Reads all tools/<name>/manifest.json files and outputs registry.json at the repo root.
+// Reads all tools/<name>/manifest.json files and outputs registry.json and updates README.md.
 // Run: npx ts-node scripts/generate-registry.ts
 
 import * as fs from "fs";
@@ -7,6 +7,7 @@ import * as path from "path";
 
 const TOOLS_DIR = path.join(__dirname, "..", "tools");
 const REGISTRY_PATH = path.join(__dirname, "..", "registry.json");
+const README_PATH = path.join(__dirname, "..", "README.md");
 
 interface ManifestFile {
   src: string;
@@ -62,6 +63,36 @@ function generate() {
 
   fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + "\n");
   console.log(`\n📦  registry.json written — ${tools.length} tools indexed`);
+
+  updateReadme(tools);
+}
+
+const COMPLEXITY_ORDER = { simple: 0, intermediate: 1, advanced: 2 };
+
+function updateReadme(tools: RegistryEntry[]) {
+  const readme = fs.readFileSync(README_PATH, "utf-8");
+
+  const sorted = [...tools].sort((a, b) => {
+    const cDiff = COMPLEXITY_ORDER[a.complexity] - COMPLEXITY_ORDER[b.complexity];
+    return cDiff !== 0 ? cDiff : a.name.localeCompare(b.name);
+  });
+
+  const rows = sorted
+    .map((t) => `| [${t.name}](./tools/${t.name}/) | ${t.type} | ${t.category} | ${t.complexity} | ${t.description} |`)
+    .join("\n");
+
+  const table =
+    `| Name | Type | Category | Complexity | Description |\n` +
+    `|------|------|----------|------------|-------------|\n` +
+    rows;
+
+  const updated = readme.replace(
+    /(\## What's inside\n\n)[\s\S]*?(\n\n---)/,
+    `$1${table}$2`
+  );
+
+  fs.writeFileSync(README_PATH, updated);
+  console.log(`📝  README.md "What's inside" updated — ${tools.length} entries`);
 }
 
 generate();

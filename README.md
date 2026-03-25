@@ -15,16 +15,17 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 
 | Name | Type | Category | Complexity | Description |
 |------|------|----------|------------|-------------|
-| [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to Apple Reminders via natural language |
-| [run-todos](./tools/run-todos/) | skill | productivity | simple | Executes pending Apple Reminders tasks via Claude Code |
-| [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges |
-| [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon, picks the best match, adds to basket |
-| [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Audits and rewrites a GitHub profile README |
-| [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Reads your grocery list from Apple Notes, shops Ocado |
-| [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Lightweight TfL Oyster card charge audit |
-| [trip-expense-report](./tools/trip-expense-report/) | skill | finance | intermediate | Generates a structured expense report from a Wise CSV |
-| [grocery](./tools/grocery/) | tool | shopping | advanced | Scrapes Tesco, Ocado, Waitrose and finds the cheapest basket |
-| [tube-fare-auditor](./tools/tube-fare-auditor/) | tool | finance | advanced | Full TfL audit — checks railcard discounts, surfaces refunds |
+| [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
+| [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
+| [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
+| [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
+| [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality |
+| [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
+| [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
+| [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |
+| [trip-expense-report](./tools/trip-expense-report/) | skill | finance | intermediate | Generates a structured expense report from trip receipts and bank statements using Claude Code |
+| [grocery](./tools/grocery/) | tool | shopping | advanced | Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent |
+| [tube-fare-auditor](./tools/tube-fare-auditor/) | tool | finance | advanced | Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report |
 
 ---
 
