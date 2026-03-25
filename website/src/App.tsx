@@ -14,10 +14,31 @@ export default function App() {
   const [complexity, setComplexity] = useState('all')
 
   useEffect(() => {
-    fetch(REGISTRY_URL)
-      .then((r) => r.json())
-      .then((data: Registry) => setRegistry(data))
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
+
+    fetch(REGISTRY_URL, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data: unknown) => {
+        if (
+          typeof data !== 'object' ||
+          data === null ||
+          !Array.isArray((data as Record<string, unknown>).tools)
+        ) {
+          throw new Error('Invalid registry shape')
+        }
+        setRegistry(data as Registry)
+      })
       .catch(() => setError(true))
+      .finally(() => clearTimeout(timeoutId))
+
+    return () => {
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
   }, [])
 
   const categories = useMemo(() => {
