@@ -1,6 +1,6 @@
 {
-  "generated": "2026-03-24T19:12:33.611Z",
-  "count": 10,
+  "generated": "2026-03-25T11:12:13.199Z",
+  "count": 11,
   "tools": [
     {
       "name": "add-todo",
@@ -176,6 +176,38 @@
         "env_vars": []
       },
       "path": "tools/oyster-audit"
+    },
+    {
+      "name": "process-emails",
+      "version": "1.0.0",
+      "description": "Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "automation",
+        "email",
+        "gmail",
+        "macos",
+        "todos",
+        "notes"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/process-emails.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [
+          "gmail"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/process-emails"
     },
     {
       "name": "run-todos",
