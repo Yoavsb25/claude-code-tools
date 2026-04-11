@@ -1,0 +1,19 @@
+{
+  "name": "tfl-refund",
+  "version": "1.0.0",
+  "description": "Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "simple",
+  "tags": ["tfl", "refund", "transit", "finance", "uk"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/tfl-refund.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

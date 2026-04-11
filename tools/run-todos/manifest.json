@@ -1,0 +1,19 @@
+{
+  "name": "run-todos",
+  "version": "1.0.0",
+  "description": "Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "simple",
+  "tags": ["macos", "reminders", "automation", "tasks"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/run-todos.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "macos",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}
