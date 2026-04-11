@@ -36,6 +36,10 @@ interface RegistryEntry extends Manifest {
 }
 
 function generate() {
+  if (!fs.existsSync(TOOLS_DIR)) {
+    fs.mkdirSync(TOOLS_DIR, { recursive: true });
+  }
+
   const toolDirs = fs
     .readdirSync(TOOLS_DIR)
     .filter((d) => fs.statSync(path.join(TOOLS_DIR, d)).isDirectory());

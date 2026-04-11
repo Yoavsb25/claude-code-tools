@@ -29,14 +29,14 @@ jobs:
       - name: Generate registry.json
         run: npx ts-node scripts/generate-registry.ts
 
-      - name: Commit updated registry.json
+      - name: Commit updated registry.json and README.md
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet registry.json; then
-            echo "registry.json unchanged — nothing to commit"
+          if git diff --quiet registry.json README.md; then
+            echo "registry.json and README.md unchanged — nothing to commit"
           else
-            git add registry.json
-            git commit -m "chore: auto-update registry.json [skip ci]"
+            git add registry.json README.md
+            git commit -m "chore: auto-update registry.json and README.md [skip ci]"
             git push
           fi
