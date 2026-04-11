@@ -27,15 +27,27 @@ jobs:
 
       - name: Validate all manifest.json files against schema
         run: |
-          for manifest in tools/*/manifest.json; do
+          shopt -s nullglob
+          manifests=(tools/*/manifest.json)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "No manifest files found — skipping"
+            exit 0
+          fi
+          for manifest in "${manifests[@]}"; do
             echo "Validating $manifest"
             npx ajv-cli validate --spec draft7 -s manifest.schema.json -d "$manifest"
           done
 
       - name: Check install file references exist
         run: |
+          shopt -s nullglob
+          manifests=(tools/*/manifest.json)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "No manifest files found — skipping"
+            exit 0
+          fi
           EXIT=0
-          for manifest in tools/*/manifest.json; do
+          for manifest in "${manifests[@]}"; do
             tool_dir=$(dirname "$manifest")
             srcs=$(node -e "const m = require('./$manifest'); m.install.files.forEach(f => console.log(f.src));")
             while IFS= read -r src; do
