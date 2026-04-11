@@ -1,6 +1,6 @@
 {
-  "generated": "2026-04-11T22:14:19.166Z",
-  "count": 11,
+  "generated": "2026-04-11T22:24:49.834Z",
+  "count": 14,
   "tools": [
     {
       "name": "add-todo",
@@ -210,6 +210,35 @@
       "path": "tools/process-emails"
     },
     {
+      "name": "product-manager",
+      "version": "1.0.0",
+      "description": "Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "product",
+        "prd",
+        "user-stories",
+        "roadmap",
+        "planning"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/product-manager.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/product-manager"
+    },
+    {
       "name": "run-todos",
       "version": "1.0.0",
       "description": "Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically",
@@ -236,6 +265,34 @@
         "env_vars": []
       },
       "path": "tools/run-todos"
+    },
+    {
+      "name": "software-architect",
+      "version": "1.0.0",
+      "description": "Senior software architect for system design and architectural decision records (ADRs)",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "advanced",
+      "tags": [
+        "architecture",
+        "system-design",
+        "adr",
+        "design-docs"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/software-architect.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/software-architect"
     },
     {
       "name": "tfl-refund",
@@ -325,6 +382,35 @@
         "python": ">=3.9"
       },
       "path": "tools/tube-fare-auditor"
+    },
+    {
+      "name": "ui-ux-expert",
+      "version": "1.0.0",
+      "description": "Opinionated UI/UX design consultant for specs, style guides, and layout decisions",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "design",
+        "ui",
+        "ux",
+        "style-guide",
+        "frontend"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ui-ux-expert.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/ui-ux-expert"
     }
   ]
 }

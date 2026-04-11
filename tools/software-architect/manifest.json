@@ -1,0 +1,19 @@
+{
+  "name": "software-architect",
+  "version": "1.0.0",
+  "description": "Senior software architect for system design and architectural decision records (ADRs)",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "advanced",
+  "tags": ["architecture", "system-design", "adr", "design-docs"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/software-architect.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}
