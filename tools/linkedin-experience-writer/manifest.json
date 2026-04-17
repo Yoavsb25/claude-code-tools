@@ -1,0 +1,19 @@
+{
+  "name": "linkedin-experience-writer",
+  "version": "1.0.0",
+  "description": "Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "simple",
+  "tags": ["linkedin", "writing", "career", "resume", "professional"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/linkedin-experience-writer.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}
