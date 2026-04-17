@@ -1,6 +1,6 @@
 {
-  "generated": "2026-04-17T13:57:29.126Z",
-  "count": 7,
+  "generated": "2026-04-17T14:11:05.909Z",
+  "count": 15,
   "tools": [
     {
       "name": "add-todo",
@@ -61,6 +61,63 @@
       "path": "tools/amazon-shopper"
     },
     {
+      "name": "github-profile-refactor",
+      "version": "1.0.0",
+      "description": "Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "github",
+        "profile",
+        "documentation",
+        "branding"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/github-profile-refactor.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/github-profile-refactor"
+    },
+    {
+      "name": "grocery",
+      "version": "1.0.0",
+      "description": "Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent",
+      "type": "tool",
+      "category": "shopping",
+      "complexity": "advanced",
+      "tags": [
+        "python",
+        "scraping",
+        "grocery",
+        "price-comparison"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/grocery.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "python": ">=3.9"
+      },
+      "path": "tools/grocery"
+    },
+    {
       "name": "linkedin-experience-writer",
       "version": "1.0.0",
       "description": "Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit",
@@ -88,6 +145,37 @@
         "env_vars": []
       },
       "path": "tools/linkedin-experience-writer"
+    },
+    {
+      "name": "ocado-shopper",
+      "version": "1.0.0",
+      "description": "Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley",
+      "type": "skill",
+      "category": "shopping",
+      "complexity": "intermediate",
+      "tags": [
+        "automation",
+        "grocery",
+        "macos",
+        "playwright",
+        "ocado"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ocado-shopper.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [
+          "playwright"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/ocado-shopper"
     },
     {
       "name": "oyster-audit",
@@ -119,6 +207,67 @@
       "path": "tools/oyster-audit"
     },
     {
+      "name": "process-emails",
+      "version": "1.0.0",
+      "description": "Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "automation",
+        "email",
+        "gmail",
+        "macos",
+        "todos",
+        "notes"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/process-emails.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "macos",
+        "mcp_servers": [
+          "gmail"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/process-emails"
+    },
+    {
+      "name": "product-manager",
+      "version": "1.0.0",
+      "description": "Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "product",
+        "prd",
+        "user-stories",
+        "roadmap",
+        "planning"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/product-manager.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/product-manager"
+    },
+    {
       "name": "run-todos",
       "version": "1.0.0",
       "description": "Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically",
@@ -145,6 +294,34 @@
         "env_vars": []
       },
       "path": "tools/run-todos"
+    },
+    {
+      "name": "software-architect",
+      "version": "1.0.0",
+      "description": "Senior software architect for system design and architectural decision records (ADRs)",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "advanced",
+      "tags": [
+        "architecture",
+        "system-design",
+        "adr",
+        "design-docs"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/software-architect.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/software-architect"
     },
     {
       "name": "tfl-refund",
@@ -202,6 +379,67 @@
         "env_vars": []
       },
       "path": "tools/trip-expense-report"
+    },
+    {
+      "name": "tube-fare-auditor",
+      "version": "1.0.0",
+      "description": "Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report",
+      "type": "tool",
+      "category": "finance",
+      "complexity": "advanced",
+      "tags": [
+        "tfl",
+        "oyster",
+        "railcard",
+        "transit",
+        "finance",
+        "uk",
+        "python"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/tube-fare-auditor.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "python": ">=3.9"
+      },
+      "path": "tools/tube-fare-auditor"
+    },
+    {
+      "name": "ui-ux-expert",
+      "version": "1.0.0",
+      "description": "Opinionated UI/UX design consultant for specs, style guides, and layout decisions",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "design",
+        "ui",
+        "ux",
+        "style-guide",
+        "frontend"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ui-ux-expert.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/ui-ux-expert"
     }
   ]
 }
