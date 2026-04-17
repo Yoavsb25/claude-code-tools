@@ -16,19 +16,12 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | Name | Type | Category | Complexity | Description |
 |------|------|----------|------------|-------------|
 | [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
+| [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | productivity | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
 | [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
 | [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
 | [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
-| [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality |
-| [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
-| [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |
-| [product-manager](./tools/product-manager/) | skill | productivity | intermediate | Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization |
 | [trip-expense-report](./tools/trip-expense-report/) | skill | finance | intermediate | Generates a structured expense report from trip receipts and bank statements using Claude Code |
-| [ui-ux-expert](./tools/ui-ux-expert/) | skill | developer-tools | intermediate | Opinionated UI/UX design consultant for specs, style guides, and layout decisions |
-| [grocery](./tools/grocery/) | tool | shopping | advanced | Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent |
-| [software-architect](./tools/software-architect/) | skill | developer-tools | advanced | Senior software architect for system design and architectural decision records (ADRs) |
-| [tube-fare-auditor](./tools/tube-fare-auditor/) | tool | finance | advanced | Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report |
 
 ---
 
