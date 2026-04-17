@@ -50,15 +50,26 @@ Two rounds max, then move on with what you have.
 
 ## Step 3: Aspect extraction
 
-Identify **1-3 concrete domains of work** the person actually owned. Think in terms that a
-recruiter searching LinkedIn would recognize: API development, system architecture, deployment/CI,
-data modeling, authentication, ML infrastructure, platform reliability, etc.
+For each project or domain, identify **at least 2 genuinely distinct aspects** the person owned.
+Think in terms a recruiter would search: system architecture, frontend/UI, backend services,
+CI/CD pipeline, testing strategy, data modeling, authentication, ML integration, platform
+reliability, release automation, developer experience, etc.
 
-Each bullet should demonstrate a **different searchable capability**. Ask yourself: *"If a
-recruiter filtered for this skill, would this bullet surface?"* If two bullets would tell
-the same story to a hiring manager, merge or drop one.
+**Minimum 2 bullets per project — no exceptions.** Each bullet must showcase a different
+searchable capability. Ask yourself: *"Could each bullet surface from a completely different
+recruiter search query?"* If two bullets would answer the same query, they are the same bullet —
+reframe one to cover a genuinely different skill.
 
-1-2 strong bullets beats 3 thin ones. Don't manufacture bullets to fill a quota.
+Examples of distinct aspects for a full-stack solo project:
+- System architecture / backend design
+- Frontend / UI built
+- CI/CD pipeline and deployment
+- Testing strategy (unit, E2E, automation gates)
+- AI/ML integration
+
+**Do not combine** multiple distinct skills into one mega-bullet to stay brief. A recruiter
+searching "Kubernetes" needs a bullet about deployment; one searching "React" needs a frontend
+bullet. The same mega-bullet won't surface for both.
 
 ## Step 4: Diagnose and fix weak language
 
@@ -75,10 +86,16 @@ Before writing, scan the raw input for passive or junior-signaling language and 
 
 If the input contains weak language, use the stronger framing — don't just preserve what was given.
 
-## Step 5: Write exactly 2 phrasings per bullet
+## Step 5: Write bullets — at least 2 per project, 2 phrasings each
 
-For each aspect, write **exactly 2 alternative phrasings** (Option A and Option B) — same angle,
+For each project, produce **at least 2 bullets** — one per distinct aspect identified in Step 3.
+For each bullet, write **exactly 2 alternative phrasings** (Option A and Option B): same angle,
 genuinely different structure and rhythm. Not synonym-swaps.
+
+**The 2 phrasings are alternative wordings of the same bullet. The 2+ bullets are different
+skills entirely.** Do not confuse the two — Option A and Option B for bullet 1 should both be
+about architecture; bullet 2's Option A and Option B should both be about the frontend. They are
+not interchangeable across bullets.
 
 ### Two structures that perform well on LinkedIn
 
@@ -119,9 +136,19 @@ Output format:
 ---
 **[Domain]**
 
+*[Aspect 1 — e.g., Architecture / Backend]*
+
 Option A: [result-first or action-first phrasing]
 
 Option B: [alternative phrasing with different structure]
+
+*[Aspect 2 — e.g., Frontend / UI]*
+
+Option A: [result-first or action-first phrasing]
+
+Option B: [alternative phrasing with different structure]
+
+*(add more aspects if the person owned genuinely distinct areas)*
 
 ---
 
