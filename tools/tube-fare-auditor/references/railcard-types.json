@@ -1,0 +1,105 @@
+{
+  "_note": "Railcard rules for TfL Oyster/contactless. Source: tfl.gov.uk/fares/find-fares/railcard-discounts",
+  "railcards": {
+    "26-30": {
+      "name": "26-30 Railcard",
+      "discount_fraction": 0.334,
+      "min_fare_gbp": 0.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off off-peak only. During peak hours full adult fare is charged. No minimum fare. Does not apply to buses. Must be registered on physical Oyster card (not contactless).",
+      "id_aliases": ["26-30", "2630", "26 to 30", "26to30"]
+    },
+    "16-17": {
+      "name": "16-17 Saver",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": true,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off at all times on TfL. Similar rules to 26-30.",
+      "id_aliases": ["16-17", "1617", "16 to 17"]
+    },
+    "two-together": {
+      "name": "Two Together Railcard",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off OFF-PEAK only. Does NOT apply during peak Mon–Fri 06:30–09:29 and 16:00–18:59. Both cardholders must travel together.",
+      "id_aliases": ["two-together", "two together", "2together", "tt"]
+    },
+    "annual-gold": {
+      "name": "Annual Gold Card / Season Ticket",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off off-peak. Does NOT apply during peak AM Mon–Fri.",
+      "id_aliases": ["annual-gold", "annual gold", "gold card", "season ticket"]
+    },
+    "disabled": {
+      "name": "Disabled Persons Railcard",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": true,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off at all times.",
+      "id_aliases": ["disabled", "disabled persons", "disability"]
+    },
+    "hm-forces": {
+      "name": "HM Forces Railcard",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": true,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off at all times.",
+      "id_aliases": ["hm-forces", "forces", "military", "army", "navy", "raf"]
+    },
+    "senior": {
+      "name": "Senior Railcard",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off off-peak only. Does not apply during peak. For over 60s.",
+      "id_aliases": ["senior", "senior railcard", "60+"]
+    },
+    "network": {
+      "name": "Network Railcard",
+      "discount_fraction": 0.3333,
+      "min_fare_gbp": 1.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": false,
+      "notes": "1/3 off off-peak. Mainly for National Rail travel in South East England. On TfL: only valid Mon–Fri after 10:00, all day weekends.",
+      "id_aliases": ["network", "network railcard", "network card"]
+    },
+    "freedom-pass": {
+      "name": "Freedom Pass",
+      "discount_fraction": 1.0,
+      "min_fare_gbp": 0.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": true,
+      "notes": "Free travel for London residents over 60 or with eligible disabilities. Off-peak only on Tube (valid from 09:00 Mon–Fri, any time weekends). Buses are free at any time.",
+      "id_aliases": ["freedom pass", "freedom-pass", "fp"]
+    },
+    "60plus": {
+      "name": "60+ Oyster Card",
+      "discount_fraction": 1.0,
+      "min_fare_gbp": 0.00,
+      "applies_peak": false,
+      "applies_off_peak": true,
+      "applies_bus": true,
+      "notes": "Free travel for London residents aged 60+. Valid from 09:00 Mon–Fri on Tube, anytime on buses.",
+      "id_aliases": ["60plus", "60+", "60 plus", "60+ oyster"]
+    }
+  }
+}

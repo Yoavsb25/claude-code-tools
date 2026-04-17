@@ -1,0 +1,38 @@
+{
+  "skill_name": "ocado-shopper",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "do my Ocado shop please",
+      "expected_output": "Reads 'Ocado Weekly List' (generic items) and 'Ocado Master List' from Apple Notes, resolves each item to best-value product on Ocado, shows proposed basket with prices/unit prices/deal flags, waits for approval before adding anything to trolley",
+      "assertions": [
+        "proposed basket is displayed before any item is added to the trolley",
+        "generic items (lowercase) are resolved to best-value product with unit price shown",
+        "specific items (capitalised) are matched exactly or flagged as unavailable",
+        "estimated total is shown in the proposed basket",
+        "user is asked to confirm or modify before trolley is touched"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "can you fill my Ocado trolley from my grocery list?",
+      "expected_output": "Same as above — never adds to trolley without showing proposed basket first",
+      "assertions": [
+        "proposed basket is displayed before any item is added to the trolley",
+        "skill triggers correctly from this phrasing (not just 'do my Ocado shop')",
+        "at least one emoji status indicator (✅ ⚡ 🎯 ⚠️ ❌ ❓) is used per basket line"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "do my Ocado shop — I want the cheapest options this week",
+      "expected_output": "Reads generic list, picks lowest unit price per item (still applying quality floor), flags any deals on master list, shows basket before adding",
+      "assertions": [
+        "proposed basket is displayed before any item is added to the trolley",
+        "unit prices are shown for generic items to justify cheapest selection",
+        "quality floor is applied (items with <10 reviews flagged or skipped)",
+        "deal alerts section appears if any master list items are on promotion"
+      ]
+    }
+  ]
+}

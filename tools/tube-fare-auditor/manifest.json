@@ -1,0 +1,20 @@
+{
+  "name": "tube-fare-auditor",
+  "version": "1.0.0",
+  "description": "Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report",
+  "type": "tool",
+  "category": "finance",
+  "complexity": "advanced",
+  "tags": ["tfl", "oyster", "railcard", "transit", "finance", "uk", "python"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/tube-fare-auditor.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "python": ">=3.9"
+  }
+}

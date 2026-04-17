@@ -1,0 +1,19 @@
+{
+  "name": "ui-ux-expert",
+  "version": "1.0.0",
+  "description": "Opinionated UI/UX design consultant for specs, style guides, and layout decisions",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "intermediate",
+  "tags": ["design", "ui", "ux", "style-guide", "frontend"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ui-ux-expert.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

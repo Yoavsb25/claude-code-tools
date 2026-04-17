@@ -1,0 +1,20 @@
+{
+  "name": "grocery",
+  "version": "1.0.0",
+  "description": "Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent",
+  "type": "tool",
+  "category": "shopping",
+  "complexity": "advanced",
+  "tags": ["python", "scraping", "grocery", "price-comparison"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/grocery.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "python": ">=3.9"
+  }
+}
