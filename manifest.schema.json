@@ -30,7 +30,7 @@
     },
     "category": {
       "type": "string",
-      "enum": ["productivity", "shopping", "finance", "developer-tools", "automation"],
+      "enum": ["productivity", "shopping", "finance", "developer-tools", "automation", "career"],
       "description": "Functional category for filtering"
     },
     "complexity": {
@@ -92,6 +92,11 @@
         "python": {
           "type": "string",
           "description": "Minimum Python version required (e.g. >=3.9)"
+        },
+        "cli_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "CLI tools that must be installed (e.g. gh, jq)"
         }
       }
     }
