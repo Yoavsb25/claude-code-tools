@@ -1,0 +1,20 @@
+{
+  "name": "github-project-picker",
+  "version": "1.0.0",
+  "description": "Picks the best GitHub projects to showcase on a resume for a specific job and writes tailored, resume-ready descriptions for each",
+  "type": "skill",
+  "category": "career",
+  "complexity": "intermediate",
+  "tags": ["github", "resume", "career", "job-search", "portfolio"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/github-project-picker.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "cli_tools": ["gh"]
+  }
+}

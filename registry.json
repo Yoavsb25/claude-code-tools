@@ -1,6 +1,6 @@
 {
-  "generated": "2026-04-17T14:11:05.909Z",
-  "count": 15,
+  "generated": "2026-04-28T00:00:00.000Z",
+  "count": 17,
   "tools": [
     {
       "name": "add-todo",
@@ -87,6 +87,36 @@
         "env_vars": []
       },
       "path": "tools/github-profile-refactor"
+    },
+    {
+      "name": "github-project-picker",
+      "version": "1.0.0",
+      "description": "Picks the best GitHub projects to showcase on a resume for a specific job and writes tailored, resume-ready descriptions for each",
+      "type": "skill",
+      "category": "career",
+      "complexity": "intermediate",
+      "tags": [
+        "github",
+        "resume",
+        "career",
+        "job-search",
+        "portfolio"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/github-project-picker.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "cli_tools": ["gh"]
+      },
+      "path": "tools/github-project-picker"
     },
     {
       "name": "grocery",
@@ -266,6 +296,39 @@
         "env_vars": []
       },
       "path": "tools/product-manager"
+    },
+    {
+      "name": "resume-tailor",
+      "version": "1.0.0",
+      "description": "Tailors a resume to a specific job posting by pulling from work documentation and saving a polished markdown output",
+      "type": "skill",
+      "category": "career",
+      "complexity": "intermediate",
+      "tags": [
+        "resume",
+        "career",
+        "job-search",
+        "writing",
+        "cv"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/resume-tailor.md"
+          },
+          {
+            "src": "references/source-guide.md",
+            "dest": "~/.claude/skills/resume-tailor/references/source-guide.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/resume-tailor"
     },
     {
       "name": "run-todos",

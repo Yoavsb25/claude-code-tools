@@ -1,0 +1,20 @@
+{
+  "name": "resume-tailor",
+  "version": "1.0.0",
+  "description": "Tailors a resume to a specific job posting by pulling from work documentation and saving a polished markdown output",
+  "type": "skill",
+  "category": "career",
+  "complexity": "intermediate",
+  "tags": ["resume", "career", "job-search", "writing", "cv"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/resume-tailor.md" },
+      { "src": "references/source-guide.md", "dest": "~/.claude/skills/resume-tailor/references/source-guide.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}
