@@ -1,5 +1,5 @@
 {
-  "generated": "2026-04-28T00:00:00.000Z",
+  "generated": "2026-04-29T16:31:17.030Z",
   "count": 17,
   "tools": [
     {
@@ -114,7 +114,9 @@
         "platform": "any",
         "mcp_servers": [],
         "env_vars": [],
-        "cli_tools": ["gh"]
+        "cli_tools": [
+          "gh"
+        ]
       },
       "path": "tools/github-project-picker"
     },
