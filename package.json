@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "generate-registry": "ts-node scripts/generate-registry.ts",
-    "validate": "ajv validate -s manifest.schema.json -d 'tools/*/manifest.json'"
+    "validate": "ajv validate -s manifest.schema.json -d 'tools/*/manifest.json'",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
