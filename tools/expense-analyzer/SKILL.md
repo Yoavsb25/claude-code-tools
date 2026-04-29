@@ -21,7 +21,7 @@ Generate a markdown expense report from a Wise CSV transaction export.
 
 4. **Run the script** (stdlib only, no venv needed):
    ```bash
-   python3 .claude/skills/expense-analyzer/scripts/analyze.py <file_path> [--month YYYY-MM] [--compare <prev_csv_path>]
+   python3 ~/.claude/skills/expense-analyzer/scripts/analyze.py <file_path> [--month YYYY-MM] [--compare <prev_csv_path>]
    ```
 
 5. **Save the report**:

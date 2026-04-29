@@ -8,8 +8,8 @@
   "tags": ["finance", "expenses", "wise", "revolut", "python", "csv"],
   "install": {
     "files": [
-      { "src": "SKILL.md", "dest": ".claude/skills/expense-analyzer/SKILL.md" },
-      { "src": "scripts/analyze.py", "dest": ".claude/skills/expense-analyzer/scripts/analyze.py" }
+      { "src": "SKILL.md", "dest": "~/.claude/skills/expense-analyzer.md" },
+      { "src": "scripts/analyze.py", "dest": "~/.claude/skills/expense-analyzer/scripts/analyze.py" }
     ]
   },
   "requirements": {
