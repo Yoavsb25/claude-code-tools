@@ -48,6 +48,19 @@ Ask:
 
 Two rounds max, then move on with what you have.
 
+### Two-source synthesis (project context + work logs)
+
+If the user provides both **project context docs** (architecture write-ups, initiative summaries) AND **work logs** (Jira reports, sprint summaries), use them differently:
+
+| Source | Extract |
+|--------|---------|
+| Project context docs | Architecture decisions, design intent ("why it exists"), tech stack, your specific role, impact numbers |
+| Work logs (Jira/sprint) | Scale signals (component counts, repo counts, ticket velocity), which epics shipped, temporal scope |
+
+Bullets are built from project context (substance) + validated/scaled by work logs (scope). Don't write bullets from work logs alone — ticket titles are too shallow. Don't ignore work logs — they're where the concrete scale numbers live.
+
+**Reading order**: project context first (understand what was built and why), then work logs (extract scale, confirm what shipped).
+
 ## Step 3: Aspect extraction
 
 For each project or domain, identify **at least 2 genuinely distinct aspects** the person owned.
@@ -97,24 +110,49 @@ skills entirely.** Do not confuse the two — Option A and Option B for bullet 1
 about architecture; bullet 2's Option A and Option B should both be about the frontend. They are
 not interchangeable across bullets.
 
-### Two structures that perform well on LinkedIn
+### Three structures that perform well on LinkedIn
 
-**Result-first** (strongest for impact-heavy achievements — lead with the win):
+**Action + purpose** (default for platform, infrastructure, and architectural work — the capability is the story):
 ```
-[Outcome with metric] by [action verb + what you did], [context or scale]
+[Strong action verb] [what you built + scale], [purpose/capability enabled] (Stack)
 ```
-Example: Cut deployment time by 70% by migrating to ArgoCD-managed GitOps workflows, eliminating manual release steps across 4 engineering teams.
+Example: Designed a dual-routing architecture with a centralized component registry, enabling incremental component migration without disrupting weekly release cadence (Python, GitHub Actions, Kargo).
 
-**Action-first** (better when the work itself is the story):
+Scale belongs in the action clause, not the result: "supporting 29 components", "across 14 repositories", "handling 6-service monorepo" — embed it in what you built.
+
+**Action-first with result** (use when you have a concrete outcome metric or a clean before/after):
 ```
-[Strong action verb] [what you did + scale], [result or impact]
+[Strong action verb] [what you built + scale], [measurable result or impact] (Stack)
 ```
-Example: Architected a unified deployment pipeline across 4 microservices teams, cutting release cycle time by 70% and eliminating environment drift.
+Example: Architected a unified deployment pipeline across 4 microservices teams, eliminating all manual release steps and reducing deployment time by 70% (Python, ArgoCD, GitHub Actions).
+
+**Result-first** (use when the metric is the headline — reserved for strong, credible numbers):
+```
+[Outcome with metric] by [action verb + what you did], [context or scale] (Stack)
+```
+Example: Cut deployment time by 70% by migrating to ArgoCD-managed GitOps workflows across 4 engineering teams (Python, ArgoCD, GitHub Actions).
+
+**Choosing A vs B:**
+- Option A: action + purpose (or action-first with result if strong metric exists)
+- Option B: different angle on the same aspect — reframe mechanism vs. capability, or scale vs. architectural decision
+- If no metric available, write both as action + purpose with different emphasis; do NOT add `[add metric]` placeholders to architectural bullets where the capability itself is the value
 
 ### Rules
+
+**Brevity — less is more when material is rich:**
+- One clean purpose clause beats a list of technical details. When you have a lot of source material, your job is to edit down, not pack in.
+- If a bullet feels crowded, you're trying to fit too much into one point — split it instead (see below).
+- Lean stack tags: pick 2–3 most searchable technologies, not everything used. `(TypeScript, Docker)` beats `(React, TypeScript, Express, Node.js, Octokit, Docker, Kubernetes)`.
+
+**One project = many bullets:**
+- There is no limit to how many bullets a single project can generate. If a project has 3 genuinely distinct aspects (architecture, AI integration, CI/CD pipeline), write 3 bullets — don't compress them into one.
+- The test: each bullet should be able to stand alone. If removing one bullet would make the others feel complete, it's redundant. If removing it would leave a gap, keep it.
+
+**Other rules:**
 - Keep bullets to 1-2 lines (~150–200 chars) — LinkedIn truncates long entries in preview
-- Use `[add metric]` placeholders rather than inventing numbers
-- Vary structure between A and B — one result-first, one action-first when both fit
+- **End every bullet with the tech stack in parentheses**: `(Python, GitHub Actions, Postgres)` — these are the keywords recruiters filter on
+- Include concrete scale when available (number of services, repos, components, teams) — specificity signals seniority even without business metrics
+- Use `[add metric]` placeholders only for product/feature bullets where a metric would materially strengthen — never on platform/infrastructure/architectural bullets where the capability is the point
 - Embed searchable technical keywords naturally (e.g., "ArgoCD", "Kubernetes", "React", "Postgres") — these are what recruiters type into LinkedIn search
 - Never start two bullets in the same role with the same verb
 - Never use: helped, participated, contributed to, worked on, responsible for, supported
@@ -138,15 +176,15 @@ Output format:
 
 *[Aspect 1 — e.g., Architecture / Backend]*
 
-Option A: [result-first or action-first phrasing]
+Option A: [action-first phrasing] (Stack)
 
-Option B: [alternative phrasing with different structure]
+Option B: [result-first phrasing, or different angle] (Stack)
 
 *[Aspect 2 — e.g., Frontend / UI]*
 
-Option A: [result-first or action-first phrasing]
+Option A: [action-first phrasing] (Stack)
 
-Option B: [alternative phrasing with different structure]
+Option B: [result-first phrasing, or different angle] (Stack)
 
 *(add more aspects if the person owned genuinely distinct areas)*
 

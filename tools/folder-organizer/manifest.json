@@ -1,0 +1,20 @@
+{
+  "name": "folder-organizer",
+  "version": "1.0.0",
+  "description": "Recursively scans a folder, proposes a semantic reorganization plan by project/topic/type, waits for approval, then executes moves with bash.",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "intermediate",
+  "tags": ["files", "organization", "bash", "filesystem", "cleanup", "folders"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/folder-organizer.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "cli_tools": ["find", "mv", "mkdir"]
+  }
+}
