@@ -1,6 +1,6 @@
 ---
 name: software-architect
-description: Senior software architect skill for system design and ADR writing. Use this whenever the user wants to design a new system, service, or feature; asks how to structure or architect something; needs to document an architectural decision; mentions system design, service boundaries, data flows, components, or architecture trade-offs. Also trigger when the user says things like "how should I build X", "what's the best approach for Y", "help me design Z", or asks to write an ADR. When in doubt, invoke this skill — architecture questions almost always benefit from a structured approach.
+description: Use when designing a new system, service, or feature; reviewing or improving an existing architecture; documenting architectural decisions (ADR); or when the user asks how to structure, architect, or build something. Trigger on: system design, service boundaries, data flows, refactor vs. rewrite decisions, scalability analysis, or questions like "how should I build X", "best approach for Y", "help me design Z".
 ---
 
 # Software Architect
@@ -109,31 +109,29 @@ One paragraph: what this system does and why it exists.
 
 | Component | Responsibility | Technology |
 |-----------|---------------|------------|
-| ...       | ...           | ...        |
 
 ## Key Design Decisions
-- **[Decision]**: [Choice made] — [Rationale and trade-offs]
+- **[Decision]**: [Choice] — [Rationale and trade-offs]
 
 ## Data Flow
-[Sequence diagram or description of primary flows]
+[Sequence diagram or narrative of primary flows]
 
 ## Scalability & Bottlenecks
 
 | Bottleneck | Risk | Mitigation |
 |------------|------|------------|
-| ...        | ...  | ...        |
 
 ## Non-Functional Characteristics
 
 | Concern       | Approach |
 |---------------|----------|
-| Scalability   | ...      |
-| Availability  | ...      |
-| Security      | ...      |
-| Observability | ...      |
+| Scalability   | |
+| Availability  | |
+| Security      | |
+| Observability | |
 
 ## Open Questions
-- [ ] ...
+- [ ]
 ```
 
 ---
@@ -156,6 +154,36 @@ Work through the system layer by layer:
 | **External dependencies** | Third-party API rate limits, no circuit breaker, no timeout/retry strategy |
 
 For each bottleneck: name it, quantify the risk where possible (rough order of magnitude is fine), and give a concrete mitigation — either implement now or explicitly defer with a threshold that triggers action.
+
+---
+
+## Reviewing Existing Systems
+
+When the user has a system and wants to improve, migrate, or evaluate it:
+
+### Step 1: Map the current state
+- What does the system do? What are its key components?
+- What's painful? (slow, brittle, expensive to run, hard to change)
+- What is the current deployment and data model?
+
+### Step 2: Identify the real problem
+Don't accept the stated problem at face value. "It's slow" might be bad indexes, not architecture. "It's hard to change" might be missing tests, not coupling. Probe before prescribing.
+
+### Step 3: Refactor vs. Rewrite
+
+| Signal | Refactor | Rewrite |
+|--------|----------|---------|
+| Core domain logic is sound | ✓ | |
+| Tech debt is localized to specific areas | ✓ | |
+| Team understands the system | ✓ | |
+| Domain logic entangled with framework/infra | | ✓ |
+| Business requirements have fundamentally changed | | ✓ |
+| System is unmaintainable and nobody understands it | | ✓ |
+
+**Default: prefer refactor.** Rewrites are almost always underestimated. If a rewrite is unavoidable, plan a strangler fig migration — keep the old system running while incrementally replacing it behind a facade.
+
+### Step 4: Propose an incremental path
+Never present "big bang" as the only option. Break improvement into phases with measurable checkpoints. Each phase should leave the system shippable and better than before.
 
 ---
 
@@ -229,3 +257,20 @@ These aren't rules — they're lenses for trade-off analysis:
 - **Make the implicit explicit** — if something is assumed (eventual consistency, at-least-once delivery, no SLA), document it
 - **Avoid premature distribution** — a monolith that ships beats microservices that don't. Start simple; distribute when you have a concrete scaling problem
 - **Prefer boring technology** — proven, well-understood tools reduce operational risk. Reach for the new thing only when the old thing genuinely can't do the job
+
+---
+
+## Common Architectural Mistakes
+
+Flag these proactively — they're the ones most likely to cause pain later.
+
+| Mistake | Symptom | Remedy |
+|---------|---------|--------|
+| Premature microservices | Teams blocked on cross-service changes; high deploy overhead | Start monolith; extract services only when a team boundary or concrete scaling problem exists |
+| Distributed monolith | Microservices with a shared DB or tight synchronous coupling — worst of both worlds | Enforce data ownership per service; communicate via async events at boundaries |
+| Auth as an afterthought | Inconsistent enforcement; security bolted on late | Define the auth model (who calls what, with what token/role) in requirements, not at the end |
+| No failure mode analysis | Cascading failures; no graceful degradation | Name every external dependency; add timeout + retry + circuit breaker explicitly |
+| Shared data, no ownership | Multiple services writing to the same table | Each service owns its data; others read via API or subscribe to events |
+| Over-normalizing too early | Schema changes block features; joins everywhere | Design for the access pattern; denormalize where reads dominate |
+| Implicit consistency model | Silent data loss or stale reads in distributed system | Make consistency guarantees explicit (eventual vs. strong) per use case |
+| Big-bang migration | Rewrite takes 18 months, business freezes | Strangler fig: keep old running, replace incrementally behind a facade |
