@@ -1,14 +1,22 @@
 {
   "name": "linkedin-project-adder",
   "version": "1.0.0",
-  "description": "Adds a new project to the LinkedIn Projects section — generates polished content from a GitHub URL or description, then automates filling in the LinkedIn form via a headed Playwright browser.",
+  "description": "Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser",
   "type": "skill",
   "category": "productivity",
-  "complexity": "moderate",
+  "complexity": "intermediate",
   "tags": ["linkedin", "playwright", "automation", "career", "projects"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/linkedin-project-adder.md" },
+      { "src": "scripts/add_project.js", "dest": "~/.claude/skills/linkedin-project-adder/scripts/add_project.js" },
+      { "src": "scripts/package.json", "dest": "~/.claude/skills/linkedin-project-adder/scripts/package.json" }
+    ]
+  },
   "requirements": {
     "platform": "any",
     "mcp_servers": [],
-    "env_vars": []
+    "env_vars": [],
+    "cli_tools": ["node", "npm"]
   }
 }
