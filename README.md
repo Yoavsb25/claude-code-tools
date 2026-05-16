@@ -24,14 +24,18 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [folder-organizer](./tools/folder-organizer/) | skill | productivity | intermediate | Recursively scans a folder, proposes a semantic reorganization plan by project/topic/type, waits for approval, then executes moves with bash. |
 | [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality |
 | [github-project-picker](./tools/github-project-picker/) | skill | career | intermediate | Picks the best GitHub projects to showcase on a resume for a specific job and writes tailored, resume-ready descriptions for each |
+| [linkedin-project-adder](./tools/linkedin-project-adder/) | skill | productivity | intermediate | Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser |
 | [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
 | [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |
 | [product-manager](./tools/product-manager/) | skill | productivity | intermediate | Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization |
 | [resume-tailor](./tools/resume-tailor/) | skill | career | intermediate | Tailors a resume to a specific job posting by pulling from work documentation and saving a polished markdown output |
+| [tech-stack-selector](./tools/tech-stack-selector/) | skill | developer-tools | intermediate | Opinionated tech stack advisor for new projects — picks language, framework, database, ORM, test runner, linter, and tooling with concrete justification |
 | [trip-expense-report](./tools/trip-expense-report/) | skill | finance | intermediate | Generates a structured expense report from trip receipts and bank statements using Claude Code |
 | [ui-ux-expert](./tools/ui-ux-expert/) | skill | developer-tools | intermediate | Opinionated UI/UX design consultant for specs, style guides, and layout decisions |
+| [devops-engineer](./tools/devops-engineer/) | skill | developer-tools | advanced | Senior DevOps engineer for CI/CD pipelines, deployment architecture, containerization, observability, and infrastructure as code |
 | [grocery](./tools/grocery/) | tool | shopping | advanced | Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent |
+| [security-architect](./tools/security-architect/) | skill | developer-tools | advanced | Proactive security-by-design skill for threat modeling, auth architecture, data security, and compliance planning (GDPR, SOC2, HIPAA) |
 | [software-architect](./tools/software-architect/) | skill | developer-tools | advanced | Senior software architect for system design and architectural decision records (ADRs) |
 | [tube-fare-auditor](./tools/tube-fare-auditor/) | tool | finance | advanced | Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report |
 

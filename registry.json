@@ -1,6 +1,6 @@
 {
-  "generated": "2026-05-09T17:40:25.217Z",
-  "count": 19,
+  "generated": "2026-05-16T17:12:18.993Z",
+  "count": 23,
   "tools": [
     {
       "name": "add-todo",
@@ -59,6 +59,37 @@
         "env_vars": []
       },
       "path": "tools/amazon-shopper"
+    },
+    {
+      "name": "devops-engineer",
+      "version": "1.0.0",
+      "description": "Senior DevOps engineer for CI/CD pipelines, deployment architecture, containerization, observability, and infrastructure as code",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "advanced",
+      "tags": [
+        "devops",
+        "ci-cd",
+        "docker",
+        "deployment",
+        "monitoring",
+        "terraform",
+        "infrastructure"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/devops-engineer.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/devops-engineer"
     },
     {
       "name": "expense-analyzer",
@@ -249,6 +280,47 @@
       "path": "tools/linkedin-experience-writer"
     },
     {
+      "name": "linkedin-project-adder",
+      "version": "1.0.0",
+      "description": "Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "linkedin",
+        "playwright",
+        "automation",
+        "career",
+        "projects"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/linkedin-project-adder.md"
+          },
+          {
+            "src": "scripts/add_project.js",
+            "dest": "~/.claude/skills/linkedin-project-adder/scripts/add_project.js"
+          },
+          {
+            "src": "scripts/package.json",
+            "dest": "~/.claude/skills/linkedin-project-adder/scripts/package.json"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "cli_tools": [
+          "node",
+          "npm"
+        ]
+      },
+      "path": "tools/linkedin-project-adder"
+    },
+    {
       "name": "ocado-shopper",
       "version": "1.0.0",
       "description": "Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley",
@@ -431,6 +503,38 @@
       "path": "tools/run-todos"
     },
     {
+      "name": "security-architect",
+      "version": "1.0.0",
+      "description": "Proactive security-by-design skill for threat modeling, auth architecture, data security, and compliance planning (GDPR, SOC2, HIPAA)",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "advanced",
+      "tags": [
+        "security",
+        "auth",
+        "threat-modeling",
+        "gdpr",
+        "soc2",
+        "hipaa",
+        "encryption",
+        "compliance"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/security-architect.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/security-architect"
+    },
+    {
       "name": "software-architect",
       "version": "1.0.0",
       "description": "Senior software architect for system design and architectural decision records (ADRs)",
@@ -457,6 +561,37 @@
         "env_vars": []
       },
       "path": "tools/software-architect"
+    },
+    {
+      "name": "tech-stack-selector",
+      "version": "1.0.0",
+      "description": "Opinionated tech stack advisor for new projects — picks language, framework, database, ORM, test runner, linter, and tooling with concrete justification",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "stack",
+        "framework",
+        "database",
+        "tooling",
+        "bootstrap",
+        "architecture",
+        "language"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/tech-stack-selector.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/tech-stack-selector"
     },
     {
       "name": "tfl-refund",
