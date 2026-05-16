@@ -16,7 +16,7 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | Name | Type | Category | Complexity | Description |
 |------|------|----------|------------|-------------|
 | [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
-| [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | productivity | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
+| [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | career | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
 | [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
 | [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
 | [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
@@ -24,7 +24,7 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [folder-organizer](./tools/folder-organizer/) | skill | productivity | intermediate | Recursively scans a folder, proposes a semantic reorganization plan by project/topic/type, waits for approval, then executes moves with bash. |
 | [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality |
 | [github-project-picker](./tools/github-project-picker/) | skill | career | intermediate | Picks the best GitHub projects to showcase on a resume for a specific job and writes tailored, resume-ready descriptions for each |
-| [linkedin-project-adder](./tools/linkedin-project-adder/) | skill | productivity | intermediate | Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser |
+| [linkedin-project-adder](./tools/linkedin-project-adder/) | skill | career | intermediate | Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser |
 | [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
 | [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |

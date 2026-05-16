@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-16T17:12:18.993Z",
+  "generated": "2026-05-16T17:28:54.806Z",
   "count": 23,
   "tools": [
     {
@@ -255,7 +255,7 @@
       "version": "1.0.0",
       "description": "Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit",
       "type": "skill",
-      "category": "productivity",
+      "category": "career",
       "complexity": "simple",
       "tags": [
         "linkedin",
@@ -284,7 +284,7 @@
       "version": "1.0.0",
       "description": "Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser",
       "type": "skill",
-      "category": "productivity",
+      "category": "career",
       "complexity": "intermediate",
       "tags": [
         "linkedin",
