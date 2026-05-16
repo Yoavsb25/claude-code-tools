@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit",
   "type": "skill",
-  "category": "productivity",
+  "category": "career",
   "complexity": "simple",
   "tags": ["linkedin", "writing", "career", "resume", "professional"],
   "install": {

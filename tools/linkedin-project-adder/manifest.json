@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser",
   "type": "skill",
-  "category": "productivity",
+  "category": "career",
   "complexity": "intermediate",
   "tags": ["linkedin", "playwright", "automation", "career", "projects"],
   "install": {
