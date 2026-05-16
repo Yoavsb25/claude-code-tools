@@ -3,9 +3,6 @@ name: Deploy Website
 on:
   push:
     branches: [main]
-    paths:
-      - 'website/**'
-      - 'registry.json'
 
 jobs:
   deploy:
