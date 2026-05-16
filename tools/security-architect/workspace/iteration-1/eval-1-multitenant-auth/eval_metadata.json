@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "multitenant-auth-rbac-design",
+  "prompt": "I'm building a multi-tenant SaaS where each company (tenant) should only ever see their own data. Users can have different roles within a company (admin, editor, viewer). How do I design the auth and permissions system from the start so I don't have to rip it out later?",
+  "assertions": [
+    "Addresses tenant isolation at the data layer (e.g., tenant_id on every row, enforced in every query)",
+    "Recommends a specific auth pattern (JWT with tenant_id claim, or session-based)",
+    "Recommends RBAC for the role system with concrete role definitions",
+    "Warns about IDOR (insecure direct object reference) as a key risk",
+    "Explains where to enforce authorization (service layer, not just UI)",
+    "Is proactive — raises risks the user didn't explicitly ask about"
+  ]
+}

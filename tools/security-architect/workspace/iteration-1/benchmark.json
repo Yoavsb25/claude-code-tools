@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "skill_name": "security-architect",
+    "skill_path": "/Users/yoavsborovsky/Documents/GitHub/claude-code-tools/tools/security-architect",
+    "timestamp": "2026-05-16T00:00:00Z",
+    "evals_run": [1],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "multitenant-auth-rbac-design",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 115.6,
+        "tokens": 20154,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Tenant isolation at data layer", "passed": true, "evidence": "Golden rule in Section 6: tenant_id always from context, never request input. Shows correct vs wrong query patterns."},
+        {"text": "Specific auth pattern", "passed": true, "evidence": "JWT RS256, 15-min TTL, refresh in HttpOnly cookie, in-memory access token storage"},
+        {"text": "RBAC with concrete role definitions", "passed": true, "evidence": "Explicit permission table: viewer/editor/admin × 8 permission types"},
+        {"text": "IDOR warning", "passed": true, "evidence": "IDOR named as P0 in STRIDE table. Section 6 calls out query param tenant_id as 'IDOR vector'"},
+        {"text": "Service layer enforcement", "passed": true, "evidence": "Three enforcement layers: service (primary), DB query (defense in depth), UI (UX only)"},
+        {"text": "Proactive risk surfacing", "passed": true, "evidence": "Threat model with STRIDE, audit logging, invitation flow, super-admin access, last-admin protection"}
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "multitenant-auth-rbac-design",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 87.7,
+        "tokens": 14757,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Tenant isolation at data layer", "passed": true, "evidence": "Explicitly 'non-negotiable', shows tenant_id on all tables"},
+        {"text": "Specific auth pattern", "passed": true, "evidence": "JWT pattern with three-layer mental model"},
+        {"text": "RBAC with concrete role definitions", "passed": true, "evidence": "Role on membership with explicit permission sets"},
+        {"text": "IDOR warning", "passed": false, "evidence": "IDOR not explicitly named. Common pitfalls section may cover it implicitly but it's not foregrounded as a critical named risk"},
+        {"text": "Service layer enforcement", "passed": true, "evidence": "Three-layer mental model: authn → tenant → authz with decorator pattern"},
+        {"text": "Proactive risk surfacing", "passed": true, "evidence": "Covers PostgreSQL RLS, invitation flow, ten pitfalls, checklist, super-admin"}
+      ],
+      "notes": ["Both responses cover the core design well. Key skill differentiator: explicit STRIDE threat modeling that names IDOR by name as P0, and the tenant_id-from-context golden rule stated as a single memorable principle"]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0},
+      "time_seconds": {"mean": 115.6, "stddev": 0.0, "min": 115.6, "max": 115.6},
+      "tokens": {"mean": 20154, "stddev": 0, "min": 20154, "max": 20154}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.833, "stddev": 0.0, "min": 0.833, "max": 0.833},
+      "time_seconds": {"mean": 87.7, "stddev": 0.0, "min": 87.7, "max": 87.7},
+      "tokens": {"mean": 14757, "stddev": 0, "min": 14757, "max": 14757}
+    },
+    "delta": {
+      "pass_rate": "+0.167",
+      "time_seconds": "+27.9",
+      "tokens": "+5397"
+    }
+  },
+  "notes": [
+    "Skill's biggest value: STRIDE threat model framework gives structure that baseline lacks — IDOR explicitly named as P0 is a critical callout for multi-tenant SaaS",
+    "Both responses produce the correct data model (separate users + tenant_memberships tables)",
+    "With-skill adds: formal threat model, implementation checklist phased by milestone, last-admin lockout protection"
+  ]
+}

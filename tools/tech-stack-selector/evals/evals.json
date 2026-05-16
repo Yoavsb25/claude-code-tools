@@ -1,0 +1,49 @@
+{
+  "skill_name": "tech-stack-selector",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to build a real-time collaborative notes app — like a simpler Notion. Multiple users editing the same document simultaneously, with live cursors. Solo developer, strong Python background, some React experience. This is a side project that could become a startup. What stack should I use?",
+      "expected_output": "A concrete stack recommendation addressing the real-time requirement (WebSockets, likely Supabase Realtime or similar), with specific framework choices, database, hosting, and scaffold commands. Should address the real-time complexity honestly.",
+      "files": [],
+      "expectations": [
+        "Makes a specific, concrete stack recommendation — not a list of options",
+        "Addresses the real-time/collaborative editing requirement specifically",
+        "Recommends a database appropriate for real-time (Supabase, or Postgres + realtime layer)",
+        "Recommends a Python or Node backend (matching the user's background)",
+        "Provides scaffold/setup commands to get started",
+        "Mentions the one honest tradeoff to know upfront",
+        "Does not recommend premature complexity (no microservices, no Kubernetes)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to build an internal analytics dashboard for our ops team. Data lives in PostgreSQL. About 10 users, mostly non-technical ops managers who need to see charts and filter data. We're a Python shop. Should I use React for this or is there something simpler?",
+      "expected_output": "A recommendation for a simpler Python-native approach (Streamlit, Grafana, or similar) instead of full React, given the internal/Python context. Should explain why React is overkill here and give the simpler path.",
+      "files": [],
+      "expectations": [
+        "Recommends against React for this use case (overkill for internal, Python shop, 10 users)",
+        "Recommends a Python-native alternative (Streamlit, Grafana, Retool, or similar)",
+        "Explains the tradeoff clearly — why the simpler path is better here",
+        "Addresses the PostgreSQL data source specifically",
+        "Gives concrete next steps or setup instructions",
+        "Is opinionated — makes a clear recommendation rather than listing all options"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Starting a new REST API backend for a mobile app (iOS + Android). Team is 2 developers — both know Python well and have some TypeScript experience. Expected to handle maybe 50k users in year 1. We need user auth, push notifications, and a few CRUD endpoints. What stack and database should we use?",
+      "expected_output": "A concrete stack recommendation: FastAPI (Python, team knows it), PostgreSQL, managed hosting, with ORM choice, auth approach (managed provider), and tooling. Include scaffold commands.",
+      "files": [],
+      "expectations": [
+        "Recommends FastAPI (or Django REST) given the Python-first team",
+        "Recommends PostgreSQL as the database",
+        "Recommends a managed auth provider for the auth requirement",
+        "Recommends a managed database service (Supabase, Railway, or Neon)",
+        "Recommends a specific ORM (SQLAlchemy or SQLModel)",
+        "Provides concrete setup/scaffold commands",
+        "Addresses push notifications (e.g., via Firebase FCM or similar)"
+      ]
+    }
+  ]
+}

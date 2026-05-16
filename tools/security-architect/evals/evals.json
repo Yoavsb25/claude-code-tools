@@ -1,0 +1,47 @@
+{
+  "skill_name": "security-architect",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building a multi-tenant SaaS where each company (tenant) should only ever see their own data. Users can have different roles within a company (admin, editor, viewer). How do I design the auth and permissions system from the start so I don't have to rip it out later?",
+      "expected_output": "A concrete multi-tenant auth + RBAC design: tenant isolation at the database/query layer, JWT or session with tenant_id claims, role enforcement at the service layer, and common IDOR pitfalls to avoid.",
+      "files": [],
+      "expectations": [
+        "Addresses tenant isolation at the data layer (e.g., tenant_id on every row, enforced in every query)",
+        "Recommends a specific auth pattern (JWT with tenant_id claim, or session-based)",
+        "Recommends RBAC for the role system with concrete role definitions",
+        "Warns about IDOR (insecure direct object reference) as a key risk",
+        "Explains where to enforce authorization (service layer, not just UI)",
+        "Is proactive — raises risks the user didn't explicitly ask about"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "We're building a fitness app that stores workout logs, sleep data, heart rate from wearables, and body weight. A user asked us if we're HIPAA compliant. Are we? What do we actually need to implement?",
+      "expected_output": "Clear analysis of whether HIPAA applies (fitness data from consumer apps is generally NOT covered unless it's healthcare-provider-connected), what the distinction is, what controls matter regardless, and practical next steps.",
+      "files": [],
+      "expectations": [
+        "Correctly distinguishes consumer fitness data from PHI (Protected Health Information)",
+        "Explains that HIPAA likely does NOT apply to a pure consumer fitness app",
+        "Explains when it WOULD apply (if partnering with healthcare providers, insurers, etc.)",
+        "Recommends encryption at rest and in transit regardless of HIPAA status",
+        "Recommends a privacy policy and data minimization as good practices",
+        "Does not overcomplicate or falsely alarm — gives an accurate, nuanced answer"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We're a 4-person B2B SaaS startup, just got our first enterprise prospect. They sent us a security questionnaire asking about SOC 2. We have no idea what that is. How does this affect us and what do we need to do?",
+      "expected_output": "Clear explanation of SOC 2 (Type I vs Type II), what enterprise buyers actually need, realistic timeline and cost, practical first steps (compliance platform, scope to Security + Availability), and what to tell the prospect in the meantime.",
+      "files": [],
+      "expectations": [
+        "Explains SOC 2 clearly — what it is, Type I vs Type II distinction",
+        "Gives a realistic timeline (6-9 months for Type II from scratch)",
+        "Recommends a compliance platform (Vanta, Drata, or Secureframe) as the practical path",
+        "Recommends scoping to Security + Availability for the first audit",
+        "Advises what to tell the prospect while SOC 2 is in progress (pen test report, security questionnaire answers, etc.)",
+        "Gives concrete first steps rather than just explaining the framework"
+      ]
+    }
+  ]
+}

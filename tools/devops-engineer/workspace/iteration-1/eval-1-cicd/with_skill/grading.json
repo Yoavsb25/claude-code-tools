@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Provides a complete GitHub Actions YAML workflow file",
+      "passed": true,
+      "evidence": "Provides complete .github/workflows/ci.yml with all jobs, services, and steps"
+    },
+    {
+      "text": "Includes a PostgreSQL service container for integration tests",
+      "passed": true,
+      "evidence": "services.postgres block with postgres:16 image, health checks (pg_isready), and port mapping"
+    },
+    {
+      "text": "Covers both CI (on PR) and CD (on main merge) stages",
+      "passed": true,
+      "evidence": "Separate 'test' job (runs on PR) and 'deploy' job (if: github.ref == 'refs/heads/main') with needs: test"
+    },
+    {
+      "text": "Explains how to handle secrets via GitHub Actions secrets",
+      "passed": true,
+      "evidence": "Step 5 explicitly covers Settings → Secrets and variables → Actions, with distinction between ephemeral CI creds vs. real secrets"
+    },
+    {
+      "text": "Includes dependency caching to speed up runs",
+      "passed": true,
+      "evidence": "actions/cache@v4 caching ~/.cache/pip with key based on hashFiles('requirements.txt')"
+    },
+    {
+      "text": "Mentions a deploy step for the CD stage",
+      "passed": true,
+      "evidence": "Step 6 provides complete deploy job using Railway CLI with RAILWAY_TOKEN secret and environment: production gate"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  }
+}

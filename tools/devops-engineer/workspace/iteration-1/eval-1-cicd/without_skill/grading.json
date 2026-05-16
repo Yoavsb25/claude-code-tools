@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Provides a complete GitHub Actions YAML workflow file",
+      "passed": true,
+      "evidence": "Complete ci.yml provided with jobs, services, steps — production-quality"
+    },
+    {
+      "text": "Includes a PostgreSQL service container for integration tests",
+      "passed": true,
+      "evidence": "services.postgres block with postgres:15 image, health checks, and DATABASE_URL as env var"
+    },
+    {
+      "text": "Covers both CI (on PR) and CD (on main merge) stages",
+      "passed": true,
+      "evidence": "Optional CD section covers VPS SSH, platform auto-deploy, and Docker image push — though less integrated than with-skill"
+    },
+    {
+      "text": "Explains how to handle secrets via GitHub Actions secrets",
+      "passed": true,
+      "evidence": "Step 3 explains GitHub Secrets setup, how to add, and how to reference with ${{ secrets.NAME }}"
+    },
+    {
+      "text": "Includes dependency caching to speed up runs",
+      "passed": false,
+      "evidence": "No caching step in the workflow YAML. Dependency caching not mentioned anywhere in the response."
+    },
+    {
+      "text": "Mentions a deploy step for the CD stage",
+      "passed": true,
+      "evidence": "Multiple CD options provided: VPS SSH, platform auto-deploy, Docker image push — all with YAML examples"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 1,
+    "total": 6,
+    "pass_rate": 0.833
+  }
+}

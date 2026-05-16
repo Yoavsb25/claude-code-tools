@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "skill_name": "devops-engineer",
+    "skill_path": "/Users/yoavsborovsky/Documents/GitHub/claude-code-tools/tools/devops-engineer",
+    "timestamp": "2026-05-16T00:00:00Z",
+    "evals_run": [1],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "github-actions-fastapi-cicd",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 61.5,
+        "tokens": 17717,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Provides a complete GitHub Actions YAML workflow file", "passed": true, "evidence": "Complete ci.yml with all jobs, services, steps"},
+        {"text": "Includes a PostgreSQL service container for integration tests", "passed": true, "evidence": "postgres:16 service with health checks"},
+        {"text": "Covers both CI and CD stages", "passed": true, "evidence": "test job + deploy job with needs: test"},
+        {"text": "Explains secrets via GitHub Actions secrets", "passed": true, "evidence": "Step 5 covers secrets setup and distinction"},
+        {"text": "Includes dependency caching", "passed": true, "evidence": "actions/cache@v4 for pip"},
+        {"text": "Mentions a deploy step for CD", "passed": true, "evidence": "Railway CLI deploy with environment gate"}
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "github-actions-fastapi-cicd",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 46.2,
+        "tokens": 13332,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Provides a complete GitHub Actions YAML workflow file", "passed": true, "evidence": "Complete ci.yml provided"},
+        {"text": "Includes a PostgreSQL service container for integration tests", "passed": true, "evidence": "postgres:15 service with health checks"},
+        {"text": "Covers both CI and CD stages", "passed": true, "evidence": "Optional CD section with multiple options"},
+        {"text": "Explains secrets via GitHub Actions secrets", "passed": true, "evidence": "Step 3 covers secrets setup"},
+        {"text": "Includes dependency caching", "passed": false, "evidence": "No caching step mentioned anywhere"},
+        {"text": "Mentions a deploy step for CD", "passed": true, "evidence": "VPS, platform auto-deploy, and Docker options"}
+      ],
+      "notes": ["Missing pip caching is the only gap — both responses are high quality"]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0},
+      "time_seconds": {"mean": 61.5, "stddev": 0.0, "min": 61.5, "max": 61.5},
+      "tokens": {"mean": 17717, "stddev": 0, "min": 17717, "max": 17717}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.833, "stddev": 0.0, "min": 0.833, "max": 0.833},
+      "time_seconds": {"mean": 46.2, "stddev": 0.0, "min": 46.2, "max": 46.2},
+      "tokens": {"mean": 13332, "stddev": 0, "min": 13332, "max": 13332}
+    },
+    "delta": {
+      "pass_rate": "+0.167",
+      "time_seconds": "+15.3",
+      "tokens": "+4385"
+    }
+  },
+  "notes": [
+    "With-skill response is more structured: adds Dockerfile, health check endpoint, branch protection — three things the user needs but didn't ask for",
+    "Without-skill misses pip caching — a meaningful gap for real CI performance",
+    "Both responses are high quality; the skill's main value is proactive scope expansion beyond the literal question"
+  ]
+}

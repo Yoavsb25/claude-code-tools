@@ -1,0 +1,14 @@
+{
+  "eval_id": 3,
+  "eval_name": "rest-api-mobile-app-stack",
+  "prompt": "Starting a new REST API backend for a mobile app (iOS + Android). Team is 2 developers — both know Python well and have some TypeScript experience. Expected to handle maybe 50k users in year 1. We need user auth, push notifications, and a few CRUD endpoints. What stack and database should we use?",
+  "assertions": [
+    "Recommends FastAPI (or Django REST) given the Python-first team",
+    "Recommends PostgreSQL as the database",
+    "Recommends a managed auth provider for the auth requirement",
+    "Recommends a managed database service (Supabase, Railway, or Neon)",
+    "Recommends a specific ORM (SQLAlchemy or SQLModel)",
+    "Provides concrete setup/scaffold commands",
+    "Addresses push notifications (e.g., via Firebase FCM or similar)"
+  ]
+}

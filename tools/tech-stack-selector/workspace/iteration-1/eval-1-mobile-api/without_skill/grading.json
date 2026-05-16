@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends FastAPI (or Django REST) given the Python-first team",
+      "passed": true,
+      "evidence": "FastAPI recommended with justification. Django REST Framework explicitly considered and rejected as 'heavier than you need'."
+    },
+    {
+      "text": "Recommends PostgreSQL as the database",
+      "passed": true,
+      "evidence": "PostgreSQL recommended with MongoDB explicitly rejected: 'Your data is relational. Document stores add complexity without benefit at this scale.'"
+    },
+    {
+      "text": "Recommends a managed auth provider for the auth requirement",
+      "passed": false,
+      "evidence": "Recommends fastapi-users + JWT + bcrypt — a self-implemented auth solution. No managed provider (Auth0, Clerk, Supabase Auth) recommended. This adds significant implementation burden."
+    },
+    {
+      "text": "Recommends a managed database service (Supabase, Railway, or Neon)",
+      "passed": true,
+      "evidence": "Supabase, Railway, Render, AWS RDS all mentioned as hosting options for PostgreSQL."
+    },
+    {
+      "text": "Recommends a specific ORM (SQLAlchemy or SQLModel)",
+      "passed": true,
+      "evidence": "SQLAlchemy 2.x (async) with Alembic recommended explicitly."
+    },
+    {
+      "text": "Provides concrete setup/scaffold commands",
+      "passed": true,
+      "evidence": "pip install command provided with all deps, plus project structure layout and quick-start checklist."
+    },
+    {
+      "text": "Addresses push notifications (e.g., via Firebase FCM or similar)",
+      "passed": true,
+      "evidence": "Firebase FCM recommended with firebase-admin SDK and device token storage pattern described."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "pass_rate": 0.857
+  }
+}

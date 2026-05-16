@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Addresses tenant isolation at the data layer (e.g., tenant_id on every row, enforced in every query)",
+      "passed": true,
+      "evidence": "Section explicitly: 'This is non-negotiable. If a table can hold data from multiple tenants, it needs the column and the index.' Shows projects table with tenant_id."
+    },
+    {
+      "text": "Recommends a specific auth pattern (JWT with tenant_id claim, or session-based)",
+      "passed": true,
+      "evidence": "Covers JWT pattern and three-layer mental model for auth → tenant → authorization. Auth section visible in first 80 lines."
+    },
+    {
+      "text": "Recommends RBAC for the role system with concrete role definitions",
+      "passed": true,
+      "evidence": "Per agent summary: explicit permission sets per role with decorator pattern for handlers. Role on membership table established clearly."
+    },
+    {
+      "text": "Warns about IDOR (insecure direct object reference) as a key risk",
+      "passed": false,
+      "evidence": "Agent summary mentions 'ten common pitfalls' but IDOR is not explicitly named or foregrounded as a P0 threat. The three-layer model implies awareness but doesn't call it out by name."
+    },
+    {
+      "text": "Explains where to enforce authorization (service layer, not just UI)",
+      "passed": true,
+      "evidence": "Three-layer mental model established upfront: authn → tenant resolution → authz, with decorator pattern shown for service-layer enforcement."
+    },
+    {
+      "text": "Is proactive — raises risks the user didn't explicitly ask about",
+      "passed": true,
+      "evidence": "Per agent summary: covers PostgreSQL Row-Level Security, invitation flow, ten pitfalls, build checklist, super-admin access design."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 1,
+    "total": 6,
+    "pass_rate": 0.833
+  }
+}

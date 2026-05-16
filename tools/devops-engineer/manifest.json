@@ -1,0 +1,19 @@
+{
+  "name": "devops-engineer",
+  "version": "1.0.0",
+  "description": "Senior DevOps engineer for CI/CD pipelines, deployment architecture, containerization, observability, and infrastructure as code",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "advanced",
+  "tags": ["devops", "ci-cd", "docker", "deployment", "monitoring", "terraform", "infrastructure"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/devops-engineer.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

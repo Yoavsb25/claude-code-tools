@@ -1,0 +1,19 @@
+{
+  "name": "tech-stack-selector",
+  "version": "1.0.0",
+  "description": "Opinionated tech stack advisor for new projects — picks language, framework, database, ORM, test runner, linter, and tooling with concrete justification",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "intermediate",
+  "tags": ["stack", "framework", "database", "tooling", "bootstrap", "architecture", "language"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/tech-stack-selector.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

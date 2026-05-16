@@ -1,0 +1,47 @@
+{
+  "skill_name": "devops-engineer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building a FastAPI app (Python) and I've never set up CI/CD before. I'm on GitHub. The app has pytest tests and uses PostgreSQL. What do I need to set up and how do I do it?",
+      "expected_output": "A complete GitHub Actions CI workflow config covering lint, test (with postgres service container), and a CD step to deploy on main. Should include secrets handling, caching, and explain the pipeline stages.",
+      "files": [],
+      "expectations": [
+        "Provides a complete GitHub Actions YAML workflow file",
+        "Includes a PostgreSQL service container for integration tests",
+        "Covers both CI (on PR) and CD (on main merge) stages",
+        "Explains how to handle secrets via GitHub Actions secrets",
+        "Includes dependency caching to speed up runs",
+        "Mentions a deploy step (even if templated) for the CD stage"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "We have a Node.js Express API that works locally. 3-person startup, pre-launch. We need to actually deploy this thing. Should we use Docker? What platform? We have almost no DevOps experience and a tight budget.",
+      "expected_output": "A concrete deployment recommendation (Fly.io or Railway for budget + simplicity), Dockerfile for the Node app, and steps to get it running. Should address health checks, secrets, and how to deploy.",
+      "files": [],
+      "expectations": [
+        "Recommends a specific platform appropriate for the context (Fly.io or Railway are best fits)",
+        "Provides a complete Dockerfile for a Node.js app",
+        "Includes a health check endpoint recommendation",
+        "Explains how to handle environment variables / secrets",
+        "Gives concrete deployment commands or steps",
+        "Does not recommend Kubernetes (overkill for this context)"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "My production FastAPI service has been running for 6 months and I realized I have zero monitoring — no alerts, no logs, nothing. Something broke last week and I only found out from a user complaint 4 hours later. What's the minimum I need to add right now to catch outages quickly?",
+      "expected_output": "A prioritized minimum viable observability setup: Sentry for errors, uptime monitoring for the /health endpoint, structured logging. Should give concrete code snippets and explain which to do first.",
+      "files": [],
+      "expectations": [
+        "Recommends Sentry or equivalent for error tracking with a code snippet",
+        "Recommends an uptime/health check monitoring service (BetterUptime, Checkly, etc.)",
+        "Suggests adding a /health endpoint if not present",
+        "Recommends structured logging over print statements",
+        "Prioritizes what to do first vs. later",
+        "Keeps scope tight — this is 'minimum viable', not a full observability platform"
+      ]
+    }
+  ]
+}

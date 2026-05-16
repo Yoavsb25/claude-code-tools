@@ -1,0 +1,19 @@
+{
+  "name": "security-architect",
+  "version": "1.0.0",
+  "description": "Proactive security-by-design skill for threat modeling, auth architecture, data security, and compliance planning (GDPR, SOC2, HIPAA)",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "advanced",
+  "tags": ["security", "auth", "threat-modeling", "gdpr", "soc2", "hipaa", "encryption", "compliance"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/security-architect.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

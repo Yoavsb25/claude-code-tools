@@ -1,0 +1,8 @@
+{
+  "name": "linkedin-project-adder-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "playwright": "^1.59.1"
+  }
+}

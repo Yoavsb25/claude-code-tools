@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "skill_name": "tech-stack-selector",
+    "skill_path": "/Users/yoavsborovsky/Documents/GitHub/claude-code-tools/tools/tech-stack-selector",
+    "timestamp": "2026-05-16T00:00:00Z",
+    "evals_run": [1],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 3,
+      "eval_name": "rest-api-mobile-app-stack",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 66.9,
+        "tokens": 17082,
+        "tool_calls": 5,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Recommends FastAPI", "passed": true, "evidence": "FastAPI recommended with explicit rejection of Django as 'too heavy'"},
+        {"text": "Recommends PostgreSQL", "passed": true, "evidence": "PostgreSQL via Supabase — relational, ACID, no second DB needed"},
+        {"text": "Recommends managed auth provider", "passed": true, "evidence": "Supabase Auth explicitly: handles sign-up, login, refresh tokens, OAuth — 'defer building your own'"},
+        {"text": "Recommends managed database service", "passed": true, "evidence": "Supabase as managed Postgres host with setup instructions"},
+        {"text": "Recommends specific ORM", "passed": true, "evidence": "SQLModel: 'built on SQLAlchemy and Pydantic, integrates natively with FastAPI'"},
+        {"text": "Provides scaffold commands", "passed": true, "evidence": "Full bootstrap: mkdir, venv, pip install, project structure, alembic init, pre-commit setup"},
+        {"text": "Addresses push notifications", "passed": true, "evidence": "Firebase FCM as 'the standard for sending push notifications to both iOS and Android from a single API'"}
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "rest-api-mobile-app-stack",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.857,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 49.0,
+        "tokens": 12631,
+        "tool_calls": 4,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Recommends FastAPI", "passed": true, "evidence": "FastAPI recommended, Django REST considered and rejected"},
+        {"text": "Recommends PostgreSQL", "passed": true, "evidence": "PostgreSQL with explicit MongoDB rejection"},
+        {"text": "Recommends managed auth provider", "passed": false, "evidence": "Recommends fastapi-users + JWT + bcrypt — self-implemented auth. No managed provider (Auth0, Clerk, Supabase Auth) suggested."},
+        {"text": "Recommends managed database service", "passed": true, "evidence": "Supabase, Railway, Render, AWS RDS all mentioned"},
+        {"text": "Recommends specific ORM", "passed": true, "evidence": "SQLAlchemy 2.x async + Alembic"},
+        {"text": "Provides scaffold commands", "passed": true, "evidence": "pip install command + project structure + checklist"},
+        {"text": "Addresses push notifications", "passed": true, "evidence": "FCM with firebase-admin SDK and device token storage"}
+      ],
+      "notes": ["Key gap: without-skill recommends self-implemented auth (fastapi-users) — adds significant implementation work vs managed provider. Also adds Celery+Redis immediately, which skill correctly defers to 'later'."]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0},
+      "time_seconds": {"mean": 66.9, "stddev": 0.0, "min": 66.9, "max": 66.9},
+      "tokens": {"mean": 17082, "stddev": 0, "min": 17082, "max": 17082}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.857, "stddev": 0.0, "min": 0.857, "max": 0.857},
+      "time_seconds": {"mean": 49.0, "stddev": 0.0, "min": 49.0, "max": 49.0},
+      "tokens": {"mean": 12631, "stddev": 0, "min": 12631, "max": 12631}
+    },
+    "delta": {
+      "pass_rate": "+0.143",
+      "time_seconds": "+17.9",
+      "tokens": "+4451"
+    }
+  },
+  "notes": [
+    "Most impactful skill difference: managed auth provider recommendation. Without-skill pushes fastapi-users (DIY auth), with-skill recommends Supabase Auth (managed). For a 2-person team, this is weeks of saved implementation time.",
+    "Without-skill adds Celery+Redis immediately — skill correctly defers this to 'later' since FastAPI BackgroundTasks suffices for push at this scale",
+    "Both responses correctly pick FastAPI, PostgreSQL, and FCM"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Recommends FastAPI (or Django REST) given the Python-first team",
+      "passed": true,
+      "evidence": "FastAPI explicitly recommended with justification: Python expertise, async-native, OpenAPI docs auto-generation, handles 50k users. Django explicitly rejected as too heavy."
+    },
+    {
+      "text": "Recommends PostgreSQL as the database",
+      "passed": true,
+      "evidence": "PostgreSQL via Supabase recommended. Justification: relational data, ACID guarantees, no second database needed at 50k users."
+    },
+    {
+      "text": "Recommends a managed auth provider for the auth requirement",
+      "passed": true,
+      "evidence": "Supabase Auth explicitly recommended: 'lets you defer building your own auth system — Supabase Auth handles sign-up, login, refresh tokens, OAuth providers, and email verification out of the box'"
+    },
+    {
+      "text": "Recommends a managed database service (Supabase, Railway, or Neon)",
+      "passed": true,
+      "evidence": "Supabase recommended as managed host for PostgreSQL, with setup instructions for connecting from Railway."
+    },
+    {
+      "text": "Recommends a specific ORM (SQLAlchemy or SQLModel)",
+      "passed": true,
+      "evidence": "SQLModel explicitly recommended: 'built on SQLAlchemy and Pydantic, integrates natively with FastAPI, reduces boilerplate'"
+    },
+    {
+      "text": "Provides concrete setup/scaffold commands",
+      "passed": true,
+      "evidence": "Full bootstrap section with mkdir, venv, pip install (all deps listed), mkdir for project structure, alembic init, pre-commit setup, and FCM setup steps."
+    },
+    {
+      "text": "Addresses push notifications (e.g., via Firebase FCM or similar)",
+      "passed": true,
+      "evidence": "Firebase Cloud Messaging recommended as 'the standard for sending push notifications to both iOS and Android from a single API'. firebase-admin Python SDK specified."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  }
+}

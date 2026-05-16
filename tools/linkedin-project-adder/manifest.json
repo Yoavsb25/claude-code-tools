@@ -1,0 +1,14 @@
+{
+  "name": "linkedin-project-adder",
+  "version": "1.0.0",
+  "description": "Adds a new project to the LinkedIn Projects section — generates polished content from a GitHub URL or description, then automates filling in the LinkedIn form via a headed Playwright browser.",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "moderate",
+  "tags": ["linkedin", "playwright", "automation", "career", "projects"],
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Addresses tenant isolation at the data layer (e.g., tenant_id on every row, enforced in every query)",
+      "passed": true,
+      "evidence": "Section 6 golden rule: 'tenant_id always comes from authenticated context, never from request input'. Section 5 shows correct vs wrong query patterns with tenant_id enforcement."
+    },
+    {
+      "text": "Recommends a specific auth pattern (JWT with tenant_id claim, or session-based)",
+      "passed": true,
+      "evidence": "JWT with RS256, 15-min access token, refresh token in HttpOnly cookie, stored in memory — specific and actionable. Also explicitly advises AGAINST putting tenant_id in the JWT."
+    },
+    {
+      "text": "Recommends RBAC for the role system with concrete role definitions",
+      "passed": true,
+      "evidence": "Section 5 provides explicit permission table: viewer/editor/admin with specific permissions per row (read, write, delete, manage_members, billing, invite, audit logs)"
+    },
+    {
+      "text": "Warns about IDOR (insecure direct object reference) as a key risk",
+      "passed": true,
+      "evidence": "STRIDE table lists 'IDOR / tenant data leak' as P0 — highest priority threat. Section 6 explicitly calls out accepting tenant_id from query params as creating an 'IDOR vector'."
+    },
+    {
+      "text": "Explains where to enforce authorization (service layer, not just UI)",
+      "passed": true,
+      "evidence": "Three enforcement layers explicitly described: Layer 1 service/API (primary), Layer 2 database query scoping (defense in depth), Layer 3 UI (non-authoritative, UX only)"
+    },
+    {
+      "text": "Is proactive — raises risks the user didn't explicitly ask about",
+      "passed": true,
+      "evidence": "Raises: threat model with STRIDE, audit logging from day one, invitation flow security, super-admin access design, last-admin lockout protection, penetration testing advice"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  }
+}

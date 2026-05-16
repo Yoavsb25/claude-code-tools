@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "github-actions-fastapi-cicd",
+  "prompt": "I'm building a FastAPI app (Python) and I've never set up CI/CD before. I'm on GitHub. The app has pytest tests and uses PostgreSQL. What do I need to set up and how do I do it?",
+  "assertions": [
+    "Provides a complete GitHub Actions YAML workflow file",
+    "Includes a PostgreSQL service container for integration tests",
+    "Covers both CI (on PR) and CD (on main merge) stages",
+    "Explains how to handle secrets via GitHub Actions secrets",
+    "Includes dependency caching to speed up runs",
+    "Mentions a deploy step for the CD stage"
+  ]
+}
