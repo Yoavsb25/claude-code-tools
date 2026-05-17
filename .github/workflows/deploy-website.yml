@@ -3,6 +3,10 @@ name: Deploy Website
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Update Registry"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   deploy:
