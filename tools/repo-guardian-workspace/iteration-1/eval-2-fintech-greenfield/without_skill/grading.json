@@ -1,0 +1,52 @@
+{
+  "run_id": "eval-2-fintech-greenfield-without_skill",
+  "expectations": [
+    {
+      "text": "Output recommends Strict tier explicitly",
+      "passed": false,
+      "evidence": "No tier system. Just numbered sections."
+    },
+    {
+      "text": "Output includes secret detection (detect-secrets or similar)",
+      "passed": true,
+      "evidence": "detect-secrets + TruffleHog action + GitHub secret push protection mentioned"
+    },
+    {
+      "text": "Output includes CodeQL or SAST scanning workflow",
+      "passed": true,
+      "evidence": "Full codeql.yml + semgrep action with p/pci-dss ruleset"
+    },
+    {
+      "text": "Output includes bandit (Python security linter)",
+      "passed": true,
+      "evidence": "bandit in CI security job: 'bandit -r src/ -ll'"
+    },
+    {
+      "text": "Output includes CODEOWNERS configuration",
+      "passed": true,
+      "evidence": "CODEOWNERS with team-based ownership (org/payments-team, org/security-team) — more realistic than with_skill"
+    },
+    {
+      "text": "Output includes coverage enforcement with a threshold",
+      "passed": true,
+      "evidence": "--cov-fail-under=80 in pytest step"
+    },
+    {
+      "text": "Output acknowledges the compliance/security context (PCI-DSS, fintech, or regulated)",
+      "passed": true,
+      "evidence": "PCI-DSS referenced throughout, including specific controls (cardholder data, audit trails, SIEM)"
+    },
+    {
+      "text": "Output includes required PR reviews in branch protection",
+      "passed": true,
+      "evidence": "'Require approvals: 2' — actually requires 2 reviewers, more appropriate for 15-person fintech team"
+    },
+    {
+      "text": "Output includes effort estimates for items",
+      "passed": false,
+      "evidence": "No effort estimates."
+    }
+  ],
+  "pass_rate": 0.778,
+  "notes": "Strong baseline. Passes 7/9 assertions. Misses tier system and effort estimates. Adds unique value: commit signing (GPG/SSH), pip-audit + safety in CI, semgrep with PCI-DSS rulesets, SIEM streaming, team-based access control. Better CODEOWNERS example."
+}

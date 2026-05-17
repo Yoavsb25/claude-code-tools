@@ -1,0 +1,35 @@
+{
+  "eval_id": 1,
+  "eval_name": "existing-pipeline",
+  "prompt": "Our team of 4 backend engineers has been working on an internal data pipeline tool for 6 months. We've been pretty fast and loose — no branch protection, no CI, everyone just pushes to main. We've had a few incidents where a bad merge broke the daily ETL job and we had to scramble to fix it at 6am. Python 3.11. How do we get this under control?",
+  "assertions": [
+    {
+      "text": "Output recommends a named tier (Minimal, Standard, or Strict)",
+      "type": "qualitative"
+    },
+    {
+      "text": "Tier is Standard or Strict — 4-person team with production incidents warrants escalated governance",
+      "type": "qualitative"
+    },
+    {
+      "text": "Branch protection is highlighted as the most urgent or highest-priority fix (not buried at the end)",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes CI GitHub Actions workflow snippet",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes pre-commit hook config with black and ruff",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output explains WHY items matter in terms of preventing the type of incident described (bad merge → 6am scramble)",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes effort estimates for items",
+      "type": "qualitative"
+    }
+  ]
+}

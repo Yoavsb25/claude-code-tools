@@ -1,0 +1,19 @@
+{
+  "name": "repo-guardian",
+  "version": "1.0.0",
+  "description": "Staff-level repo governance for Python/GitHub projects — generates a tiered, actionable checklist covering pre-commit hooks, CI quality gates, PR templates, and security scanning",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "intermediate",
+  "tags": ["git", "pre-commit", "ci", "github", "governance", "devops", "security", "python"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/repo-guardian.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

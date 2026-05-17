@@ -1,0 +1,42 @@
+{
+  "run_id": "eval-1-existing-pipeline-with_skill",
+  "expectations": [
+    {
+      "text": "Output recommends a named tier (Minimal, Standard, or Strict)",
+      "passed": true,
+      "evidence": "Output has 'Recommended Tier: Strict' with clear rationale about operational blast radius"
+    },
+    {
+      "text": "Tier is Standard or Strict — 4-person team with production incidents warrants escalated governance",
+      "passed": true,
+      "evidence": "Recommended Strict, with reasoning that the 6am ETL incidents classify the risk as High"
+    },
+    {
+      "text": "Branch protection is highlighted as the most urgent or highest-priority fix (not buried at the end)",
+      "passed": false,
+      "evidence": "Branch protection is the 5th item (after pre-commit framework, black, ruff, hygiene hooks). However, the Why text says 'this alone would have stopped the incidents you've been having' which gives it clear urgency even in 5th position."
+    },
+    {
+      "text": "Output includes CI GitHub Actions workflow snippet",
+      "passed": true,
+      "evidence": "Full ci.yml at .github/workflows/ci.yml included"
+    },
+    {
+      "text": "Output includes pre-commit hook config with black and ruff",
+      "passed": true,
+      "evidence": "Both black (rev 24.3.0) and ruff (v0.4.4) in .pre-commit-config.yaml"
+    },
+    {
+      "text": "Output explains WHY items matter in terms of preventing the type of incident described",
+      "passed": true,
+      "evidence": "Coverage enforcement Why: 'exactly the kind of gap that causes 6am incidents'. Branch protection Why: 'this alone would have stopped the incidents you've been having'"
+    },
+    {
+      "text": "Output includes effort estimates for items",
+      "passed": true,
+      "evidence": "Every checklist item has **Effort**: ~N min"
+    }
+  ],
+  "pass_rate": 0.857,
+  "notes": "Only failure: branch protection isn't first. The skill prioritizes pre-commit before branch protection per the 'order of operations' principle, but for an existing team already in production, immediate branch protection should arguably be first."
+}

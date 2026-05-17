@@ -1,0 +1,195 @@
+{
+  "metadata": {
+    "skill_name": "repo-guardian",
+    "skill_path": "/Users/yoavsborovsky/Documents/GitHub/claude-code-tools/tools/repo-guardian",
+    "executor_model": "claude-sonnet-4-6",
+    "analyzer_model": "claude-sonnet-4-6",
+    "timestamp": "2026-05-17T19:05:23Z",
+    "evals_run": ["solo-saas", "existing-pipeline", "fintech-greenfield"],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "eval_name": "solo-saas",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 69.3,
+        "tokens": 17943,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends a named tier (Minimal, Standard, or Strict) — not just a list of tools", "passed": true, "evidence": "Output has 'Recommended tier: Strict' as a section header with clear rationale"},
+        {"text": "Tier is Standard (not Minimal, not Strict) — solo with paying customers and contractors incoming warrants Standard", "passed": false, "evidence": "Agent recommended Strict, reasoning that high risk + imminent team expansion tips past Standard. The skill's tier table maps 'solo + high' ambiguously."},
+        {"text": "Output includes a .pre-commit-config.yaml snippet with at least black and ruff", "passed": true, "evidence": "Includes black (rev: 24.3.0) and ruff (v0.4.4) with yaml snippets"},
+        {"text": "Output includes a GitHub Actions CI workflow snippet", "passed": true, "evidence": "Full ci.yml snippet at .github/workflows/ci.yml"},
+        {"text": "Output includes a PR template or explains how to create one", "passed": true, "evidence": "Creates .github/pull_request_template.md with full content"},
+        {"text": "Output includes effort estimates (e.g. '~5 min') for at least half the items", "passed": true, "evidence": "Every checklist item has an **Effort**: ~N min estimate"},
+        {"text": "Output explains WHY each major item matters (not just what it is)", "passed": true, "evidence": "Every item has a **Why**: line tailored to context"},
+        {"text": "Output ends with or includes order-of-operations guidance (pre-commit before CI before security)", "passed": true, "evidence": "Closing advice section: 'pre-commit → branch protection → CI → security scanning'"}
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "solo-saas",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.625,
+        "passed": 5,
+        "failed": 3,
+        "total": 8,
+        "time_seconds": 37.7,
+        "tokens": 12459,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends a named tier (Minimal, Standard, or Strict) — not just a list of tools", "passed": false, "evidence": "No tier system. Items labeled 'High Priority / Medium Priority' but no named tier."},
+        {"text": "Tier is Standard (not Minimal, not Strict) — solo with paying customers and contractors incoming warrants Standard", "passed": false, "evidence": "No tier system present."},
+        {"text": "Output includes a .pre-commit-config.yaml snippet with at least black and ruff", "passed": true, "evidence": "Has black (rev 24.4.2) and ruff (v0.4.4) in the pre-commit config"},
+        {"text": "Output includes a GitHub Actions CI workflow snippet", "passed": true, "evidence": "Full ci.yml with Postgres service — more Django-specific than with_skill version"},
+        {"text": "Output includes a PR template or explains how to create one", "passed": true, "evidence": "Creates .github/PULL_REQUEST_TEMPLATE.md with content"},
+        {"text": "Output includes effort estimates (e.g. '~5 min') for at least half the items", "passed": false, "evidence": "No effort estimates. Uses 'do this today' and priority labels instead."},
+        {"text": "Output explains WHY each major item matters (not just what it is)", "passed": true, "evidence": "Most items have brief why context"},
+        {"text": "Output ends with or includes order-of-operations guidance (pre-commit before CI before security)", "passed": true, "evidence": "'Recommended Order of Operations' section present"}
+      ],
+      "notes": ["CI snippet is more Django-specific (includes Postgres service) — useful addition not in the skill. Also adds GitHub Environments deployment gate."]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "existing-pipeline",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.857,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 67.0,
+        "tokens": 17831,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends a named tier (Minimal, Standard, or Strict)", "passed": true, "evidence": "Output has 'Recommended Tier: Strict' with reasoning about operational blast radius"},
+        {"text": "Tier is Standard or Strict — 4-person team with production incidents warrants escalated governance", "passed": true, "evidence": "Strict recommended, reasoning that 6am ETL incidents classify risk as High"},
+        {"text": "Branch protection is highlighted as the most urgent or highest-priority fix (not buried at the end)", "passed": false, "evidence": "Branch protection is 5th item (after pre-commit framework, black, ruff, hygiene hooks). Why text says 'this alone would have stopped the incidents' but it's not first."},
+        {"text": "Output includes CI GitHub Actions workflow snippet", "passed": true, "evidence": "Full ci.yml included"},
+        {"text": "Output includes pre-commit hook config with black and ruff", "passed": true, "evidence": "Both black and ruff in .pre-commit-config.yaml"},
+        {"text": "Output explains WHY items matter in terms of preventing the type of incident described", "passed": true, "evidence": "Coverage: 'exactly the kind of gap that causes 6am incidents'. Branch protection: 'this alone would have stopped the incidents you've been having'"},
+        {"text": "Output includes effort estimates for items", "passed": true, "evidence": "Every checklist item has **Effort**: ~N min"}
+      ],
+      "notes": ["Skill always puts pre-commit first per its 'order of operations' principle, but for an existing team with live incidents, branch protection should arguably come first."]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "existing-pipeline",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.571,
+        "passed": 4,
+        "failed": 3,
+        "total": 7,
+        "time_seconds": 45.5,
+        "tokens": 12619,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends a named tier (Minimal, Standard, or Strict)", "passed": false, "evidence": "No tier system."},
+        {"text": "Tier is Standard or Strict — 4-person team with production incidents warrants escalated governance", "passed": false, "evidence": "No tier system present."},
+        {"text": "Branch protection is highlighted as the most urgent or highest-priority fix (not buried at the end)", "passed": true, "evidence": "Branch protection is item #1, explicitly called 'the single highest-leverage change'"},
+        {"text": "Output includes CI GitHub Actions workflow snippet", "passed": true, "evidence": "Full ci.yml included"},
+        {"text": "Output includes pre-commit hook config with black and ruff", "passed": false, "evidence": "Uses ruff with ruff-format but not separate black — more modern but assertion requires both"},
+        {"text": "Output explains WHY items matter in terms of preventing the type of incident described", "passed": true, "evidence": "References 6am incident directly"},
+        {"text": "Output includes effort estimates for items", "passed": false, "evidence": "No time estimates."}
+      ],
+      "notes": ["Includes unique valuable advice: dry-run ETL mode, dead man's switch alerting, runbook. Better for this specific scenario in some ways."]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "fintech-greenfield",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 9,
+        "failed": 0,
+        "total": 9,
+        "time_seconds": 60.3,
+        "tokens": 17799,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends Strict tier explicitly", "passed": true, "evidence": "'Recommended Tier: Strict' with PCI-DSS and team size reasoning"},
+        {"text": "Output includes secret detection (detect-secrets or similar)", "passed": true, "evidence": "detect-secrets v1.4.0 with .secrets.baseline included"},
+        {"text": "Output includes CodeQL or SAST scanning workflow", "passed": true, "evidence": "Full codeql.yml workflow included"},
+        {"text": "Output includes bandit (Python security linter)", "passed": true, "evidence": "bandit 1.7.8 in pre-commit config with pyproject.toml config"},
+        {"text": "Output includes CODEOWNERS configuration", "passed": true, "evidence": ".github/CODEOWNERS file included (though only shows @your-github-username, not team-based)"},
+        {"text": "Output includes coverage enforcement with a threshold", "passed": true, "evidence": "--cov-fail-under=80 in pytest step"},
+        {"text": "Output acknowledges the compliance/security context (PCI-DSS, fintech, or regulated)", "passed": true, "evidence": "PCI-DSS referenced in Why sections for secret detection, bandit, CodeQL, branch protection"},
+        {"text": "Output includes required PR reviews in branch protection", "passed": true, "evidence": "'Require at least 1 approving review' in stricter branch protection"},
+        {"text": "Output includes effort estimates for items", "passed": true, "evidence": "Every item has **Effort**: ~N min"}
+      ],
+      "notes": ["CODEOWNERS only shows individual owner not team-based (baseline did org/payments-team). Missing commit signing and pip-audit which baseline included."]
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "fintech-greenfield",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.778,
+        "passed": 7,
+        "failed": 2,
+        "total": 9,
+        "time_seconds": 69.3,
+        "tokens": 14308,
+        "errors": 0
+      },
+      "expectations": [
+        {"text": "Output recommends Strict tier explicitly", "passed": false, "evidence": "No tier system."},
+        {"text": "Output includes secret detection (detect-secrets or similar)", "passed": true, "evidence": "detect-secrets + TruffleHog + GitHub secret push protection"},
+        {"text": "Output includes CodeQL or SAST scanning workflow", "passed": true, "evidence": "Full codeql.yml + semgrep with p/pci-dss ruleset"},
+        {"text": "Output includes bandit (Python security linter)", "passed": true, "evidence": "bandit in CI security job"},
+        {"text": "Output includes CODEOWNERS configuration", "passed": true, "evidence": "Team-based CODEOWNERS with org/payments-team, org/security-team — more realistic"},
+        {"text": "Output includes coverage enforcement with a threshold", "passed": true, "evidence": "--cov-fail-under=80 in pytest step"},
+        {"text": "Output acknowledges the compliance/security context (PCI-DSS, fintech, or regulated)", "passed": true, "evidence": "PCI-DSS throughout, including audit trails, SIEM, cardholder data"},
+        {"text": "Output includes required PR reviews in branch protection", "passed": true, "evidence": "'Require approvals: 2' — more appropriate for 15-person fintech team"},
+        {"text": "Output includes effort estimates for items", "passed": false, "evidence": "No effort estimates."}
+      ],
+      "notes": ["Very comprehensive baseline. Adds: commit signing (GPG/SSH), pip-audit + safety, semgrep with PCI-DSS rules, team-based CODEOWNERS, SIEM streaming, access control. Better CODEOWNERS."]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 0.911, "stddev": 0.074, "min": 0.857, "max": 1.0},
+      "time_seconds": {"mean": 65.5, "stddev": 4.7, "min": 60.3, "max": 69.3},
+      "tokens": {"mean": 17858, "stddev": 78, "min": 17799, "max": 17943}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.658, "stddev": 0.107, "min": 0.571, "max": 0.778},
+      "time_seconds": {"mean": 50.8, "stddev": 16.7, "min": 37.7, "max": 69.3},
+      "tokens": {"mean": 13129, "stddev": 1027, "min": 12459, "max": 14308}
+    },
+    "delta": {
+      "pass_rate": "+0.25",
+      "time_seconds": "+14.7",
+      "tokens": "+4729"
+    }
+  },
+  "notes": [
+    "Tier system assertion (named tier recommendation) passes 100% with_skill, 0% without_skill — the most discriminating assertion across all evals",
+    "Effort estimates assertion passes 100% with_skill, 0% without_skill — perfectly discriminating, no skill ever adds effort estimates",
+    "Pre-commit config (black+ruff) passes ~100% in both configurations — non-discriminating, both give good pre-commit advice",
+    "WHY explanations pass ~87% in both configurations — non-discriminating, both explain reasoning",
+    "Branch protection priority: eval-1 WITHOUT skill correctly puts branch protection first (for an existing team with incidents), while WITH skill puts pre-commit first per its fixed 'order of operations' principle — skill's ordering is wrong for this context",
+    "Baseline fintech (eval-2) adds commit signing, pip-audit, semgrep with PCI-DSS rulesets, team-based CODEOWNERS — areas where skill could improve for regulated environments",
+    "Skill uses ~36% more tokens (+4729 mean) and takes ~14.7s longer — cost of structured output vs direct response"
+  ]
+}

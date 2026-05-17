@@ -1,0 +1,39 @@
+{
+  "eval_id": 0,
+  "eval_name": "solo-saas",
+  "prompt": "I just created a new Python repo for my SaaS side project (Django + Postgres, Python 3.12). It's just me right now but I'm hoping to bring on 1-2 contractors in a few months. Customers will pay for access so I can't have broken deployments. Currently there's nothing set up — just a .gitignore and a requirements.txt. What should I set up to protect my repo?",
+  "assertions": [
+    {
+      "text": "Output recommends a named tier (Minimal, Standard, or Strict) — not just a list of tools",
+      "type": "qualitative"
+    },
+    {
+      "text": "Tier is Standard (not Minimal, not Strict) — solo with paying customers and contractors incoming warrants Standard",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes a .pre-commit-config.yaml snippet with at least black and ruff",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes a GitHub Actions CI workflow snippet",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes a PR template or explains how to create one",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output includes effort estimates (e.g. '~5 min') for at least half the items",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output explains WHY each major item matters (not just what it is)",
+      "type": "qualitative"
+    },
+    {
+      "text": "Output ends with or includes order-of-operations guidance (pre-commit → branch protection → CI → security)",
+      "type": "qualitative"
+    }
+  ]
+}

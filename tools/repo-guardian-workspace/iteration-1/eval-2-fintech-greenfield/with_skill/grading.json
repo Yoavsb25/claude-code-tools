@@ -1,0 +1,52 @@
+{
+  "run_id": "eval-2-fintech-greenfield-with_skill",
+  "expectations": [
+    {
+      "text": "Output recommends Strict tier explicitly",
+      "passed": true,
+      "evidence": "'Recommended Tier: Strict' with PCI-DSS and team size reasoning"
+    },
+    {
+      "text": "Output includes secret detection (detect-secrets or similar)",
+      "passed": true,
+      "evidence": "detect-secrets v1.4.0 with .secrets.baseline included"
+    },
+    {
+      "text": "Output includes CodeQL or SAST scanning workflow",
+      "passed": true,
+      "evidence": "Full codeql.yml workflow included"
+    },
+    {
+      "text": "Output includes bandit (Python security linter)",
+      "passed": true,
+      "evidence": "bandit 1.7.8 in pre-commit config with pyproject.toml config"
+    },
+    {
+      "text": "Output includes CODEOWNERS configuration",
+      "passed": true,
+      "evidence": ".github/CODEOWNERS file with instructions, though only shows @your-github-username — not team-based"
+    },
+    {
+      "text": "Output includes coverage enforcement with a threshold",
+      "passed": true,
+      "evidence": "--cov-fail-under=80 in pytest step"
+    },
+    {
+      "text": "Output acknowledges the compliance/security context (PCI-DSS, fintech, or regulated)",
+      "passed": true,
+      "evidence": "PCI-DSS referenced in Why sections for secret detection, bandit, CodeQL, coverage, branch protection"
+    },
+    {
+      "text": "Output includes required PR reviews in branch protection",
+      "passed": true,
+      "evidence": "'Require at least 1 approving review' in stricter branch protection section"
+    },
+    {
+      "text": "Output includes effort estimates for items",
+      "passed": true,
+      "evidence": "Every item has **Effort**: ~N min"
+    }
+  ],
+  "pass_rate": 1.0,
+  "notes": "Perfect pass on all assertions. Minor weakness: CODEOWNERS only shows individual owner not team-based ownership (baseline did org/payments-team structure). Also missing commit signing which baseline included."
+}

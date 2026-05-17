@@ -1,0 +1,47 @@
+{
+  "run_id": "eval-0-solo-saas-without_skill",
+  "expectations": [
+    {
+      "text": "Output recommends a named tier (Minimal, Standard, or Strict) — not just a list of tools",
+      "passed": false,
+      "evidence": "No tier system. Items labeled 'High Priority', 'Medium Priority', 'Low Priority' but no named tier."
+    },
+    {
+      "text": "Tier is Standard (not Minimal, not Strict) — solo with paying customers and contractors incoming warrants Standard",
+      "passed": false,
+      "evidence": "No tier system present."
+    },
+    {
+      "text": "Output includes a .pre-commit-config.yaml snippet with at least black and ruff",
+      "passed": true,
+      "evidence": "Has black (rev 24.4.2) and ruff (v0.4.4) in the pre-commit config"
+    },
+    {
+      "text": "Output includes a GitHub Actions CI workflow snippet",
+      "passed": true,
+      "evidence": "Full ci.yml with Postgres service — actually more Django-specific than the with_skill version"
+    },
+    {
+      "text": "Output includes a PR template or explains how to create one",
+      "passed": true,
+      "evidence": "Creates .github/PULL_REQUEST_TEMPLATE.md with content"
+    },
+    {
+      "text": "Output includes effort estimates (e.g. '~5 min') for at least half the items",
+      "passed": false,
+      "evidence": "No effort estimates. Uses 'do this today' and priority labels instead."
+    },
+    {
+      "text": "Output explains WHY each major item matters (not just what it is)",
+      "passed": true,
+      "evidence": "Most items have brief why context (e.g. 'This is the single most important thing. It prevents accidental pushes directly to main and broken deployments.')"
+    },
+    {
+      "text": "Output ends with or includes order-of-operations guidance (pre-commit before CI before security)",
+      "passed": true,
+      "evidence": "'Recommended Order of Operations' section present, though orders branch protection before pre-commit"
+    }
+  ],
+  "pass_rate": 0.625,
+  "notes": "No tier system is the main gap. Effort estimates absent. The CI snippet is actually better (includes Postgres service for Django) and adds GitHub Environments gate — useful additions not in the skill."
+}

@@ -1,0 +1,42 @@
+{
+  "run_id": "eval-1-existing-pipeline-without_skill",
+  "expectations": [
+    {
+      "text": "Output recommends a named tier (Minimal, Standard, or Strict)",
+      "passed": false,
+      "evidence": "No tier system. Just numbered list of steps."
+    },
+    {
+      "text": "Tier is Standard or Strict — 4-person team with production incidents warrants escalated governance",
+      "passed": false,
+      "evidence": "No tier system present."
+    },
+    {
+      "text": "Branch protection is highlighted as the most urgent or highest-priority fix (not buried at the end)",
+      "passed": true,
+      "evidence": "Branch protection is item #1 and explicitly called 'the single highest-leverage change'"
+    },
+    {
+      "text": "Output includes CI GitHub Actions workflow snippet",
+      "passed": true,
+      "evidence": "Full ci.yml included"
+    },
+    {
+      "text": "Output includes pre-commit hook config with black and ruff",
+      "passed": false,
+      "evidence": "Uses ruff (with ruff-format) but not separate black. The assertion specifies both black AND ruff."
+    },
+    {
+      "text": "Output explains WHY items matter in terms of preventing the type of incident described",
+      "passed": true,
+      "evidence": "References the 6am incident directly: 'stops the \"someone pushed a bad change at midnight\" class of incident'"
+    },
+    {
+      "text": "Output includes effort estimates for items",
+      "passed": false,
+      "evidence": "No time estimates. Just 'Steps 1-4 will prevent most of your incidents' priority guidance."
+    }
+  ],
+  "pass_rate": 0.571,
+  "notes": "Without skill: correctly prioritizes branch protection first (better than with_skill for this scenario), but misses tier system, effort estimates, and black. Includes unique valuable advice: dry-run ETL mode, dead man's switch alerting, runbook."
+}

@@ -1,6 +1,6 @@
 {
-  "generated": "2026-05-16T17:12:18.993Z",
-  "count": 23,
+  "generated": "2026-05-17T19:17:13.110Z",
+  "count": 24,
   "tools": [
     {
       "name": "add-todo",
@@ -255,7 +255,7 @@
       "version": "1.0.0",
       "description": "Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit",
       "type": "skill",
-      "category": "productivity",
+      "category": "career",
       "complexity": "simple",
       "tags": [
         "linkedin",
@@ -284,7 +284,7 @@
       "version": "1.0.0",
       "description": "Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser",
       "type": "skill",
-      "category": "productivity",
+      "category": "career",
       "complexity": "intermediate",
       "tags": [
         "linkedin",
@@ -440,6 +440,38 @@
         "env_vars": []
       },
       "path": "tools/product-manager"
+    },
+    {
+      "name": "repo-guardian",
+      "version": "1.0.0",
+      "description": "Staff-level repo governance for Python/GitHub projects — generates a tiered, actionable checklist covering pre-commit hooks, CI quality gates, PR templates, and security scanning",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "git",
+        "pre-commit",
+        "ci",
+        "github",
+        "governance",
+        "devops",
+        "security",
+        "python"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/repo-guardian.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/repo-guardian"
     },
     {
       "name": "resume-tailor",
