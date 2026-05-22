@@ -38,6 +38,7 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [grocery](./tools/grocery/) | tool | shopping | advanced | Basket price comparator — scrapes Tesco, Ocado, and Waitrose and uses Claude to match items to their best-value equivalent |
 | [security-architect](./tools/security-architect/) | skill | developer-tools | advanced | Proactive security-by-design skill for threat modeling, auth architecture, data security, and compliance planning (GDPR, SOC2, HIPAA) |
 | [software-architect](./tools/software-architect/) | skill | developer-tools | advanced | Senior software architect for system design and architectural decision records (ADRs) |
+| [testing-strategist](./tools/testing-strategist/) | skill | developer-tools | advanced | Scans codebase architecture and existing tests to produce a tailored testing strategy with gap analysis, framework recommendations, and prioritized action plan. |
 | [tube-fare-auditor](./tools/tube-fare-auditor/) | tool | finance | advanced | Advanced TfL Oyster card auditor — verifies railcard discounts, detects maximum fare charges, and produces a refund report |
 
 ---

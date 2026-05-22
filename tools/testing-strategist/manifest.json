@@ -1,0 +1,20 @@
+{
+  "name": "testing-strategist",
+  "version": "1.0.0",
+  "description": "Scans codebase architecture and existing tests to produce a tailored testing strategy with gap analysis, framework recommendations, and prioritized action plan.",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "advanced",
+  "tags": ["testing", "tdd", "coverage", "test-strategy", "architecture", "quality"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/testing-strategist.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "cli_tools": ["find", "grep"]
+  }
+}

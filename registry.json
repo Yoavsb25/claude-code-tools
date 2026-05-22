@@ -1,6 +1,6 @@
 {
-  "generated": "2026-05-17T19:18:41.834Z",
-  "count": 24,
+  "generated": "2026-05-22T13:03:05.468Z",
+  "count": 25,
   "tools": [
     {
       "name": "add-todo",
@@ -624,6 +624,40 @@
         "env_vars": []
       },
       "path": "tools/tech-stack-selector"
+    },
+    {
+      "name": "testing-strategist",
+      "version": "1.0.0",
+      "description": "Scans codebase architecture and existing tests to produce a tailored testing strategy with gap analysis, framework recommendations, and prioritized action plan.",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "advanced",
+      "tags": [
+        "testing",
+        "tdd",
+        "coverage",
+        "test-strategy",
+        "architecture",
+        "quality"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/testing-strategist.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": [],
+        "cli_tools": [
+          "find",
+          "grep"
+        ]
+      },
+      "path": "tools/testing-strategist"
     },
     {
       "name": "tfl-refund",
