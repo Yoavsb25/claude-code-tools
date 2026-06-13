@@ -1,0 +1,20 @@
+{
+  "name": "ocado-deals",
+  "version": "1.0.0",
+  "description": "Scans Ocado's Fresh & Chilled, Food Cupboard, and Bakery offer pages and ranks the best deals by absolute £ saving per item.",
+  "type": "skill",
+  "category": "shopping",
+  "complexity": "simple",
+  "tags": ["ocado", "grocery", "deals", "offers", "savings", "uk"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ocado-deals.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "cli_tools": []
+  }
+}
