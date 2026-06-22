@@ -1,0 +1,20 @@
+{
+  "name": "stay-finder",
+  "version": "1.0.0",
+  "description": "Searches and compares hotels, apartments, villas, and all accommodation types across Booking.com and Expedia, ranking by budget fit, rating, and location.",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "intermediate",
+  "tags": ["hotels", "accommodation", "travel", "booking", "expedia", "stay", "vacation", "compare"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/stay-finder.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": ["booking", "expedia"],
+    "env_vars": [],
+    "cli_tools": []
+  }
+}

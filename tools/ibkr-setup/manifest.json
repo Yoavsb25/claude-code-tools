@@ -1,0 +1,19 @@
+{
+  "name": "ibkr-setup",
+  "version": "1.0.0",
+  "description": "One-time setup for your IBKR investment profile — captures risk tolerance, time horizon, sector preferences, and target allocation.",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "simple",
+  "tags": ["ibkr", "investing", "finance", "portfolio", "setup", "preferences"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ibkr-setup.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

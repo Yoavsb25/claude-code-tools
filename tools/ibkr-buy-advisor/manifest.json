@@ -1,0 +1,19 @@
+{
+  "name": "ibkr-buy-advisor",
+  "version": "1.0.0",
+  "description": "Gives a specific, profile-matched buy recommendation for a given cash amount using IBKR data, S&P Global ratings, Canary Data signals, and credibility-filtered research.",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "intermediate",
+  "tags": ["ibkr", "buy", "investing", "finance", "recommendations", "allocation", "advisor"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ibkr-buy-advisor.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": ["interactive-brokers", "s-p-global", "canary-data"],
+    "env_vars": []
+  }
+}

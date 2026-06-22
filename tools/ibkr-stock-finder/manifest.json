@@ -1,0 +1,19 @@
+{
+  "name": "ibkr-stock-finder",
+  "version": "1.0.0",
+  "description": "Discovers 3–5 investment candidates matched to your profile using IBKR themes, S&P Global screening, Canary Data signals, and credibility-filtered web research.",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "intermediate",
+  "tags": ["ibkr", "stocks", "investing", "finance", "discovery", "recommendations", "screening"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ibkr-stock-finder.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": ["interactive-brokers", "s-p-global", "canary-data"],
+    "env_vars": []
+  }
+}

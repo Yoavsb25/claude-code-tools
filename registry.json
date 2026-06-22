@@ -1,6 +1,6 @@
 {
-  "generated": "2026-06-13T20:34:37.860Z",
-  "count": 26,
+  "generated": "2026-06-22T21:10:11.280Z",
+  "count": 32,
   "tools": [
     {
       "name": "add-todo",
@@ -127,6 +127,41 @@
       "path": "tools/expense-analyzer"
     },
     {
+      "name": "flight-finder",
+      "version": "1.0.0",
+      "description": "Searches and compares flights across Expedia and Kiwi.com, ranking results by price, speed, and stops to surface the cheapest, fastest, and best-overall options.",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "flights",
+        "travel",
+        "expedia",
+        "kiwi",
+        "search",
+        "compare",
+        "booking"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/flight-finder.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "expedia",
+          "kiwi"
+        ],
+        "env_vars": [],
+        "cli_tools": []
+      },
+      "path": "tools/flight-finder"
+    },
+    {
       "name": "folder-organizer",
       "version": "1.0.0",
       "description": "Recursively scans a folder, proposes a semantic reorganization plan by project/topic/type, waits for approval, then executes moves with bash.",
@@ -249,6 +284,142 @@
         "python": ">=3.9"
       },
       "path": "tools/grocery"
+    },
+    {
+      "name": "ibkr-buy-advisor",
+      "version": "1.0.0",
+      "description": "Gives a specific, profile-matched buy recommendation for a given cash amount using IBKR data, S&P Global ratings, Canary Data signals, and credibility-filtered research.",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "intermediate",
+      "tags": [
+        "ibkr",
+        "buy",
+        "investing",
+        "finance",
+        "recommendations",
+        "allocation",
+        "advisor"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ibkr-buy-advisor.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "interactive-brokers",
+          "s-p-global",
+          "canary-data"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/ibkr-buy-advisor"
+    },
+    {
+      "name": "ibkr-portfolio-review",
+      "version": "1.0.0",
+      "description": "Professional portfolio analysis using live IBKR data, S&P Global ratings, Moody's credit ratings, Canary Data signals, and credibility-filtered web research.",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "intermediate",
+      "tags": [
+        "ibkr",
+        "portfolio",
+        "investing",
+        "finance",
+        "analysis",
+        "review",
+        "rebalancing"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ibkr-portfolio-review.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "interactive-brokers",
+          "s-p-global",
+          "moodys",
+          "canary-data"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/ibkr-portfolio-review"
+    },
+    {
+      "name": "ibkr-setup",
+      "version": "1.0.0",
+      "description": "One-time setup for your IBKR investment profile — captures risk tolerance, time horizon, sector preferences, and target allocation.",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "simple",
+      "tags": [
+        "ibkr",
+        "investing",
+        "finance",
+        "portfolio",
+        "setup",
+        "preferences"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ibkr-setup.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/ibkr-setup"
+    },
+    {
+      "name": "ibkr-stock-finder",
+      "version": "1.0.0",
+      "description": "Discovers 3–5 investment candidates matched to your profile using IBKR themes, S&P Global screening, Canary Data signals, and credibility-filtered web research.",
+      "type": "skill",
+      "category": "finance",
+      "complexity": "intermediate",
+      "tags": [
+        "ibkr",
+        "stocks",
+        "investing",
+        "finance",
+        "discovery",
+        "recommendations",
+        "screening"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/ibkr-stock-finder.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "interactive-brokers",
+          "s-p-global",
+          "canary-data"
+        ],
+        "env_vars": []
+      },
+      "path": "tools/ibkr-stock-finder"
     },
     {
       "name": "linkedin-experience-writer",
@@ -624,6 +795,42 @@
         "env_vars": []
       },
       "path": "tools/software-architect"
+    },
+    {
+      "name": "stay-finder",
+      "version": "1.0.0",
+      "description": "Searches and compares hotels, apartments, villas, and all accommodation types across Booking.com and Expedia, ranking by budget fit, rating, and location.",
+      "type": "skill",
+      "category": "productivity",
+      "complexity": "intermediate",
+      "tags": [
+        "hotels",
+        "accommodation",
+        "travel",
+        "booking",
+        "expedia",
+        "stay",
+        "vacation",
+        "compare"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/stay-finder.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [
+          "booking",
+          "expedia"
+        ],
+        "env_vars": [],
+        "cli_tools": []
+      },
+      "path": "tools/stay-finder"
     },
     {
       "name": "tech-stack-selector",

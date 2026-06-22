@@ -1,0 +1,19 @@
+{
+  "name": "ibkr-portfolio-review",
+  "version": "1.0.0",
+  "description": "Professional portfolio analysis using live IBKR data, S&P Global ratings, Moody's credit ratings, Canary Data signals, and credibility-filtered web research.",
+  "type": "skill",
+  "category": "finance",
+  "complexity": "intermediate",
+  "tags": ["ibkr", "portfolio", "investing", "finance", "analysis", "review", "rebalancing"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/ibkr-portfolio-review.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": ["interactive-brokers", "s-p-global", "moodys", "canary-data"],
+    "env_vars": []
+  }
+}

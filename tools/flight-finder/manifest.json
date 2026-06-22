@@ -1,0 +1,20 @@
+{
+  "name": "flight-finder",
+  "version": "1.0.0",
+  "description": "Searches and compares flights across Expedia and Kiwi.com, ranking results by price, speed, and stops to surface the cheapest, fastest, and best-overall options.",
+  "type": "skill",
+  "category": "productivity",
+  "complexity": "intermediate",
+  "tags": ["flights", "travel", "expedia", "kiwi", "search", "compare", "booking"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/flight-finder.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": ["expedia", "kiwi"],
+    "env_vars": [],
+    "cli_tools": []
+  }
+}

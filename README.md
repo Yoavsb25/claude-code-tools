@@ -16,15 +16,20 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | Name | Type | Category | Complexity | Description |
 |------|------|----------|------------|-------------|
 | [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
+| [ibkr-setup](./tools/ibkr-setup/) | skill | finance | simple | One-time setup for your IBKR investment profile — captures risk tolerance, time horizon, sector preferences, and target allocation. |
 | [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | career | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
 | [ocado-deals](./tools/ocado-deals/) | skill | shopping | simple | Scans Ocado's Fresh & Chilled, Food Cupboard, and Bakery offer pages and ranks the best deals by absolute £ saving per item. |
 | [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
 | [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
 | [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
 | [expense-analyzer](./tools/expense-analyzer/) | skill | finance | intermediate | Analyzes Wise/Revolut CSV transaction exports and produces a detailed markdown expense report with category totals, top transactions, and flagged unusual spends |
+| [flight-finder](./tools/flight-finder/) | skill | productivity | intermediate | Searches and compares flights across Expedia and Kiwi.com, ranking results by price, speed, and stops to surface the cheapest, fastest, and best-overall options. |
 | [folder-organizer](./tools/folder-organizer/) | skill | productivity | intermediate | Recursively scans a folder, proposes a semantic reorganization plan by project/topic/type, waits for approval, then executes moves with bash. |
 | [github-profile-refactor](./tools/github-profile-refactor/) | skill | developer-tools | intermediate | Refactors and elevates a GitHub profile README — improving readability, personal brand, and content quality |
 | [github-project-picker](./tools/github-project-picker/) | skill | career | intermediate | Picks the best GitHub projects to showcase on a resume for a specific job and writes tailored, resume-ready descriptions for each |
+| [ibkr-buy-advisor](./tools/ibkr-buy-advisor/) | skill | finance | intermediate | Gives a specific, profile-matched buy recommendation for a given cash amount using IBKR data, S&P Global ratings, Canary Data signals, and credibility-filtered research. |
+| [ibkr-portfolio-review](./tools/ibkr-portfolio-review/) | skill | finance | intermediate | Professional portfolio analysis using live IBKR data, S&P Global ratings, Moody's credit ratings, Canary Data signals, and credibility-filtered web research. |
+| [ibkr-stock-finder](./tools/ibkr-stock-finder/) | skill | finance | intermediate | Discovers 3–5 investment candidates matched to your profile using IBKR themes, S&P Global screening, Canary Data signals, and credibility-filtered web research. |
 | [linkedin-project-adder](./tools/linkedin-project-adder/) | skill | career | intermediate | Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser |
 | [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
@@ -32,6 +37,7 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [product-manager](./tools/product-manager/) | skill | productivity | intermediate | Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization |
 | [repo-guardian](./tools/repo-guardian/) | skill | developer-tools | intermediate | Staff-level repo governance for Python/GitHub projects — generates a tiered, actionable checklist covering pre-commit hooks, CI quality gates, PR templates, and security scanning |
 | [resume-tailor](./tools/resume-tailor/) | skill | career | intermediate | Tailors a resume to a specific job posting by pulling from work documentation and saving a polished markdown output |
+| [stay-finder](./tools/stay-finder/) | skill | productivity | intermediate | Searches and compares hotels, apartments, villas, and all accommodation types across Booking.com and Expedia, ranking by budget fit, rating, and location. |
 | [tech-stack-selector](./tools/tech-stack-selector/) | skill | developer-tools | intermediate | Opinionated tech stack advisor for new projects — picks language, framework, database, ORM, test runner, linter, and tooling with concrete justification |
 | [trip-expense-report](./tools/trip-expense-report/) | skill | finance | intermediate | Generates a structured expense report from trip receipts and bank statements using Claude Code |
 | [ui-ux-expert](./tools/ui-ux-expert/) | skill | developer-tools | intermediate | Opinionated UI/UX design consultant for specs, style guides, and layout decisions |
