@@ -1,0 +1,19 @@
+{
+  "name": "skill-reviewer",
+  "version": "1.0.0",
+  "description": "Audits a Claude Code skill file and produces a scored report with detailed findings and improvement steps",
+  "type": "skill",
+  "category": "developer-tools",
+  "complexity": "intermediate",
+  "tags": ["skills", "review", "audit", "quality", "feedback"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/skill-reviewer.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

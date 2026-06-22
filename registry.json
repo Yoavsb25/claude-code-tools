@@ -1,6 +1,6 @@
 {
-  "generated": "2026-06-22T21:13:05.350Z",
-  "count": 32,
+  "generated": "2026-06-22T22:03:29.090Z",
+  "count": 33,
   "tools": [
     {
       "name": "add-todo",
@@ -767,6 +767,35 @@
         "env_vars": []
       },
       "path": "tools/security-architect"
+    },
+    {
+      "name": "skill-reviewer",
+      "version": "1.0.0",
+      "description": "Audits a Claude Code skill file and produces a scored report with detailed findings and improvement steps",
+      "type": "skill",
+      "category": "developer-tools",
+      "complexity": "intermediate",
+      "tags": [
+        "skills",
+        "review",
+        "audit",
+        "quality",
+        "feedback"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/skill-reviewer.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/skill-reviewer"
     },
     {
       "name": "software-architect",
