@@ -69,6 +69,11 @@ For each flight from both providers extract:
 - **Airlines**
 - **Booking link**
 - **Provider** (Expedia or Kiwi)
+- **Baggage** — from Expedia's `fare_options[].baggage_fees[]`, extract for each bag type:
+  - `PERSONAL_ITEM`: ALLOWED or NOT_ALLOWED
+  - `CARRY_ON`: ALLOWED / NOT_ALLOWED / FEE_APPLIES (note fee amount)
+  - `FIRST_BAG` (checked): ALLOWED / FEE_APPLIES (note fee amount) / NOT_ALLOWED
+  - Kiwi does **not** return baggage data — mark as "see booking page" for all Kiwi results.
 
 Then rank across three dimensions (rank 1 = best):
 - **Price rank**: ascending by total price
@@ -90,26 +95,29 @@ Group the top results into three categories. Show 2 flights per group max; never
 ---
 
 ### 💰 Cheapest
-| Route | Departure → Arrival | Duration | Stops | Price (total) | Book |
-|---|---|---|---|---|---|
-| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | $420 (Kiwi) | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage | Price (base fare) | Book |
+|---|---|---|---|---|---|---|
+| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | $420 (Kiwi) | [Book →](url) |
 
 ---
 
 ### ⚡ Fastest
-| Route | Departure → Arrival | Duration | Stops | Price (total) | Book |
-|---|---|---|---|---|---|
-| LHR → JFK | 10:00 → 13:05 | 7h 05m | Direct ✅ | $500 (Expedia) | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage | Price (base fare) | Book |
+|---|---|---|---|---|---|---|
+| LHR → JFK | 10:00 → 13:05 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$80 | $500 (Expedia) | [Book →](url) |
 
 ---
 
 ### 🎯 Best Overall
 _Balanced score across price, speed, and stops_
-| Route | Departure → Arrival | Duration | Stops | Price (total) | Book |
-|---|---|---|---|---|---|
-| LHR → JFK via AMS | 07:00 → 12:30 | 9h 30m | 1 stop | $380 (Kiwi) | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage | Price (base fare) | Book |
+|---|---|---|---|---|---|---|
+| LHR → JFK via AMS | 07:00 → 12:30 | 9h 30m | 1 stop | 🎒 ❌ not included / 🧳 +$70 | $380 (Kiwi) | [Book →](url) |
 
 ---
+🧳 **Baggage legend:** 🎒 = carry-on bag  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee applies
+> Kiwi results: baggage policy not returned by API — always check the booking page before purchasing.
+
 💡 [One-line recommendation: which flight you'd choose and why, referencing the user's trip context]
 ```
 
@@ -126,3 +134,5 @@ Note currencies used if Expedia and Kiwi return different ones — convert to a 
 - **Children's ages are required** — always ask for ages (not just count) as they affect pricing tiers.
 - **Direct flights are strongly preferred** by most travellers — always call out whether a flight is direct.
 - **If results overlap** (same flight on both platforms at different prices), show only the cheaper listing and note the price difference.
+- **Price shown is the base fare.** Always surface baggage fees so the user can calculate their true all-in cost. A $100 flight with a $115 carry-on fee is not the cheapest option.
+- **Flag carry-on-not-included fares prominently** (❌) — many budget fares exclude carry-ons entirely, which is a dealbreaker for most travellers.
