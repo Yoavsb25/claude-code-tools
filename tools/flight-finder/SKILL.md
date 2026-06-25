@@ -264,6 +264,12 @@ Note currencies if Expedia and Kiwi return different ones — convert to a commo
 ✈️ Nearby airport tip: Flying into [ALT_AIRPORT] instead of [MAIN_AIRPORT] saves ~$[X]. [Link if available]
 ```
 
+### Price volatility notice (always show)
+
+```
+⏱ Prices are live estimates captured at search time and may change before checkout — complete your booking promptly to lock in the displayed fare. Kiwi prices in particular may differ at the checkout page; if the price increases by more than 5%, consider the Expedia option for comparison.
+```
+
 ### Personalized recommendation
 
 Replace the generic one-liner with a recommendation that references the customer's stated preferences:
