@@ -40,7 +40,19 @@ Ask for everything you need in a single, natural message. Do not fire off questi
 **Example intake message:**
 > "Happy to find you the best deal! A few quick questions: Where are you flying from and to? What dates (and is there any flexibility — flying a day earlier or later sometimes saves a lot)? How many passengers? What will you be bringing — just a personal item, a carry-on, or checked luggage? Do you need direct flights only? Any preference on departure time? And are nearby airports an option (e.g., EWR or LGA instead of JFK)?"
 
-**If all details are already clear from context:** skip the prompt and go straight to searching.
+**Filter relaxation order (when all results are eliminated):**
+1. Relax departure time window first — show results at any time and note: "No flights in your preferred time window — showing all departure times."
+2. If still no results, relax direct-only — show 1-stop options and note: "No direct flights on this route — showing best connections."
+3. Never relax both silently. Always note which filter was relaxed and why.
+
+**Skip the intake prompt only if ALL of the following are present in the user's message:**
+- Origin and destination (unambiguous)
+- Departure date (and return date if round-trip)
+- Passenger count
+- At least one explicit baggage signal (e.g. "just a backpack", "I have a suitcase", "carry-on only")
+- At least one flexibility signal ("exact dates" / "flexible" / "must fly Thursday")
+
+If any of these are missing, always ask. Do not infer preferences from context.
 
 **If origin or destination is ambiguous** (e.g. "London" = LHR/LGW/STN): default to the main international hub and note the assumption.
 
