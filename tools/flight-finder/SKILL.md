@@ -56,6 +56,11 @@ If any of these are missing, always ask. Do not infer preferences from context.
 
 **If origin or destination is ambiguous** (e.g. "London" = LHR/LGW/STN): default to the main international hub and note the assumption.
 
+**Peak-day flag:** After collecting the departure date, check the day of the week:
+- Friday and Sunday are the most expensive days to fly on most routes (20–40% premium vs mid-week)
+- If the customer's departure falls on a Friday or Sunday and they said their dates are flexible (or didn't address flexibility yet), add this to the intake message: "Heads up — Fridays and Sundays tend to be the priciest days to fly. Would you like me to also check Thursday or Saturday to see if there's a better price?"
+- If they said dates are fixed: note the peak day in the results banner at the top of Step 4.
+
 ---
 
 ## Step 2 — Search adaptively, all calls in parallel
@@ -277,6 +282,16 @@ Replace the generic one-liner with a recommendation that references the customer
 > "Given you need a carry-on and prefer direct flights — I'd book the [airline] [time] flight at **$[true_cost] all-in**. It's direct, departs in the [morning/etc.], and the carry-on is included. The apparent cheapest option ([flight]) is actually $[X] more once you add the $[fee] carry-on fee."
 
 If the customer has no special preferences, a shorter recommendation is fine.
+
+**Booking timing context (append to the recommendation when relevant):**
+
+Calculate how far out the departure date is from today. Then append:
+- 0–2 weeks out: "You're booking close to departure — prices at this range are typically near their peak. What you see now is likely close to the floor."
+- 3–6 weeks out (domestic / short-haul): "You're in the sweet spot for this type of route — prices are typically at their lowest 3–6 weeks before departure."
+- 6–12 weeks out (long-haul international): "You're in the sweet spot for a long-haul route — prices typically hit their lowest 6–12 weeks out."
+- 12+ weeks out: "You're booking early — prices may still drop, especially for long-haul routes, but there's a risk of fares selling out too."
+
+If the departure date is on a peak day and dates were stated as fixed, prepend: "Note: [day] departures carry a typical 20–40% premium on most routes. If any flexibility opens up, [day-1] or [day+1] departures are worth checking."
 
 ---
 
