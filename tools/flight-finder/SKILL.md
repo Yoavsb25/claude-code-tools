@@ -130,6 +130,11 @@ For each flight from all searches:
 - **Base fare** — total for all passengers
 - **Duration** — total journey time in minutes (outbound leg)
 - **Stops** — number of layovers (0 = direct)
+- **Connection risk** — for flights with 1+ stops, assess each connection:
+  - Flag `TIGHT` if connection time is under 75 minutes at a large/complex airport:
+    CDG (Paris), JFK (New York), LAX (Los Angeles), MXP (Milan), FCO (Rome), ORD (Chicago), EWR (Newark), LHR (London), ATL (Atlanta)
+  - Flag `TIGHT` if connection time is under 45 minutes at any other airport
+  - Flag `VIRTUAL_INTERLINE` for all Kiwi results with 1+ stops — Kiwi frequently books connections as separate tickets. If the first leg is delayed and the customer misses the second leg, the airline is not obligated to rebook them.
 - **Departure / arrival times**
 - **Airlines**
 - **Booking link**
@@ -223,7 +228,7 @@ Group the top results into three categories. Show 2 flights per group max; never
 | Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
 |---|---|---|---|---|---|---|---|---|
 | LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$420** | base $420 | Non-refundable | [Book →](url) |
-| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
+| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop ⚠️ tight cnx | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
 
 ---
 
@@ -242,6 +247,8 @@ _Balanced score across true cost, speed, and stops_
 
 ---
 🧳 **Baggage legend:** 🎒 = carry-on  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee
+⚠️ **Tight connection** = under 75 min at a complex airport or under 45 min elsewhere — delay on the first leg may cause you to miss the second.
+⚠️ **Self-ticketed (Kiwi)** = two separate tickets booked to connect. A missed connection is at your expense — the second airline will not rebook you for free.
 ⚠️ Kiwi results show base fare only — bag fees unknown. Verify on booking page before purchasing.
 ⚠️ **ULCC fares** (Spirit, Frontier, Ryanair, Wizz, easyJet, etc.) do not include seat selection — expect an additional $15–50/seat/leg at checkout. True cost above excludes this.
 ⚠️ **Basic Economy fares** may restrict seat selection and overhead bin access — verify on the booking page before purchasing.
@@ -269,6 +276,7 @@ If the customer has no special preferences, a shorter recommendation is fine.
 
 ## Key rules
 
+- **Highlight connection risk.** A cheap flight with a tight connection or Kiwi self-ticketing can cost far more than a pricier direct if the connection is missed. Always display the connection risk flag in the Stops column and explain it in the footer.
 - **Flag ULCC and Basic Economy fares explicitly.** Seat fees on ultra-low-cost carriers can exceed the advertised baggage savings. Never present a ULCC fare as the "cheapest true cost" without the seat fee caveat.
 - **Always surface fare flexibility.** Business travelers and those with uncertain plans need refundable or changeable tickets. When recommending a non-refundable fare, explicitly note it: "Note: this fare is non-refundable — if your plans change you'll lose the full amount."
 - **True cost (not base fare) is the primary ranking metric.** A $199 flight with an $89 carry-on fee loses to a $249 flight with carry-on included.
