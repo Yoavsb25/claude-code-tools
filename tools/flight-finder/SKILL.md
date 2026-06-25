@@ -164,6 +164,18 @@ For Kiwi results:
     true_cost is unknown — display as "~$[base_fare]+ (bag fees unknown)"
 ```
 
+### Flag ULCC and Basic Economy fares
+
+After computing true cost, check the operating airline against the ULCC list below. If matched, add a `ulcc_warning` flag to the flight.
+
+**Known ULCCs (seat fees nearly guaranteed, ~$15–50/seat/leg):**
+Spirit (NK), Frontier (F9), Allegiant (G4), Wizz Air (W6), Ryanair (FR), easyJet (U2), Norwegian budget fares (DY), Transavia (TO/HV), Vueling (VY), Volaris (Y4), VivaAerobus (VB)
+
+**Basic Economy flag (applies to legacy carriers):**
+If the fare name from Expedia contains "Basic Economy" (Delta, United, American, Air France, Lufthansa), add a `basic_economy_warning` flag. Basic Economy typically blocks seat selection and overhead bin access on some carriers.
+
+These flags are display-only — they do not affect the true_cost calculation, since seat fees vary and are not returned by the APIs.
+
 **Rank all flights by `true_cost`**, not base fare. All three ranking dimensions use true cost as the price metric.
 
 ### Apply preference filters
@@ -231,6 +243,8 @@ _Balanced score across true cost, speed, and stops_
 ---
 🧳 **Baggage legend:** 🎒 = carry-on  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee
 ⚠️ Kiwi results show base fare only — bag fees unknown. Verify on booking page before purchasing.
+⚠️ **ULCC fares** (Spirit, Frontier, Ryanair, Wizz, easyJet, etc.) do not include seat selection — expect an additional $15–50/seat/leg at checkout. True cost above excludes this.
+⚠️ **Basic Economy fares** may restrict seat selection and overhead bin access — verify on the booking page before purchasing.
 ```
 
 For round-trips, include a "Return flight" row beneath each outbound row.
@@ -255,6 +269,7 @@ If the customer has no special preferences, a shorter recommendation is fine.
 
 ## Key rules
 
+- **Flag ULCC and Basic Economy fares explicitly.** Seat fees on ultra-low-cost carriers can exceed the advertised baggage savings. Never present a ULCC fare as the "cheapest true cost" without the seat fee caveat.
 - **Always surface fare flexibility.** Business travelers and those with uncertain plans need refundable or changeable tickets. When recommending a non-refundable fare, explicitly note it: "Note: this fare is non-refundable — if your plans change you'll lose the full amount."
 - **True cost (not base fare) is the primary ranking metric.** A $199 flight with an $89 carry-on fee loses to a $249 flight with carry-on included.
 - **Always search both providers.** Even if one returns better results, the comparison is the point.
