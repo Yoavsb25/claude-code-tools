@@ -233,7 +233,21 @@ Group the top results into three categories. Show 2 flights per group max; never
 | Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
 |---|---|---|---|---|---|---|---|---|
 | LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$420** | base $420 | Non-refundable | [Book →](url) |
+| ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | _(included in total above)_ | — | Refundable | — |
 | LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop ⚠️ tight cnx | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
+
+_Round-trip — include a return row directly beneath each outbound row:_
+| ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | _(included in total above)_ | — | Refundable | — |
+
+The True Cost and Breakdown columns on the return row show "_(included in total above)_" — the true cost on the outbound row already accounts for the full round-trip baggage fees.
+
+**Breakdown column format:**
+- No fees: `base $X`
+- Carry-on fee: `base $X + carry-on $Y/person`
+- Checked bag fee: `base $X + checked $Y × N bags`
+- Both: `base $X + carry-on $Y/person + checked $Z × N bags`
+- Multiple passengers: multiply per-person fees by adult count before adding: `base $X + carry-on $Y × 2 pax`
+- Unknown (Kiwi): `~$X (bag fees unknown)`
 
 ---
 
@@ -246,6 +260,10 @@ Group the top results into three categories. Show 2 flights per group max; never
 
 ### 🎯 Best Overall
 _Balanced score across true cost, speed, and stops_
+
+_If the Best Overall flight is the same as the Cheapest flight: mark it in the Cheapest row with "★ Also best overall" and omit the Best Overall section. Show the second-best overall score as "Runner-up" in its place, or omit the section entirely if only one flight passed all filters._
+
+_If a category (Cheapest / Fastest / Best Overall) has zero qualifying flights after filtering: omit that section entirely and add a note: "No [Category] option found given your current filters — try relaxing direct-only or departure time."_
 | Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
 |---|---|---|---|---|---|---|---|---|
 | LHR → JFK | 09:15 → 12:20 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$455** | base $455 | Non-refundable | [Book →](url) |
@@ -261,7 +279,7 @@ _Balanced score across true cost, speed, and stops_
 
 For round-trips, include a "Return flight" row beneath each outbound row.
 
-Note currencies if Expedia and Kiwi return different ones — convert to a common currency if possible.
+**Currency rule:** Convert all prices to the user's stated currency. If no currency was stated, convert everything to USD. Use the exchange rate implied by the API responses if available; otherwise note the approximate rate used: "(converted from EUR at ~1.08)". Always show a single currency in the output — never mix USD and EUR in the same table.
 
 ### Nearby airport tip (show only if an alternative airport is cheaper)
 
