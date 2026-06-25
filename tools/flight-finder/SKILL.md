@@ -139,6 +139,11 @@ For each flight from all searches:
   - `CARRY_ON`: ALLOWED / NOT_ALLOWED / FEE_APPLIES (note fee amount)
   - `FIRST_BAG` (checked): ALLOWED / FEE_APPLIES (note fee amount) / NOT_ALLOWED
   - Kiwi does **not** return baggage data — mark all as "unknown."
+- **Fare flexibility** — from Expedia's `fare_options[].refund_penalty` or `fare_options[].change_penalty`:
+  - If no penalty and refunds allowed: `Refundable`
+  - If changes allowed with fee: `Change fee: $X`
+  - If no changes or refunds: `Non-refundable`
+  - Kiwi does not reliably return fare flexibility — mark as "check booking page"
 
 ### Compute true all-in cost
 
@@ -203,25 +208,25 @@ Group the top results into three categories. Show 2 flights per group max; never
 ---
 
 ### 💰 Cheapest True Cost
-| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Book |
-|---|---|---|---|---|---|---|---|
-| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$420** | base $420 | [Book →](url) |
-| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
+|---|---|---|---|---|---|---|---|---|
+| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$420** | base $420 | Non-refundable | [Book →](url) |
+| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
 
 ---
 
 ### ⚡ Fastest
-| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Book |
-|---|---|---|---|---|---|---|---|
-| LHR → JFK | 10:00 → 13:05 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$80 | **$500** | base $500 | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
+|---|---|---|---|---|---|---|---|---|
+| LHR → JFK | 10:00 → 13:05 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$80 | **$500** | base $500 | Refundable | [Book →](url) |
 
 ---
 
 ### 🎯 Best Overall
 _Balanced score across true cost, speed, and stops_
-| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Book |
-|---|---|---|---|---|---|---|---|
-| LHR → JFK | 09:15 → 12:20 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$455** | base $455 | [Book →](url) |
+| Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
+|---|---|---|---|---|---|---|---|---|
+| LHR → JFK | 09:15 → 12:20 | 7h 05m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$455** | base $455 | Non-refundable | [Book →](url) |
 
 ---
 🧳 **Baggage legend:** 🎒 = carry-on  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee
@@ -250,6 +255,7 @@ If the customer has no special preferences, a shorter recommendation is fine.
 
 ## Key rules
 
+- **Always surface fare flexibility.** Business travelers and those with uncertain plans need refundable or changeable tickets. When recommending a non-refundable fare, explicitly note it: "Note: this fare is non-refundable — if your plans change you'll lose the full amount."
 - **True cost (not base fare) is the primary ranking metric.** A $199 flight with an $89 carry-on fee loses to a $249 flight with carry-on included.
 - **Always search both providers.** Even if one returns better results, the comparison is the point.
 - **Never book or initiate checkout** — present options only.
