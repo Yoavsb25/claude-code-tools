@@ -123,7 +123,12 @@ Only search the 1 most prominent alternative per end (not all of them) to keep t
 
 **Cap on nearby airport searches:** maximum 2 extra searches per direction (origin alternative + destination alternative). Never search all combinations of alternatives simultaneously.
 
-**If any provider, date, or airport combination fails or returns no results:** note it briefly and continue with what succeeded.
+**If one provider fails or returns no results:** note it briefly at the top of the output ("Expedia returned no results for this search — showing Kiwi results only") and continue.
+
+**If both providers fail or return no results:** do not show empty tables. Respond with:
+> "I wasn't able to retrieve flight results right now — both Expedia and Kiwi returned errors. Please try again in a moment, or search directly at expedia.com or kiwi.com for [origin] → [destination] on [date]."
+
+Stop there. Do not proceed to Step 3 or Step 4.
 
 ---
 
@@ -172,6 +177,8 @@ if customer needs checked bag(s):
 
 For Kiwi results:
     true_cost is unknown — display as "~$[base_fare]+ (bag fees unknown)"
+
+**If Expedia returns a result with no `fare_options[].baggage_fees[]` data at all** (the field is absent or an empty array): treat this flight identically to a Kiwi result — mark all baggage as unknown and display true_cost as `~$[base_fare]+ (bag fees unknown)`. Do not guess or assume the bag is included.
 ```
 
 ### Flag ULCC and Basic Economy fares
@@ -315,6 +322,7 @@ If the departure date is on a peak day and dates were stated as fixed, prepend: 
 
 ## Key rules
 
+- **Never show empty result tables.** If a provider fails, remove it from the output and note the omission. If both fail, stop and give the user direct links to search manually. Showing an empty or broken table is worse than showing nothing.
 - **Highlight connection risk.** A cheap flight with a tight connection or Kiwi self-ticketing can cost far more than a pricier direct if the connection is missed. Always display the connection risk flag in the Stops column and explain it in the footer.
 - **Flag ULCC and Basic Economy fares explicitly.** Seat fees on ultra-low-cost carriers can exceed the advertised baggage savings. Never present a ULCC fare as the "cheapest true cost" without the seat fee caveat.
 - **Always surface fare flexibility.** Business travelers and those with uncertain plans need refundable or changeable tickets. When recommending a non-refundable fare, explicitly note it: "Note: this fare is non-refundable — if your plans change you'll lose the full amount."
