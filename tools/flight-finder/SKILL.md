@@ -59,7 +59,7 @@ If any of these are missing, always ask. Do not infer preferences from context.
 **Peak-day flag:** After collecting the departure date, check the day of the week:
 - Friday and Sunday are the most expensive days to fly on most routes (20–40% premium vs mid-week)
 - If the customer's departure falls on a Friday or Sunday and they said their dates are flexible (or didn't address flexibility yet), add this to the intake message: "Heads up — Fridays and Sundays tend to be the priciest days to fly. Would you like me to also check Thursday or Saturday to see if there's a better price?"
-- If they said dates are fixed: note the peak day in the results banner at the top of Step 4.
+- If they said dates are fixed: note the peak day in the personalized recommendation section in Step 4.
 
 ---
 
@@ -205,6 +205,7 @@ Apply before ranking:
   - Evening: 18:00–23:59
 
 **If a filter removes all results:** relax it, add a note (e.g., "No direct flights on this route — showing best connections"), and continue.
+Relax in priority order: departure time window first, then direct-only — matching the order defined in Step 1.
 
 ### Rank
 
@@ -243,9 +244,6 @@ Group the top results into three categories. Show 2 flights per group max; never
 | ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | _(included in total above)_ | — | Refundable | — |
 | LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop ⚠️ tight cnx | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
 
-_Round-trip — include a return row directly beneath each outbound row:_
-| ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | _(included in total above)_ | — | Refundable | — |
-
 The True Cost and Breakdown columns on the return row show "_(included in total above)_" — the true cost on the outbound row already accounts for the full round-trip baggage fees.
 
 **Breakdown column format:**
@@ -278,8 +276,9 @@ _If a category (Cheapest / Fastest / Best Overall) has zero qualifying flights a
 ---
 🧳 **Baggage legend:** 🎒 = carry-on  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee
 ⚠️ **Tight connection** = under 75 min at a complex airport or under 45 min elsewhere — delay on the first leg may cause you to miss the second.
-⚠️ **Self-ticketed (Kiwi)** = two separate tickets booked to connect. A missed connection is at your expense — the second airline will not rebook you for free.
+⚠️ **Self-ticketed (Kiwi)** = two separate tickets booked to connect. A missed connection is at your expense — the second airline will not rebook you for free. Display in the Stops column as: `1 stop ⚠️ self-ticketed`
 ⚠️ Kiwi results show base fare only — bag fees unknown. Verify on booking page before purchasing.
+_(Show the lines below only if at least one result carries a ulcc_warning or basic_economy_warning flag — omit entirely if all results are standard fares.)_
 ⚠️ **ULCC fares** (Spirit, Frontier, Ryanair, Wizz, easyJet, etc.) do not include seat selection — expect an additional $15–50/seat/leg at checkout. True cost above excludes this.
 ⚠️ **Basic Economy fares** may restrict seat selection and overhead bin access — verify on the booking page before purchasing.
 ```
