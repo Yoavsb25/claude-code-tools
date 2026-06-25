@@ -88,9 +88,12 @@ Call `mcp__claude_ai_Expedia__search_flights` and `mcp__claude_ai_Kiwi_com__sear
 
 ### If dates are flexible (±1 or ±2 days)
 
-Add Expedia + Kiwi searches for each adjacent date on the **departure** (and return date if round-trip, but limit to ±1 on return to avoid combinatorial explosion). Run all of these in parallel with the base search.
+Add Expedia + Kiwi searches for each adjacent date as follows:
+- **±1 day:** 2 extra dates × 2 providers = 4 extra calls (6 total with base)
+- **±2 days:** 4 extra dates × 2 providers = 8 extra calls (10 total with base)
+- **Round-trip:** flex the departure date only (not the return) to avoid a combinatorial explosion. Cap at ±1 on the departure even if the customer said ±2, and note the cap.
 
-Track results per date. Surface the cheapest-true-cost date prominently at the top of the output.
+Run all searches in parallel. Track which departure date returns the lowest all-in price across all results.
 
 ### If nearby airports are OK
 
@@ -110,6 +113,10 @@ Use the mapping below to identify the 1 most common alternative airport for each
 | Milan | MXP | BGY |
 
 Only search the 1 most prominent alternative per end (not all of them) to keep the number of parallel calls manageable.
+
+**If the city is not in the mapping above:** skip the nearby airport search entirely. Do not mention it in the output.
+
+**Cap on nearby airport searches:** maximum 2 extra searches per direction (origin alternative + destination alternative). Never search all combinations of alternatives simultaneously.
 
 **If any provider, date, or airport combination fails or returns no results:** note it briefly and continue with what succeeded.
 
