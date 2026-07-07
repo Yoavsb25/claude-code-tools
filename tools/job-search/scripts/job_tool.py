@@ -332,6 +332,74 @@ def normalize_linkedin_job_id(value):
     return None
 
 
+LINKEDIN_CARD_SPLIT_RE = re.compile(r'data-entity-urn="urn:li:jobPosting:')
+LINKEDIN_ID_PREFIX_RE = re.compile(r"^(\d+)")
+LINKEDIN_FULL_LINK_RE = re.compile(r'class="base-card__full-link[^"]*"[^>]*href="([^"]+)"', re.IGNORECASE)
+LINKEDIN_TITLE_H3_RE = re.compile(r'class="base-search-card__title"[^>]*>([\s\S]*?)</h3>', re.IGNORECASE)
+LINKEDIN_TITLE_SR_RE = re.compile(r'class="sr-only"[^>]*>([\s\S]*?)</span>', re.IGNORECASE)
+LINKEDIN_SUBTITLE_RE = re.compile(r'class="base-search-card__subtitle"[^>]*>([\s\S]*?)</h4>', re.IGNORECASE)
+LINKEDIN_HREF_RE = re.compile(r'href="([^"]+)"', re.IGNORECASE)
+LINKEDIN_LOCATION_RE = re.compile(r'class="job-search-card__location"[^>]*>([\s\S]*?)</span>', re.IGNORECASE)
+LINKEDIN_LISTDATE_RE = re.compile(
+    r'class="job-search-card__listdate[^"]*"[^>]*datetime="([^"]+)"', re.IGNORECASE
+)
+
+
+def parse_linkedin_cards(html):
+    results = []
+    chunks = LINKEDIN_CARD_SPLIT_RE.split(html)[1:]
+
+    for chunk in chunks:
+        id_match = LINKEDIN_ID_PREFIX_RE.match(chunk)
+        if not id_match:
+            continue
+        job_id = id_match.group(1)
+
+        link_match = LINKEDIN_FULL_LINK_RE.search(chunk)
+        url = decode_html_entities(link_match.group(1)).split("?")[0] if link_match else ""
+
+        title = None
+        h3_match = LINKEDIN_TITLE_H3_RE.search(chunk)
+        if h3_match:
+            title = clean_text(h3_match.group(1)) or None
+        if not title:
+            sr_match = LINKEDIN_TITLE_SR_RE.search(chunk)
+            if sr_match:
+                title = clean_text(sr_match.group(1)) or None
+        if not title:
+            continue
+
+        company = None
+        sub_match = LINKEDIN_SUBTITLE_RE.search(chunk)
+        if sub_match:
+            company_link = LINKEDIN_HREF_RE.search(sub_match.group(1))
+            company_url = (
+                decode_html_entities(company_link.group(1)).split("?")[0] if company_link else None
+            )
+            company = clean_text(sub_match.group(1)) or None
+        else:
+            company_url = None
+
+        loc_match = LINKEDIN_LOCATION_RE.search(chunk)
+        location = clean_text(loc_match.group(1)) if loc_match else None
+        location = location or None
+
+        date_match = LINKEDIN_LISTDATE_RE.search(chunk)
+        posted_date = date_match.group(1) if date_match else None
+
+        results.append({
+            "id": job_id,
+            "title": title,
+            "company": company,
+            "company_url": company_url,
+            "location": location,
+            "posted_date": posted_date,
+            "url": url or f"https://www.linkedin.com/jobs/view/{job_id}",
+        })
+
+    return results
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
