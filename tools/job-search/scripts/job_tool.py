@@ -287,6 +287,27 @@ def strip_html(text):
     return text
 
 
+def decode_html_entities(text):
+    if not text:
+        return text
+
+    def numeric_entity(code_point):
+        return chr(code_point) if 0 <= code_point <= 0x10FFFF else ""
+
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&apos;", "'")
+    text = re.sub(r"&#(\d+);", lambda m: numeric_entity(int(m.group(1))), text)
+    text = re.sub(r"&#[xX]([0-9a-fA-F]+);", lambda m: numeric_entity(int(m.group(1), 16)), text)
+    text = text.replace("&nbsp;", " ")
+    return text
+
+
+def clean_text(html):
+    if not html:
+        return html
+    return decode_html_entities(strip_html(html))
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
