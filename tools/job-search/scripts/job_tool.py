@@ -400,6 +400,80 @@ def parse_linkedin_cards(html):
     return results
 
 
+LINKEDIN_TOPCARD_TITLE_RE = re.compile(
+    r'class="(?:top-card-layout__title|topcard__title)[^"]*"[^>]*>([\s\S]*?)</h[12]>', re.IGNORECASE
+)
+LINKEDIN_ORG_RE = re.compile(
+    r'class="topcard__org-name-link[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)</a>', re.IGNORECASE
+)
+LINKEDIN_LOC_DETAIL_RE = re.compile(
+    r'class="topcard__flavor topcard__flavor--bullet"[^>]*>([\s\S]*?)</span>', re.IGNORECASE
+)
+LINKEDIN_DESC_RE = re.compile(
+    r'class="(?:show-more-less-html__markup|description__text[^"]*)"[^>]*>([\s\S]*?)</div>',
+    re.IGNORECASE,
+)
+LINKEDIN_BR_RE = re.compile(r"<\s*br\s*/?>", re.IGNORECASE)
+LINKEDIN_BLOCK_CLOSE_RE = re.compile(r"</(p|li|ul|ol|div|h\d)>", re.IGNORECASE)
+LINKEDIN_CRITERIA_RE = re.compile(
+    r'class="description__job-criteria-subheader"[^>]*>([\s\S]*?)</h3>[\s\S]*?'
+    r'class="description__job-criteria-text[^"]*"[^>]*>([\s\S]*?)</span>',
+    re.IGNORECASE,
+)
+LINKEDIN_APPLY_RE = re.compile(r'class="topcard__link[^"]*"[^>]*href="([^"]+)"', re.IGNORECASE)
+
+
+def _strip_tags_keep_newlines(text):
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text)
+    return text.strip()
+
+
+def parse_linkedin_detail(html, job_id):
+    title_match = LINKEDIN_TOPCARD_TITLE_RE.search(html)
+    title = clean_text(title_match.group(1)) if title_match else None
+
+    org_match = LINKEDIN_ORG_RE.search(html)
+    company = clean_text(org_match.group(2)) or None if org_match else None
+    company_url = decode_html_entities(org_match.group(1)).split("?")[0] if org_match else None
+
+    loc_match = LINKEDIN_LOC_DETAIL_RE.search(html)
+    location = (clean_text(loc_match.group(1)) or None) if loc_match else None
+
+    description = None
+    desc_match = LINKEDIN_DESC_RE.search(html)
+    if desc_match:
+        with_breaks = LINKEDIN_BR_RE.sub("\n", desc_match.group(1))
+        with_breaks = LINKEDIN_BLOCK_CLOSE_RE.sub("\n", with_breaks)
+        text = decode_html_entities(_strip_tags_keep_newlines(with_breaks))
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        description = text or None
+
+    criteria = {}
+    for match in LINKEDIN_CRITERIA_RE.finditer(html):
+        key = clean_text(match.group(1)).lower()
+        criteria[key] = clean_text(match.group(2))
+
+    apply_match = LINKEDIN_APPLY_RE.search(html)
+    apply_url = decode_html_entities(apply_match.group(1)).split("?")[0] if apply_match else None
+
+    return {
+        "id": job_id,
+        "title": title or "(untitled)",
+        "company": company,
+        "company_url": company_url,
+        "location": location,
+        "url": f"https://www.linkedin.com/jobs/view/{job_id}",
+        "description": description,
+        "seniority": criteria.get("seniority level"),
+        "employment_type": criteria.get("employment type"),
+        "job_function": criteria.get("job function"),
+        "industries": criteria.get("industries"),
+        "apply_url": apply_url,
+    }
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:

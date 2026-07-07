@@ -141,5 +141,53 @@ class TestParseLinkedinCards(unittest.TestCase):
         self.assertEqual(job_tool.parse_linkedin_cards("<ul></ul>"), [])
 
 
+LINKEDIN_DETAIL_HTML_FIXTURE = """
+<div class="top-card-layout">
+  <h1 class="top-card-layout__title">Staff Backend Engineer</h1>
+  <a class="topcard__org-name-link" href="https://www.linkedin.com/company/acme?trk=public_jobs">Acme Corp</a>
+  <span class="topcard__flavor topcard__flavor--bullet">Remote</span>
+  <a class="topcard__link" href="https://acme.com/careers/staff-backend-engineer?src=linkedin">Apply</a>
+</div>
+<div class="description__text">
+  <div class="show-more-less-html__markup">
+    <p>We are looking for a Staff Backend Engineer.</p>
+    <p>Responsibilities:</p>
+    <ul>
+      <li>Design APIs</li>
+      <li>Mentor engineers</li>
+    </ul>
+  </div>
+</div>
+<h3 class="description__job-criteria-subheader">Seniority level</h3>
+<span class="description__job-criteria-text description__job-criteria-text--criteria">Mid-Senior level</span>
+<h3 class="description__job-criteria-subheader">Employment type</h3>
+<span class="description__job-criteria-text description__job-criteria-text--criteria">Full-time</span>
+"""
+
+
+class TestParseLinkedinDetail(unittest.TestCase):
+    def test_parses_full_detail(self):
+        detail = job_tool.parse_linkedin_detail(LINKEDIN_DETAIL_HTML_FIXTURE, "4426311357")
+        self.assertEqual(detail["id"], "4426311357")
+        self.assertEqual(detail["title"], "Staff Backend Engineer")
+        self.assertEqual(detail["company"], "Acme Corp")
+        self.assertEqual(detail["location"], "Remote")
+        self.assertIn("We are looking for a Staff Backend Engineer.", detail["description"])
+        self.assertIn("Design APIs", detail["description"])
+        self.assertIn("\n", detail["description"])
+        self.assertEqual(detail["seniority"], "Mid-Senior level")
+        self.assertEqual(detail["employment_type"], "Full-time")
+        self.assertIsNone(detail["job_function"])
+        self.assertEqual(detail["apply_url"], "https://acme.com/careers/staff-backend-engineer")
+        self.assertEqual(detail["url"], "https://www.linkedin.com/jobs/view/4426311357")
+
+    def test_missing_fields_degrade_gracefully(self):
+        detail = job_tool.parse_linkedin_detail("<div>no matches here</div>", "999")
+        self.assertEqual(detail["title"], "(untitled)")
+        self.assertIsNone(detail["company"])
+        self.assertIsNone(detail["description"])
+        self.assertIsNone(detail["seniority"])
+
+
 if __name__ == "__main__":
     unittest.main()
