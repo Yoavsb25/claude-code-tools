@@ -110,6 +110,16 @@ Run one call per role in `roles` (varying the keyword), in parallel. These two s
 remote-job-focused aggregators — good general coverage, weakest on senior/staff-level and
 non-remote roles.
 
+Also run, once per (role × location) pair from the resolved criteria, in parallel with the calls
+above:
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search linkedin --query "<role keyword>" --location "<location>" --limit 25
+```
+This hits LinkedIn's public job-search endpoint directly — more reliable than the `WebSearch`-based
+LinkedIn queries in Stage 2b below, since it returns structured fields instead of snippets.
+**Personal use only** per LinkedIn's Terms of Service — keep query volume low, never bulk or
+commercial use.
+
 **If `target_companies` is set in the profile**, also run, per entry:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --query "<role keyword>"
@@ -209,6 +219,11 @@ server isn't guaranteed to be present), skip this step entirely and fall back to
 snippet exactly as before — this is optional enrichment on top of optional enrichment, never a
 hard requirement.
 
+**For a LinkedIn result** (any `linkedin.com/jobs/view/...` URL, whether it came from Stage 2a's
+native search or a WebSearch hit below): use
+`search linkedin-detail --id <the-url>` instead of `WebFetch` for enrichment. This replaces the
+step that previously 403'd on LinkedIn specifically with the same native endpoint Stage 2a uses.
+
 `WebSearch` results include a title, company, URL, and a synthesized snippet — that snippet alone
 is usually enough to score a posting (Stage 3). Treat `WebFetch` on the actual posting page as
 **optional enrichment, not a requirement**: try it on the most promising links to get full JD
@@ -276,9 +291,9 @@ Sort descending by overall score. Cap at the requested count (default 10).
 ```
 ## 🔍 Job Search — [role(s)]  •  [location(s)]  •  [date]
 
-Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn +
-direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N] after constraint
-filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
+Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn
+(native), LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N]
+after constraint filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
 
 | # | Company | Role | Fit | Posted | Salary | Link |
 |---|---|---|---|---|---|---|
@@ -360,3 +375,5 @@ date with no status change logged since.
   the user always submits.
 - **Be honest about weak weeks.** If nothing scores above threshold, say so plainly rather than
   lowering the bar to fill the table.
+- **LinkedIn access is personal-use-only** per its Terms of Service — keep query volume low on
+  both `search linkedin` and `search linkedin-detail`, never bulk or commercial use.
