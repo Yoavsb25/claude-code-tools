@@ -12,7 +12,10 @@ Usage:
   job_tool.py tracker render
   job_tool.py search remotive --query "backend" [--category X] [--limit 25]
   job_tool.py search arbeitnow --query "backend" [--limit 25] [--max-pages 3]
-  job_tool.py search ats --platform greenhouse|lever|ashby --company <slug> [--query X] [--limit 25]
+  job_tool.py search ats --platform greenhouse|lever|ashby|smartrecruiters|recruitee|workable \
+      --company <slug> [--query X] [--limit 25]
+  job_tool.py search discover-ats --company "<company name>" [--slug-hint <slug>] \
+      [--platforms a,b,c] [--query X] [--limit 25]
 
 State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
@@ -23,6 +26,12 @@ The `search` group hits public, keyless JSON APIs directly (no scraping, no MCP)
 prints a JSON object with a "results" list — a fetch failure for one source (network policy,
 outage, unknown company slug) is reported as an "error" string with an empty "results" list,
 never a stack trace, so a caller can fall back to another source without the whole run failing.
+
+`search discover-ats` is the one exception to "always error or results": since a company simply
+not being on any of the six supported ATS platforms is a normal outcome, not a failure, it never
+sets "error" — instead it reports a "confidence" of "high" (postings found), "low" (an endpoint
+resolved without error but returned zero postings — some platforms don't 404 on unknown slugs, so
+this is a guess, not a confirmed match), or "none" (nothing resolved on any platform/slug tried).
 """
 
 import json
@@ -36,13 +45,25 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 HTTP_TIMEOUT = 15
-USER_AGENT = "job-search-skill/1.1 (+https://github.com/Yoavsb25/claude-code-tools)"
+USER_AGENT = "job-search-skill/1.2 (+https://github.com/Yoavsb25/claude-code-tools)"
 REMOTIVE_URL = "https://remotive.com/api/remote-jobs"
 ARBEITNOW_URL = "https://www.arbeitnow.com/api/job-board-api"
 ATS_ENDPOINTS = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true",
     "lever": "https://api.lever.co/v0/postings/{slug}?mode=json",
     "ashby": "https://api.ashbyhq.com/posting-api/job-board/{slug}",
+    "smartrecruiters": "https://api.smartrecruiters.com/v1/companies/{slug}/postings?limit=100",
+    "recruitee": "https://{slug}.recruitee.com/api/offers/",
+    "workable": "https://apply.workable.com/api/v1/widget/accounts/{slug}?details=true",
+}
+# Platforms this script deliberately does NOT support: Workday has no universal keyless GET
+# endpoint (tenant-specific wd{N} subdomain + variable site-name path, and the real job-data
+# call is a POST with a JSON body, not a GET like every platform above) — it's handled only via
+# WebSearch/WebFetch in SKILL.md, never here.
+ATS_PROBE_ORDER = ["greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable"]
+ATS_SLUG_SUFFIXES = {
+    "inc", "llc", "ltd", "corp", "corporation", "co", "company",
+    "group", "technologies", "technology", "labs", "software", "systems",
 }
 
 STATUS_ORDER = [
@@ -355,46 +376,165 @@ def cmd_search_arbeitnow(args):
     print_search_result("arbeitnow", results, None, {"pages_fetched": pages_fetched})
 
 
-def cmd_search_ats(args):
-    url = ATS_ENDPOINTS[args.platform].format(slug=args.company)
-    data, err = http_get_json(url)
-    if err:
-        print_search_result(args.platform, [], err, {"company": args.company})
-        return
-
-    if args.platform == "greenhouse":
-        raw = [
+def parse_ats_payload(platform, company, data):
+    """Map one platform's raw JSON payload to a list of posting() dicts."""
+    if platform == "greenhouse":
+        return [
             posting(
-                "greenhouse", j.get("title"), args.company, (j.get("location") or {}).get("name"),
+                "greenhouse", j.get("title"), company, (j.get("location") or {}).get("name"),
                 None, j.get("absolute_url"), [d.get("name") for d in j.get("departments", [])],
                 None, j.get("updated_at"), j.get("content"),
             )
             for j in data.get("jobs", [])
         ]
-    elif args.platform == "lever":
-        raw = [
+    if platform == "lever":
+        return [
             posting(
-                "lever", j.get("text"), args.company, (j.get("categories") or {}).get("location"),
+                "lever", j.get("text"), company, (j.get("categories") or {}).get("location"),
                 None, j.get("hostedUrl"), (j.get("categories") or {}).get("allLocations") or [],
                 None, j.get("createdAt"), j.get("descriptionPlain") or j.get("description"),
             )
             for j in data
         ]
-    else:  # ashby
-        raw = [
+    if platform == "ashby":
+        return [
             posting(
-                "ashby", j.get("title"), args.company, j.get("location"), j.get("isRemote"),
+                "ashby", j.get("title"), company, j.get("location"), j.get("isRemote"),
                 j.get("jobUrl"), [j["departmentName"]] if j.get("departmentName") else [],
                 None, j.get("publishedAt"), j.get("descriptionPlain"),
             )
             for j in data.get("jobs", [])
         ]
+    if platform == "smartrecruiters":
+        return [
+            posting(
+                "smartrecruiters", j.get("name"), company,
+                ", ".join(filter(None, [
+                    (j.get("location") or {}).get("city"), (j.get("location") or {}).get("country"),
+                ])) or None,
+                (j.get("location") or {}).get("remote"),
+                j.get("postingUrl") or f"https://jobs.smartrecruiters.com/{company}/{j.get('id')}",
+                [(j.get("department") or {}).get("label")] if (j.get("department") or {}).get("label") else [],
+                None, j.get("releasedDate"), None,
+            )
+            for j in data.get("content", [])
+        ]
+    if platform == "recruitee":
+        return [
+            posting(
+                "recruitee", j.get("title"), company,
+                j.get("location") or ", ".join(filter(None, [j.get("city"), j.get("country")])) or None,
+                j.get("remote"), j.get("careers_url"),
+                [(j.get("department") or {}).get("name")] if isinstance(j.get("department"), dict)
+                else ([j["department"]] if j.get("department") else []),
+                None, j.get("created_at") or j.get("published_at"), j.get("description"),
+            )
+            for j in data.get("offers", [])
+        ]
+    # workable
+    return [
+        posting(
+            "workable", j.get("title"), company,
+            (j.get("location") or {}).get("location_str")
+            or ", ".join(filter(None, [(j.get("location") or {}).get("city"), (j.get("location") or {}).get("country")])),
+            j.get("telecommute"), j.get("url") or j.get("shortlink"),
+            [j.get("department")] if j.get("department") else [],
+            None, j.get("published_on"), j.get("description"),
+        )
+        for j in data.get("jobs", [])
+    ]
 
-    query = (args.query or "").lower()
+
+def fetch_ats_postings(platform, slug, query=None):
+    """Fetch + parse one (platform, slug) pair. Returns (results, error) — never raises, same
+    reliability contract as http_get_json: a bad slug or dead endpoint degrades to
+    (results=[], error="..."), never a stack trace."""
+    url = ATS_ENDPOINTS[platform].format(slug=slug)
+    data, err = http_get_json(url)
+    if err:
+        return [], err
+    raw = parse_ats_payload(platform, slug, data)
     if query:
-        raw = [r for r in raw if query in (r["title"] or "").lower()]
+        q = query.lower()
+        raw = [r for r in raw if q in (r["title"] or "").lower()]
+    return raw, None
 
-    print_search_result(args.platform, raw[: args.limit], None, {"company": args.company})
+
+def cmd_search_ats(args):
+    results, err = fetch_ats_postings(args.platform, args.company, args.query)
+    if err:
+        print_search_result(args.platform, [], err, {"company": args.company})
+        return
+    print_search_result(args.platform, results[: args.limit], None, {"company": args.company})
+
+
+def candidate_slugs(name, slug_hint=None):
+    """Generate a small, ordered, deduped list of plausible ATS slugs for a company name —
+    concatenated/hyphenated forms, with and without common legal suffixes stripped. Capped at 4
+    to bound the number of probe requests discover-ats makes."""
+    words = re.findall(r"[a-z0-9]+", name.lower())
+    trimmed = [w for w in words if w not in ATS_SLUG_SUFFIXES] or words
+
+    candidates = []
+    if slug_hint:
+        candidates.append(slug_hint.strip().lower())
+    if trimmed:
+        candidates.append("".join(trimmed))
+        candidates.append("-".join(trimmed))
+    if trimmed != words:
+        candidates.append("".join(words))
+    if trimmed:
+        candidates.append(trimmed[0])
+
+    seen, out = set(), []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out[:4]
+
+
+def cmd_search_discover_ats(args):
+    platforms = (
+        [p.strip() for p in args.platforms.split(",") if p.strip() in ATS_ENDPOINTS]
+        if args.platforms else ATS_PROBE_ORDER
+    )
+    slugs = candidate_slugs(args.company, args.slug_hint)
+
+    attempts = []
+    best = None      # (platform, slug, results) — non-empty results, high confidence
+    fallback = None  # (platform, slug, results) — valid-looking board, zero postings, low confidence
+
+    for slug in slugs:
+        for platform in platforms:
+            results, err = fetch_ats_postings(platform, slug, args.query)
+            attempts.append({
+                "platform": platform, "slug": slug, "error": err,
+                "results_count": None if err else len(results),
+            })
+            if err:
+                continue
+            if results:
+                best = (platform, slug, results)
+                break
+            elif fallback is None:
+                fallback = (platform, slug, results)
+        if best:
+            break
+
+    chosen = best or fallback
+    if chosen is None:
+        print_search_result("discover-ats", [], None, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none", "candidates_tried": attempts,
+        })
+        return
+
+    platform, slug, results = chosen
+    print_search_result("discover-ats", results[: args.limit], None, {
+        "company": args.company, "detected_platform": platform, "detected_slug": slug,
+        "confidence": "high" if best else "low", "candidates_tried": attempts,
+    })
 
 
 def main():
@@ -442,6 +582,14 @@ def main():
     p_ats.add_argument("--query")
     p_ats.add_argument("--limit", type=int, default=25)
     p_ats.set_defaults(func=cmd_search_ats)
+
+    p_discover = search_sub.add_parser("discover-ats")
+    p_discover.add_argument("--company", required=True)
+    p_discover.add_argument("--slug-hint", dest="slug_hint", help="A likely slug to try first, e.g. parsed from a pasted URL fragment")
+    p_discover.add_argument("--platforms", help="Comma-separated subset to probe (default: all supported ATS platforms)")
+    p_discover.add_argument("--query")
+    p_discover.add_argument("--limit", type=int, default=25)
+    p_discover.set_defaults(func=cmd_search_discover_ats)
 
     args = parser.parse_args()
     args.func(args)

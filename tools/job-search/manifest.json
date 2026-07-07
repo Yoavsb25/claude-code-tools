@@ -1,11 +1,11 @@
 {
   "name": "job-search",
-  "version": "1.2.0",
-  "description": "Runs the end-to-end job hunt: queries job-board APIs and the web for matching openings, tracks applications via a bookkeeping script, and kicks off resume-tailor for shortlisted roles",
+  "version": "1.3.0",
+  "description": "Runs the end-to-end job hunt: queries job-board APIs, company ATS feeds, and career pages, tracks applications via a bookkeeping script, and kicks off resume-tailor for shortlisted roles",
   "type": "tool",
   "category": "career",
   "complexity": "advanced",
-  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby"],
+  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery"],
   "install": {
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },

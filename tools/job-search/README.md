@@ -14,10 +14,12 @@ worth pursuing.
    preferred/avoided industries, must-haves, deal-breakers) with anything new the user says this
    turn, and offers to save changes back for next time.
 3. **Search** — queries public, keyless job-board APIs directly via `job_tool.py search`
-   (Remotive, Arbeitnow, and any watchlisted company's Greenhouse/Lever/Ashby feed), plus
-   `WebSearch`/`WebFetch` for broader coverage (LinkedIn, Indeed) — including industry-specific
-   angles. Every source degrades gracefully to a clear error instead of breaking the run if it's
-   unreachable or blocked.
+   (Remotive, Arbeitnow, and any watchlisted company's Greenhouse/Lever/Ashby/SmartRecruiters/
+   Recruitee/Workable feed — auto-detected from just a company name via `search discover-ats` if
+   the platform/slug aren't already known), plus `WebSearch`/`WebFetch` for broader coverage
+   (LinkedIn, Indeed, and companies' own `/careers` pages directly) — including proactively
+   discovering companies the user hasn't named and industry-specific angles. Every source degrades
+   gracefully to a clear error instead of breaking the run if it's unreachable or blocked.
 4. **Dedupe and score** — merges duplicate postings, drops anything already tracked or hitting a
    deal-breaker, and ranks the rest on role fit, requirements fit, and constraint fit (location,
    industry, deal-breakers).
@@ -39,7 +41,8 @@ python3 scripts/job_tool.py tracker upsert '{"company":"Acme Corp","role":"Staff
 python3 scripts/job_tool.py tracker render
 python3 scripts/job_tool.py search remotive --query "backend" [--category X] [--limit 25]
 python3 scripts/job_tool.py search arbeitnow --query "backend" [--limit 25] [--max-pages 3]
-python3 scripts/job_tool.py search ats --platform greenhouse|lever|ashby --company <slug> [--query X]
+python3 scripts/job_tool.py search ats --platform greenhouse|lever|ashby|smartrecruiters|recruitee|workable --company <slug> [--query X]
+python3 scripts/job_tool.py search discover-ats --company "Acme Corp" [--slug-hint acme] [--query X]
 ```
 
 State lives in `~/Desktop/Job-Search/` by default (override with `JOB_SEARCH_DIR`):
@@ -48,11 +51,20 @@ status to `Applied`, `Phone Screen`, or `Interviewing` auto-computes `applied_da
 `tracker list --stale-only` flags shortlisted roles idle 10+ days and applied/interviewing roles
 past their follow-up date with no status change since.
 
-The `search` subcommands call Remotive, Arbeitnow, and the Greenhouse/Lever/Ashby public job-board
-APIs directly (`urllib`, no dependencies, no API key). Every call prints a JSON object with a
-`results` list; a failure (network policy, outage, unknown company slug) comes back as
-`{"error": "...", "results": []}` rather than a stack trace, so one dead source never blocks the
-others.
+The `search` subcommands call Remotive, Arbeitnow, and six ATS platforms' public job-board APIs
+directly (`urllib`, no dependencies, no API key): Greenhouse, Lever, Ashby, SmartRecruiters,
+Recruitee, and Workable. Every call prints a JSON object with a `results` list; a failure (network
+policy, outage, unknown company slug) comes back as `{"error": "...", "results": []}` rather than a
+stack trace, so one dead source never blocks the others.
+
+`search discover-ats --company "<name>"` auto-detects which of those six platforms (if any) a
+company uses, and its slug, from just the company name — no need to already know or paste a
+board URL. It probes a handful of plausible slug guesses per platform and reports a `confidence`
+(`high` = postings actually found, `low` = a platform resolved with zero postings — some ATS
+platforms don't 404 on unknown slugs, so this is a guess, `none` = nothing matched). Workday is
+deliberately not supported here — it has no universal keyless GET endpoint — companies on Workday
+are found via the skill's `WebSearch`/`WebFetch` track instead, along with any other company whose
+career page isn't on a supported ATS.
 
 ## Usage
 
@@ -75,8 +87,11 @@ registry), then say:
 ## Requirements
 
 Python 3.9+ (stdlib only, no dependencies) for `job_tool.py search`/tracker/profile. Broader
-discovery also uses `WebSearch`/`WebFetch`. Works best alongside `resume-tailor` and
-`github-project-picker` for the hand-off step.
+discovery also uses `WebSearch`/`WebFetch`. If a `playwright` MCP server is configured, the skill
+also uses it as an optional fallback to render JS-heavy company career pages that `WebFetch` can't
+parse (raw HTML only, no JS execution) — the skill works fine without it, just with reduced
+coverage of custom career pages that render listings client-side. Works best alongside
+`resume-tailor` and `github-project-picker` for the hand-off step.
 
 > **Note:** The SKILL.md references Yoav's local work documentation for requirements-fit scoring.
 > Adapt the profile path in Stage 3 to your own setup before use.

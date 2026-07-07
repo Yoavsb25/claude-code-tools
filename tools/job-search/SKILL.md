@@ -72,7 +72,7 @@ Profile fields (all optional except `roles`):
 | `must_haves` | e.g. `["Kubernetes", "no on-call"]` |
 | `deal_breakers` | Hard excludes — companies, conditions (e.g. "RTO 5 days") |
 | `salary_floor` | Only used to flag postings that disclose a lower range |
-| `target_companies` | Optional watchlist of `{"name": "...", "platform": "greenhouse\|lever\|ashby", "slug": "..."}` — companies to check directly via Stage 2's `search ats` (see below) |
+| `target_companies` | Optional watchlist of `{"name": "...", "platform": "greenhouse\|lever\|ashby\|smartrecruiters\|recruitee\|workable\|workday", "slug": "..."}`. `platform`/`slug` are optional — if missing, Stage 2a auto-detects them before falling back to Stage 2b. A `workday` entry is bookkeeping only: `job_tool.py` has no reliable keyless endpoint for Workday, so those companies are always checked via Stage 2b's direct career-page WebFetch, never via `search ats` |
 
 **If the profile is empty (first run):** ask for the fields above in one conversational message,
 then save the answer with `profile set` before searching, so future runs don't re-ask.
@@ -120,6 +120,34 @@ If the user names a specific company mid-conversation and gives (or you can find
 extract the slug from that URL and run this ad hoc even if it isn't saved to `target_companies` —
 then ask whether to add it to the watchlist for next time.
 
+**Auto-detecting a company's ATS.** For any company that's in `target_companies` without a
+`platform`/`slug`, or that Stage 2b's proactive discovery surfaces as a candidate (see below), try
+auto-detection before falling back to WebFetch:
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-ats --company "<company name>" --query "<role keyword>"
+```
+This tries a handful of slug guesses derived from the company name (concatenated/hyphenated forms,
+with and without legal suffixes like "Inc"/"Ltd") against each supported ATS platform's keyless
+JSON API — Greenhouse, Lever, Ashby, SmartRecruiters, Recruitee, Workable, in that order — and
+returns whichever combination actually resolves. The response includes a `confidence`:
+- `"high"`: postings were actually found — trust this.
+- `"low"`: the endpoint responded without error but returned zero postings — some platforms don't
+  distinguish "unknown slug" from "real board, no current openings," so treat this as a guess.
+- `"none"`: nothing matched any platform/slug combination tried — fall back to Stage 2b for this
+  company, targeting its real domain directly, not just LinkedIn.
+
+**If `detected_platform` is non-null:** treat the returned postings as Stage 2a results (same
+dedupe priority as any other `search ats` call). After presenting the shortlist, ask the user:
+`"Found <Company>'s job board on <platform> (<slug>, confidence: <level>) — want me to save that
+to your watchlist?"` If yes: read the current `target_companies` from `profile show` (Stage 0's
+copy, or a fresh call if this is late in a long turn), add or update the entry by matching `name`
+case-insensitively, and write back the **full merged array** — `profile set` replaces
+`target_companies` wholesale (`profile.update(patch)` is a shallow merge), so never patch with just
+the new entry, or the rest of the watchlist is silently dropped:
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py profile set '{"target_companies": [ ...existing entries unchanged..., {"name": "<Company>", "platform": "<platform>", "slug": "<slug>"} ]}'
+```
+
 **If a `search` call returns a non-null `error`:** don't retry it — note the source failed (and
 why, briefly) in the Stage 4 output, and rely on the other sources for that round. A single
 source failing (e.g. this environment's network policy, or that API being temporarily down) must
@@ -136,6 +164,50 @@ Run `WebSearch` queries built from the resolved criteria, varying phrasing:
 
 **If `industries_prefer` is set**, add targeted queries per industry, e.g. `[role] fintech
 [location] hiring`.
+
+**Proactive company discovery.** Don't only check companies the user already named. Run
+`WebSearch` queries aimed at surfacing companies matching the profile, not just individual
+postings:
+- `"who is hiring" [role] [industries_prefer] 2026`
+- `best [industries_prefer] companies to work for [locations] 2026`
+- `[industries_prefer] startups hiring [role]`
+
+Pull candidate company names out of these results, plus the `company` field of any
+Remotive/Arbeitnow hits from 2a, that aren't already in `target_companies` or the Stage 0 tracker
+list. Cap this at roughly the top 5 newly-surfaced companies per round — this widens the net, it
+isn't meant to fan out into dozens of speculative lookups per search. For each candidate company,
+run the auto-detect flow from 2a (`search discover-ats`) before falling back to the direct
+career-page search below.
+
+**Direct career-page search**, for companies with no ATS match. In addition to the
+`site:linkedin.com/jobs` queries above, search the company's own site directly:
+- `site:<company-domain> careers [role]`
+- `"<company name>" careers [role] [location]`
+- `"<company name>" jobs apply [role]`
+
+If a result lands on the company's own `/careers` or `/jobs` page, `WebFetch` it the same
+optional-enrichment way as any other posting page (see below) — it's often a listing page rather
+than a single JD, so pull out whichever open roles are visible and score them against the profile.
+If `WebFetch` fails or 403s, don't drop the company — note it and rely on the LinkedIn/aggregator
+angle for that company this round instead.
+
+**Workday-hosted companies.** If a WebSearch result surfaces a `myworkdayjobs.com` URL for a
+target/discovered company, don't try `search ats` for it — `job_tool.py` has no reliable endpoint
+for Workday. Instead `WebFetch` the public career-page listing directly, same
+optional-enrichment/graceful-degradation treatment as any other page in this section.
+
+**JS-rendered career pages (Playwright fallback).** `WebFetch` only reads raw HTML — it can't
+execute JavaScript, so many custom/non-ATS career pages that render listings client-side will come
+back as an empty shell (no job titles, mostly boilerplate/nav text). When that happens **and** the
+`mcp__playwright__browser_*` tools are available in the current environment, fall back to
+rendering it for real: `browser_navigate` to the career-page URL, then `browser_snapshot` to read
+the rendered accessibility tree and extract the actual listings from it. This is slower than
+`WebFetch`, so only use it on pages that look genuinely JS-rendered (not just short) — don't run it
+as a first resort, and keep it within the same "cap ~5 newly-discovered companies per round" budget
+from proactive discovery above. If Playwright tools aren't configured in a given install (this MCP
+server isn't guaranteed to be present), skip this step entirely and fall back to the WebSearch
+snippet exactly as before — this is optional enrichment on top of optional enrichment, never a
+hard requirement.
 
 `WebSearch` results include a title, company, URL, and a synthesized snippet — that snippet alone
 is usually enough to score a posting (Stage 3). Treat `WebFetch` on the actual posting page as
@@ -165,6 +237,9 @@ up via both the structured `search ats`/aggregator calls and a `WebSearch` hit (
 on the company's Greenhouse feed and mirrored on LinkedIn). Match by company + title +
 near-identical description; keep the direct company/ATS result (2a) over an aggregator or LinkedIn
 mirror (2b), and merge any extra detail (e.g. salary shown only on one source) into the kept entry.
+Auto-detected ATS results (`search discover-ats`) count as 2a for this ordering; direct
+company-career-page hits from the new proactive-discovery queries count as 2b, exactly like any
+other WebSearch/WebFetch result — no separate dedupe pass is needed for either.
 
 **Cross-check against the Stage 0 tracker list.** Drop any posting matching an existing row's
 company + role (any status) — don't re-surface something already tracked, applied to, or
@@ -201,9 +276,9 @@ Sort descending by overall score. Cap at the requested count (default 10).
 ```
 ## 🔍 Job Search — [role(s)]  •  [location(s)]  •  [date]
 
-Searched: Remotive, Arbeitnow, [ATS companies checked], LinkedIn (WebSearch) — [N] postings found,
-[N] after dedupe, [N] after constraint filtering. [Note any source that errored, e.g. "Remotive:
-unreachable, skipped."]
+Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn +
+direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N] after constraint
+filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
 
 | # | Company | Role | Fit | Posted | Salary | Link |
 |---|---|---|---|---|---|---|
