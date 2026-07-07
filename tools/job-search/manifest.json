@@ -1,19 +1,21 @@
 {
   "name": "job-search",
-  "version": "1.0.0",
-  "description": "Runs the end-to-end job hunt: finds and ranks matching openings, tracks applications in a local tracker file, and kicks off resume-tailor for shortlisted roles",
-  "type": "skill",
+  "version": "1.1.0",
+  "description": "Runs the end-to-end job hunt: finds and ranks matching openings against a personalized profile, tracks applications via a bookkeeping script, and kicks off resume-tailor for shortlisted roles",
+  "type": "tool",
   "category": "career",
   "complexity": "advanced",
-  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt"],
+  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python"],
   "install": {
     "files": [
-      { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" }
+      { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },
+      { "src": "scripts/job_tool.py", "dest": "~/.claude/skills/job-search/scripts/job_tool.py" }
     ]
   },
   "requirements": {
     "platform": "any",
     "mcp_servers": [],
-    "env_vars": []
+    "env_vars": [],
+    "python": ">=3.9"
   }
 }
