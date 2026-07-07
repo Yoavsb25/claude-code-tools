@@ -1,3 +1,7 @@
+import argparse
+import contextlib
+import io
+import json
 import unittest
 import urllib.error
 from unittest.mock import patch, MagicMock
@@ -235,6 +239,49 @@ class TestHttpGetHtmlBackoff(unittest.TestCase):
         self.assertIsNone(html)
         self.assertIn("500", err)
         self.assertEqual(mock_urlopen.call_count, job_tool.LINKEDIN_MAX_RETRIES + 1)
+
+
+class TestCmdSearchLinkedin(unittest.TestCase):
+    def _run(self, **overrides):
+        args = argparse.Namespace(
+            query="backend engineer", location="Remote", jobage=None, remote=None, page=1, limit=25
+        )
+        for key, value in overrides.items():
+            setattr(args, key, value)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            job_tool.cmd_search_linkedin(args)
+        return json.loads(buf.getvalue())
+
+    @patch("job_tool.http_get_html_backoff")
+    def test_maps_cards_into_posting_shape(self, mock_fetch):
+        mock_fetch.return_value = (LINKEDIN_SEARCH_HTML_FIXTURE, None)
+        out = self._run()
+        self.assertEqual(out["source"], "linkedin")
+        self.assertIsNone(out["error"])
+        self.assertEqual(len(out["results"]), 2)
+        self.assertEqual(out["results"][0]["source"], "linkedin")
+        self.assertEqual(out["results"][0]["title"], "Staff Backend Engineer")
+        self.assertIsNone(out["results"][0]["description"])
+
+        called_url = mock_fetch.call_args[0][0]
+        self.assertIn("keywords=backend", called_url)
+        self.assertIn("location=Remote", called_url)
+
+    @patch("job_tool.http_get_html_backoff")
+    def test_error_returns_empty_results(self, mock_fetch):
+        mock_fetch.return_value = (None, "HTTP 500 from linkedin")
+        out = self._run()
+        self.assertEqual(out["results"], [])
+        self.assertEqual(out["error"], "HTTP 500 from linkedin")
+
+    @patch("job_tool.http_get_html_backoff")
+    def test_jobage_and_remote_flags_mapped(self, mock_fetch):
+        mock_fetch.return_value = ("", None)
+        self._run(jobage=7, remote="remote")
+        called_url = mock_fetch.call_args[0][0]
+        self.assertIn("f_TPR=r604800", called_url)
+        self.assertIn("f_WT=2", called_url)
 
 
 if __name__ == "__main__":

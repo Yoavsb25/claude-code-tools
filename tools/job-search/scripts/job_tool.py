@@ -518,6 +518,35 @@ def http_get_html_backoff(url):
     return None, f"request to {url} failed after max retries"
 
 
+def cmd_search_linkedin(args):
+    params = {"location": args.location}
+    if args.query:
+        params["keywords"] = args.query
+    tpr = jobage_to_tpr(args.jobage)
+    if tpr:
+        params["f_TPR"] = tpr
+    work_type = linkedin_work_type_flag(args.remote)
+    if work_type:
+        params["f_WT"] = work_type
+    params["start"] = str((args.page - 1) * 10)
+
+    url = LINKEDIN_SEARCH_URL + "?" + urllib.parse.urlencode(params)
+    html, err = http_get_html_backoff(url)
+    if err:
+        print_search_result("linkedin", [], err)
+        return
+
+    cards = parse_linkedin_cards(html)[: args.limit]
+    results = [
+        posting(
+            "linkedin", card["title"], card["company"], card["location"], None,
+            card["url"], [], None, card["posted_date"], None,
+        )
+        for card in cards
+    ]
+    print_search_result("linkedin", results, None)
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
@@ -821,6 +850,15 @@ def main():
     p_discover.add_argument("--query")
     p_discover.add_argument("--limit", type=int, default=25)
     p_discover.set_defaults(func=cmd_search_discover_ats)
+
+    p_linkedin = search_sub.add_parser("linkedin")
+    p_linkedin.add_argument("--query")
+    p_linkedin.add_argument("--location", required=True)
+    p_linkedin.add_argument("--jobage", type=int)
+    p_linkedin.add_argument("--remote", choices=["remote", "hybrid", "onsite"])
+    p_linkedin.add_argument("--page", type=int, default=1)
+    p_linkedin.add_argument("--limit", type=int, default=25)
+    p_linkedin.set_defaults(func=cmd_search_linkedin)
 
     args = parser.parse_args()
     args.func(args)
