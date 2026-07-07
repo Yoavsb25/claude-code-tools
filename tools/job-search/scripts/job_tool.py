@@ -308,6 +308,30 @@ def clean_text(html):
     return decode_html_entities(strip_html(html))
 
 
+def jobage_to_tpr(days):
+    if not days or days <= 0 or days >= 9999:
+        return None
+    return f"r{days * 86400}"
+
+
+def linkedin_work_type_flag(mode):
+    return {"remote": "2", "hybrid": "3", "onsite": "1"}.get((mode or "").lower())
+
+
+def normalize_linkedin_job_id(value):
+    if not value:
+        return None
+    urn_match = re.search(r"urn:li:jobPosting:(\d+)", value)
+    if urn_match:
+        return urn_match.group(1)
+    url_match = re.search(r"-(\d{6,})(?:\?|$)", value) or re.search(r"/(\d{6,})(?:\?|$)", value)
+    if url_match:
+        return url_match.group(1)
+    if re.fullmatch(r"\d{6,}", value):
+        return value
+    return None
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
