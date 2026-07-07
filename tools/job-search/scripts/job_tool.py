@@ -36,8 +36,10 @@ this is a guess, not a confirmed match), or "none" (nothing resolved on any plat
 
 import json
 import os
+import random
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -56,6 +58,15 @@ ATS_ENDPOINTS = {
     "recruitee": "https://{slug}.recruitee.com/api/offers/",
     "workable": "https://apply.workable.com/api/v1/widget/accounts/{slug}?details=true",
 }
+LINKEDIN_SEARCH_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+LINKEDIN_DETAIL_URL = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting"
+LINKEDIN_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+LINKEDIN_MAX_RETRIES = 6
+LINKEDIN_BACKOFF_BASE_MS = 500
+LINKEDIN_BACKOFF_CAP_MS = 8000
 # Platforms this script deliberately does NOT support: Workday has no universal keyless GET
 # endpoint (tenant-specific wd{N} subdomain + variable site-name path, and the real job-data
 # call is a POST with a JSON body, not a GET like every platform above) — it's handled only via
@@ -472,6 +483,39 @@ def parse_linkedin_detail(html, job_id):
         "industries": criteria.get("industries"),
         "apply_url": apply_url,
     }
+
+
+def http_get_html_backoff(url):
+    delay_ms = LINKEDIN_BACKOFF_BASE_MS
+    for attempt in range(LINKEDIN_MAX_RETRIES + 1):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": LINKEDIN_USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+                return resp.read().decode("utf-8"), None
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return "", None
+            if e.code == 429 or e.code >= 500:
+                if attempt == LINKEDIN_MAX_RETRIES:
+                    return None, f"HTTP {e.code} from {url} after {attempt + 1} attempts"
+                jitter_ms = random.randint(0, 500)
+                time.sleep((delay_ms + jitter_ms) / 1000)
+                delay_ms = min(delay_ms * 2, LINKEDIN_BACKOFF_CAP_MS)
+                continue
+            return None, f"HTTP {e.code} from {url}"
+        except urllib.error.URLError as e:
+            return None, f"network error reaching {url}: {e.reason}"
+        except Exception as e:
+            return None, f"unexpected error fetching {url}: {e}"
+    return None, f"request to {url} failed after max retries"
 
 
 def http_get_json(url):

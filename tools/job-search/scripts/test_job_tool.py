@@ -1,4 +1,6 @@
 import unittest
+import urllib.error
+from unittest.mock import patch, MagicMock
 
 import job_tool
 
@@ -187,6 +189,52 @@ class TestParseLinkedinDetail(unittest.TestCase):
         self.assertIsNone(detail["company"])
         self.assertIsNone(detail["description"])
         self.assertIsNone(detail["seniority"])
+
+
+class TestHttpGetHtmlBackoff(unittest.TestCase):
+    @patch("job_tool.urllib.request.urlopen")
+    def test_success_returns_html(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"<html>ok</html>"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        html, err = job_tool.http_get_html_backoff("https://example.com/search")
+        self.assertEqual(html, "<html>ok</html>")
+        self.assertIsNone(err)
+        mock_urlopen.assert_called_once()
+
+    @patch("job_tool.urllib.request.urlopen")
+    def test_404_returns_empty_string_no_error(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.HTTPError("url", 404, "Not Found", None, None)
+        html, err = job_tool.http_get_html_backoff("https://example.com/detail/999")
+        self.assertEqual(html, "")
+        self.assertIsNone(err)
+
+    @patch("job_tool.time.sleep")
+    @patch("job_tool.urllib.request.urlopen")
+    def test_retries_on_429_then_succeeds(self, mock_urlopen, mock_sleep):
+        ok_resp = MagicMock()
+        ok_resp.read.return_value = b"<html>recovered</html>"
+        ok_resp.__enter__.return_value = ok_resp
+        mock_urlopen.side_effect = [
+            urllib.error.HTTPError("url", 429, "Too Many Requests", None, None),
+            ok_resp,
+        ]
+        html, err = job_tool.http_get_html_backoff("https://example.com/search")
+        self.assertEqual(html, "<html>recovered</html>")
+        self.assertIsNone(err)
+        self.assertEqual(mock_urlopen.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("job_tool.time.sleep")
+    @patch("job_tool.urllib.request.urlopen")
+    def test_gives_up_after_max_retries(self, mock_urlopen, mock_sleep):
+        mock_urlopen.side_effect = urllib.error.HTTPError("url", 500, "Server Error", None, None)
+        html, err = job_tool.http_get_html_backoff("https://example.com/search")
+        self.assertIsNone(html)
+        self.assertIn("500", err)
+        self.assertEqual(mock_urlopen.call_count, job_tool.LINKEDIN_MAX_RETRIES + 1)
 
 
 if __name__ == "__main__":
