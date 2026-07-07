@@ -93,8 +93,9 @@ the changed keys if they say yes. Don't overwrite fields they didn't mention.
 ## Stage 2 — Search adaptively
 
 Two sources run in parallel: the **script's structured search** (fast, reliable, always try
-first) and **WebSearch/WebFetch** (broader coverage, including LinkedIn, but less reliable).
-Combine whatever each one returns — don't treat either as required.
+first — including a native LinkedIn source) and **WebSearch/WebFetch** (broader coverage, plus a
+LinkedIn fallback net, but less reliable). Combine whatever each one returns — don't treat either
+as required.
 
 ### 2a — Structured search via `job_tool.py` (always run this first)
 
