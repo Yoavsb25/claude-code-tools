@@ -13,9 +13,11 @@ worth pursuing.
 2. **Personalize** — merges the stored profile (target roles, locations, seniority,
    preferred/avoided industries, must-haves, deal-breakers) with anything new the user says this
    turn, and offers to save changes back for next time.
-3. **Search** — runs varied `WebSearch` queries across LinkedIn, Indeed, and ATS platforms
-   (Greenhouse, Lever, Ashby) — including industry-specific angles — then `WebFetch`es promising
-   postings for full JD text, posted date, and salary.
+3. **Search** — queries public, keyless job-board APIs directly via `job_tool.py search`
+   (Remotive, Arbeitnow, and any watchlisted company's Greenhouse/Lever/Ashby feed), plus
+   `WebSearch`/`WebFetch` for broader coverage (LinkedIn, Indeed) — including industry-specific
+   angles. Every source degrades gracefully to a clear error instead of breaking the run if it's
+   unreachable or blocked.
 4. **Dedupe and score** — merges duplicate postings, drops anything already tracked or hitting a
    deal-breaker, and ranks the rest on role fit, requirements fit, and constraint fit (location,
    industry, deal-breakers).
@@ -35,6 +37,9 @@ python3 scripts/job_tool.py profile set '{"roles":["Staff Backend Engineer"],"lo
 python3 scripts/job_tool.py tracker list [--status Applied] [--stale-only]
 python3 scripts/job_tool.py tracker upsert '{"company":"Acme Corp","role":"Staff Backend Engineer","status":"Applied"}'
 python3 scripts/job_tool.py tracker render
+python3 scripts/job_tool.py search remotive --query "backend" [--category X] [--limit 25]
+python3 scripts/job_tool.py search arbeitnow --query "backend" [--limit 25] [--max-pages 3]
+python3 scripts/job_tool.py search ats --platform greenhouse|lever|ashby --company <slug> [--query X]
 ```
 
 State lives in `~/Desktop/Job-Search/` by default (override with `JOB_SEARCH_DIR`):
@@ -42,6 +47,12 @@ State lives in `~/Desktop/Job-Search/` by default (override with `JOB_SEARCH_DIR
 status to `Applied`, `Phone Screen`, or `Interviewing` auto-computes `applied_date`/`followup_date`;
 `tracker list --stale-only` flags shortlisted roles idle 10+ days and applied/interviewing roles
 past their follow-up date with no status change since.
+
+The `search` subcommands call Remotive, Arbeitnow, and the Greenhouse/Lever/Ashby public job-board
+APIs directly (`urllib`, no dependencies, no API key). Every call prints a JSON object with a
+`results` list; a failure (network policy, outage, unknown company slug) comes back as
+`{"error": "...", "results": []}` rather than a stack trace, so one dead source never blocks the
+others.
 
 ## Usage
 
@@ -63,8 +74,9 @@ registry), then say:
 
 ## Requirements
 
-Python 3.9+ (stdlib only, no dependencies). Search relies on `WebSearch`/`WebFetch`. Works best
-alongside `resume-tailor` and `github-project-picker` for the hand-off step.
+Python 3.9+ (stdlib only, no dependencies) for `job_tool.py search`/tracker/profile. Broader
+discovery also uses `WebSearch`/`WebFetch`. Works best alongside `resume-tailor` and
+`github-project-picker` for the hand-off step.
 
 > **Note:** The SKILL.md references Yoav's local work documentation for requirements-fit scoring.
 > Adapt the profile path in Stage 3 to your own setup before use.

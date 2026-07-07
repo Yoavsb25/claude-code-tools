@@ -10,18 +10,40 @@ Usage:
   job_tool.py tracker list [--status STATUS] [--stale-only]
   job_tool.py tracker upsert '<json row>'         (or '-' to read row from stdin)
   job_tool.py tracker render
+  job_tool.py search remotive --query "backend" [--category X] [--limit 25]
+  job_tool.py search arbeitnow --query "backend" [--limit 25] [--max-pages 3]
+  job_tool.py search ats --platform greenhouse|lever|ashby --company <slug> [--query X] [--limit 25]
 
 State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
   tracker.json          - application rows (source of truth)
   Tracker.md            - rendered markdown view of tracker.json
+
+The `search` group hits public, keyless JSON APIs directly (no scraping, no MCP) and always
+prints a JSON object with a "results" list — a fetch failure for one source (network policy,
+outage, unknown company slug) is reported as an "error" string with an empty "results" list,
+never a stack trace, so a caller can fall back to another source without the whole run failing.
 """
 
 import json
 import os
+import re
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+HTTP_TIMEOUT = 15
+USER_AGENT = "job-search-skill/1.1 (+https://github.com/Yoavsb25/claude-code-tools)"
+REMOTIVE_URL = "https://remotive.com/api/remote-jobs"
+ARBEITNOW_URL = "https://www.arbeitnow.com/api/job-board-api"
+ATS_ENDPOINTS = {
+    "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true",
+    "lever": "https://api.lever.co/v0/postings/{slug}?mode=json",
+    "ashby": "https://api.ashbyhq.com/posting-api/job-board/{slug}",
+}
 
 STATUS_ORDER = [
     "Shortlisted", "Applied", "Phone Screen", "Interviewing",
@@ -234,6 +256,147 @@ def cmd_tracker_render(_args):
     print(str(markdown_path()))
 
 
+# ---- search -----------------------------------------------------------------
+
+def strip_html(text):
+    if not text:
+        return text
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def http_get_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            return json.loads(resp.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        return None, f"HTTP {e.code} from {url}"
+    except urllib.error.URLError as e:
+        return None, f"network error reaching {url}: {e.reason}"
+    except json.JSONDecodeError as e:
+        return None, f"invalid JSON from {url}: {e}"
+    except Exception as e:
+        return None, f"unexpected error fetching {url}: {e}"
+
+
+def posting(source, title, company, location, remote, url, tags, salary, posted_date, description):
+    return {
+        "source": source, "title": title, "company": company, "location": location,
+        "remote": remote, "url": url, "tags": tags or [], "salary": salary,
+        "posted_date": posted_date, "description": strip_html(description)[:1500] if description else None,
+    }
+
+
+def print_search_result(source, results, error, extra=None):
+    out = {"source": source, "error": error, "results": results}
+    if extra:
+        out.update(extra)
+    print(json.dumps(out, indent=2))
+
+
+def cmd_search_remotive(args):
+    params = {}
+    if args.query:
+        params["search"] = args.query
+    if args.category:
+        params["category"] = args.category
+    url = REMOTIVE_URL
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+
+    data, err = http_get_json(url)
+    if err:
+        print_search_result("remotive", [], err)
+        return
+
+    jobs = data.get("jobs", [])[: args.limit]
+    results = [
+        posting(
+            "remotive", j.get("title"), j.get("company_name"), j.get("candidate_required_location"),
+            True, j.get("url"), j.get("tags"), j.get("salary") or None,
+            j.get("publication_date"), j.get("description"),
+        )
+        for j in jobs
+    ]
+    print_search_result("remotive", results, None)
+
+
+def cmd_search_arbeitnow(args):
+    all_jobs = []
+    url = ARBEITNOW_URL
+    pages_fetched = 0
+
+    while url and pages_fetched < args.max_pages:
+        data, err = http_get_json(url)
+        if err:
+            if pages_fetched == 0:
+                print_search_result("arbeitnow", [], err)
+                return
+            break
+        all_jobs.extend(data.get("data", []))
+        url = (data.get("links") or {}).get("next")
+        pages_fetched += 1
+
+    query = (args.query or "").lower()
+    matched = [
+        j for j in all_jobs
+        if not query or query in (j.get("title", "") + " " + " ".join(j.get("tags", []))).lower()
+    ]
+    results = [
+        posting(
+            "arbeitnow", j.get("title"), j.get("company_name"), j.get("location"),
+            j.get("remote", False), j.get("url"), j.get("tags"), None,
+            j.get("created_at"), j.get("description"),
+        )
+        for j in matched[: args.limit]
+    ]
+    print_search_result("arbeitnow", results, None, {"pages_fetched": pages_fetched})
+
+
+def cmd_search_ats(args):
+    url = ATS_ENDPOINTS[args.platform].format(slug=args.company)
+    data, err = http_get_json(url)
+    if err:
+        print_search_result(args.platform, [], err, {"company": args.company})
+        return
+
+    if args.platform == "greenhouse":
+        raw = [
+            posting(
+                "greenhouse", j.get("title"), args.company, (j.get("location") or {}).get("name"),
+                None, j.get("absolute_url"), [d.get("name") for d in j.get("departments", [])],
+                None, j.get("updated_at"), j.get("content"),
+            )
+            for j in data.get("jobs", [])
+        ]
+    elif args.platform == "lever":
+        raw = [
+            posting(
+                "lever", j.get("text"), args.company, (j.get("categories") or {}).get("location"),
+                None, j.get("hostedUrl"), (j.get("categories") or {}).get("allLocations") or [],
+                None, j.get("createdAt"), j.get("descriptionPlain") or j.get("description"),
+            )
+            for j in data
+        ]
+    else:  # ashby
+        raw = [
+            posting(
+                "ashby", j.get("title"), args.company, j.get("location"), j.get("isRemote"),
+                j.get("jobUrl"), [j["departmentName"]] if j.get("departmentName") else [],
+                None, j.get("publishedAt"), j.get("descriptionPlain"),
+            )
+            for j in data.get("jobs", [])
+        ]
+
+    query = (args.query or "").lower()
+    if query:
+        raw = [r for r in raw if query in (r["title"] or "").lower()]
+
+    print_search_result(args.platform, raw[: args.limit], None, {"company": args.company})
+
+
 def main():
     import argparse
 
@@ -257,6 +420,28 @@ def main():
     p_upsert.add_argument("row")
     p_upsert.set_defaults(func=cmd_tracker_upsert)
     tracker_sub.add_parser("render").set_defaults(func=cmd_tracker_render)
+
+    p_search = sub.add_parser("search")
+    search_sub = p_search.add_subparsers(dest="action", required=True)
+
+    p_remotive = search_sub.add_parser("remotive")
+    p_remotive.add_argument("--query")
+    p_remotive.add_argument("--category")
+    p_remotive.add_argument("--limit", type=int, default=25)
+    p_remotive.set_defaults(func=cmd_search_remotive)
+
+    p_arbeitnow = search_sub.add_parser("arbeitnow")
+    p_arbeitnow.add_argument("--query")
+    p_arbeitnow.add_argument("--limit", type=int, default=25)
+    p_arbeitnow.add_argument("--max-pages", type=int, default=3)
+    p_arbeitnow.set_defaults(func=cmd_search_arbeitnow)
+
+    p_ats = search_sub.add_parser("ats")
+    p_ats.add_argument("--platform", required=True, choices=list(ATS_ENDPOINTS))
+    p_ats.add_argument("--company", required=True)
+    p_ats.add_argument("--query")
+    p_ats.add_argument("--limit", type=int, default=25)
+    p_ats.set_defaults(func=cmd_search_ats)
 
     args = parser.parse_args()
     args.func(args)

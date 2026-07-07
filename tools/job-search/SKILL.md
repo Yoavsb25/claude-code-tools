@@ -72,6 +72,7 @@ Profile fields (all optional except `roles`):
 | `must_haves` | e.g. `["Kubernetes", "no on-call"]` |
 | `deal_breakers` | Hard excludes — companies, conditions (e.g. "RTO 5 days") |
 | `salary_floor` | Only used to flag postings that disclose a lower range |
+| `target_companies` | Optional watchlist of `{"name": "...", "platform": "greenhouse\|lever\|ashby", "slug": "..."}` — companies to check directly via Stage 2's `search ats` (see below) |
 
 **If the profile is empty (first run):** ask for the fields above in one conversational message,
 then save the answer with `profile set` before searching, so future runs don't re-ask.
@@ -91,39 +92,79 @@ the changed keys if they say yes. Don't overwrite fields they didn't mention.
 
 ## Stage 2 — Search adaptively
 
-Use `WebSearch` for discovery, then `WebFetch` on the most promising links to pull full posting
-details (full JD text, posted date, salary range if disclosed). Run searches in parallel.
+Two sources run in parallel: the **script's structured search** (fast, reliable, always try
+first) and **WebSearch/WebFetch** (broader coverage, including LinkedIn, but less reliable).
+Combine whatever each one returns — don't treat either as required.
 
-**Base searches (always run several, varying phrasing), built from the resolved criteria:**
+### 2a — Structured search via `job_tool.py` (always run this first)
+
+These hit public, keyless JSON APIs directly — no scraping, no bot-wall risk, and every call
+degrades to a clean `{"error": "...", "results": []}` instead of failing the whole search:
+
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search remotive --query "<role keyword>" --limit 25
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search arbeitnow --query "<role keyword>" --limit 25
+```
+
+Run one call per role in `roles` (varying the keyword), in parallel. These two sources are
+remote-job-focused aggregators — good general coverage, weakest on senior/staff-level and
+non-remote roles.
+
+**If `target_companies` is set in the profile**, also run, per entry:
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --query "<role keyword>"
+```
+This is the highest-fidelity source available — the company's own live ATS feed, not a mirror.
+If the user names a specific company mid-conversation and gives (or you can find) its Greenhouse
+`boards.greenhouse.io/<slug>`, Lever `jobs.lever.co/<slug>`, or Ashby `jobs.ashbyhq.com/<slug>` URL,
+extract the slug from that URL and run this ad hoc even if it isn't saved to `target_companies` —
+then ask whether to add it to the watchlist for next time.
+
+**If a `search` call returns a non-null `error`:** don't retry it — note the source failed (and
+why, briefly) in the Stage 4 output, and rely on the other sources for that round. A single
+source failing (e.g. this environment's network policy, or that API being temporarily down) must
+never block the rest of the pipeline.
+
+### 2b — WebSearch / WebFetch (broader net, especially for LinkedIn)
+
+Run `WebSearch` queries built from the resolved criteria, varying phrasing:
 - `site:linkedin.com/jobs [role] [location]`
 - `site:linkedin.com/jobs "[role]" remote`
-- `[role] [location] jobs site:lever.co OR site:greenhouse.io`
 - `"[role]" hiring [location] 2026`
 - Plain-language query combining role + location + must-haves, e.g. `Staff Backend Engineer
   remote Kubernetes hiring`
 
 **If `industries_prefer` is set**, add targeted queries per industry, e.g. `[role] fintech
-[location] hiring` — industry-specific searches surface roles generic title searches miss.
+[location] hiring`.
 
-**For promising results**, `WebFetch` the actual posting page to get: full JD text, posted/reposted
-date, salary range if disclosed, and a direct application link (prefer the company's own ATS link
-over an aggregator mirror of the same posting).
+`WebSearch` results include a title, company, URL, and a synthesized snippet — that snippet alone
+is usually enough to score a posting (Stage 3). Treat `WebFetch` on the actual posting page as
+**optional enrichment, not a requirement**: try it on the most promising links to get full JD
+text, exact posted date, and salary if disclosed — but many job-board pages (LinkedIn especially,
+sometimes Greenhouse/Lever's own HTML front-end) return 403s to automated fetches, independent of
+anything about the specific posting.
+
+**If `WebFetch` fails on a posting:** don't drop the result and don't retry — score it from the
+`WebSearch` snippet alone and mark it `"JD: snippet only — verify on posting page"` in the output.
+A failed enrichment call is a normal, expected outcome, not an error to surface loudly.
 
 **Recency filter:** prioritize postings from the last 2–3 weeks. Postings older than ~6 weeks are
 often stale (role filled or closed) — still include them if nothing fresher matches well, but flag
 them as "possibly stale."
 
-**If a search returns nothing useful:** try a broader phrasing (drop a must-have, widen location)
-before giving up on that angle. Note in the final output which angles came up empty.
+**If every source for a given angle comes back empty:** try a broader phrasing (drop a must-have,
+widen location) before giving up on that angle. Note in the final output which angles came up
+empty and which sources errored.
 
 ---
 
 ## Stage 3 — Dedupe and score
 
-**Dedupe first.** The same posting often appears on LinkedIn, Indeed, and the company's own ATS.
-Match by company + title + near-identical description; keep the direct company/ATS link over the
-aggregator copy, and merge any extra detail (e.g. salary shown only on one mirror) into the kept
-entry.
+**Dedupe first, across all sources from Stage 2a and 2b combined.** The same posting often shows
+up via both the structured `search ats`/aggregator calls and a `WebSearch` hit (e.g. the same role
+on the company's Greenhouse feed and mirrored on LinkedIn). Match by company + title +
+near-identical description; keep the direct company/ATS result (2a) over an aggregator or LinkedIn
+mirror (2b), and merge any extra detail (e.g. salary shown only on one source) into the kept entry.
 
 **Cross-check against the Stage 0 tracker list.** Drop any posting matching an existing row's
 company + role (any status) — don't re-surface something already tracked, applied to, or
@@ -160,8 +201,9 @@ Sort descending by overall score. Cap at the requested count (default 10).
 ```
 ## 🔍 Job Search — [role(s)]  •  [location(s)]  •  [date]
 
-Searched: LinkedIn, [ATS platforms found] — [N] postings found, [N] after dedupe, [N] after
-constraint filtering.
+Searched: Remotive, Arbeitnow, [ATS companies checked], LinkedIn (WebSearch) — [N] postings found,
+[N] after dedupe, [N] after constraint filtering. [Note any source that errored, e.g. "Remotive:
+unreachable, skipped."]
 
 | # | Company | Role | Fit | Posted | Salary | Link |
 |---|---|---|---|---|---|---|
@@ -226,6 +268,10 @@ date with no status change logged since.
 - **The script owns the tracker and profile files.** Never hand-edit `Tracker.md`,
   `tracker.json`, or `profile.json` directly — always go through `job_tool.py`, so state can't
   silently drift or lose rows across sessions.
+- **No single search source is required.** `search remotive`/`arbeitnow`/`ats` and `WebFetch`
+  enrichment can each fail independently (network policy, an API being down, a bot wall) — every
+  one degrades to an empty/partial result with a clear reason instead of stopping the pipeline.
+  Score and present whatever data actually came back; note what didn't.
 - **The stored profile is the default; the user's current message is the override.** Ask only for
   what's missing or changed, and offer to save changes back — don't re-run full intake every time.
 - **Never re-surface a tracked role** unless the user explicitly asks to re-check it.
