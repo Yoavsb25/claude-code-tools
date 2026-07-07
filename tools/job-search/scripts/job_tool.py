@@ -16,6 +16,8 @@ Usage:
       --company <slug> [--query X] [--limit 25]
   job_tool.py search discover-ats --company "<company name>" [--slug-hint <slug>] \
       [--platforms a,b,c] [--query X] [--limit 25]
+  job_tool.py search linkedin --query "backend" --location "Remote" [--jobage 7] [--remote remote|hybrid|onsite] [--limit 25]
+  job_tool.py search linkedin-detail --id <job-id|job-url>
 
 State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
@@ -32,6 +34,10 @@ not being on any of the six supported ATS platforms is a normal outcome, not a f
 sets "error" — instead it reports a "confidence" of "high" (postings found), "low" (an endpoint
 resolved without error but returned zero postings — some platforms don't 404 on unknown slugs, so
 this is a guess, not a confirmed match), or "none" (nothing resolved on any platform/slug tried).
+
+The `linkedin` and `linkedin-detail` sources hit LinkedIn's public jobs-guest endpoints directly
+(no auth, no API key). Automated access to these pages is against LinkedIn's Terms of Service —
+personal use only, keep query volume low, never bulk or commercial use.
 """
 
 import json
@@ -547,6 +553,28 @@ def cmd_search_linkedin(args):
     print_search_result("linkedin", results, None)
 
 
+def print_detail_result(source, result, error):
+    print(json.dumps({"source": source, "error": error, "result": result}, indent=2))
+
+
+def cmd_search_linkedin_detail(args):
+    job_id = normalize_linkedin_job_id(args.id)
+    if not job_id:
+        print_detail_result("linkedin", None, f"could not parse a job id from '{args.id}'")
+        return
+
+    html, err = http_get_html_backoff(f"{LINKEDIN_DETAIL_URL}/{job_id}")
+    if err:
+        print_detail_result("linkedin", None, err)
+        return
+    if not html:
+        print_detail_result("linkedin", None, "job not found")
+        return
+
+    detail = parse_linkedin_detail(html, job_id)
+    print_detail_result("linkedin", detail, None)
+
+
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
@@ -859,6 +887,10 @@ def main():
     p_linkedin.add_argument("--page", type=int, default=1)
     p_linkedin.add_argument("--limit", type=int, default=25)
     p_linkedin.set_defaults(func=cmd_search_linkedin)
+
+    p_linkedin_detail = search_sub.add_parser("linkedin-detail")
+    p_linkedin_detail.add_argument("--id", required=True)
+    p_linkedin_detail.set_defaults(func=cmd_search_linkedin_detail)
 
     args = parser.parse_args()
     args.func(args)

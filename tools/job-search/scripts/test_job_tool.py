@@ -284,5 +284,34 @@ class TestCmdSearchLinkedin(unittest.TestCase):
         self.assertIn("f_WT=2", called_url)
 
 
+class TestCmdSearchLinkedinDetail(unittest.TestCase):
+    def _run(self, id_value):
+        args = argparse.Namespace(id=id_value)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            job_tool.cmd_search_linkedin_detail(args)
+        return json.loads(buf.getvalue())
+
+    def test_invalid_id_returns_error_without_network_call(self):
+        out = self._run("not-a-job")
+        self.assertIsNone(out["result"])
+        self.assertIn("could not parse a job id", out["error"])
+
+    @patch("job_tool.http_get_html_backoff")
+    def test_not_found_returns_error(self, mock_fetch):
+        mock_fetch.return_value = ("", None)
+        out = self._run("4426311357")
+        self.assertIsNone(out["result"])
+        self.assertEqual(out["error"], "job not found")
+
+    @patch("job_tool.http_get_html_backoff")
+    def test_parses_detail_on_success(self, mock_fetch):
+        mock_fetch.return_value = (LINKEDIN_DETAIL_HTML_FIXTURE, None)
+        out = self._run("https://www.linkedin.com/jobs/view/staff-backend-engineer-at-acme-4426311357")
+        self.assertIsNone(out["error"])
+        self.assertEqual(out["result"]["id"], "4426311357")
+        self.assertEqual(out["result"]["title"], "Staff Backend Engineer")
+
+
 if __name__ == "__main__":
     unittest.main()
