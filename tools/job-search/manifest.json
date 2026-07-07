@@ -1,0 +1,19 @@
+{
+  "name": "job-search",
+  "version": "1.0.0",
+  "description": "Runs the end-to-end job hunt: finds and ranks matching openings, tracks applications in a local tracker file, and kicks off resume-tailor for shortlisted roles",
+  "type": "skill",
+  "category": "career",
+  "complexity": "advanced",
+  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": []
+  }
+}

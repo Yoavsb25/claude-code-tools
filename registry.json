@@ -1,6 +1,6 @@
 {
-  "generated": "2026-06-23T18:26:12.830Z",
-  "count": 33,
+  "generated": "2026-07-07T18:42:57.615Z",
+  "count": 34,
   "tools": [
     {
       "name": "add-todo",
@@ -420,6 +420,37 @@
         "env_vars": []
       },
       "path": "tools/ibkr-stock-finder"
+    },
+    {
+      "name": "job-search",
+      "version": "1.0.0",
+      "description": "Runs the end-to-end job hunt: finds and ranks matching openings, tracks applications in a local tracker file, and kicks off resume-tailor for shortlisted roles",
+      "type": "skill",
+      "category": "career",
+      "complexity": "advanced",
+      "tags": [
+        "job-search",
+        "career",
+        "linkedin",
+        "resume",
+        "tracker",
+        "applications",
+        "job-hunt"
+      ],
+      "install": {
+        "files": [
+          {
+            "src": "SKILL.md",
+            "dest": "~/.claude/skills/job-search.md"
+          }
+        ]
+      },
+      "requirements": {
+        "platform": "any",
+        "mcp_servers": [],
+        "env_vars": []
+      },
+      "path": "tools/job-search"
     },
     {
       "name": "linkedin-experience-writer",
