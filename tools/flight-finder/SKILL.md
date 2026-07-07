@@ -77,10 +77,11 @@ Call `mcp__claude_ai_Expedia__search_flights` and `mcp__claude_ai_Kiwi_com__sear
 - `return_date`: YYYY-MM-DD (round-trip only)
 - `adult_count`: number of adults
 - `children_age_list`: list of children's ages
-- `cabin_class`: ECONOMY / BUSINESS / FIRST / PREMIUMECONOMY
+- `cabin_class`: ECONOMY / BUSINESS / FIRST / PREMIUM_ECONOMY
 - `sort_type`: PRICE
 - `limit`: 10
-- `client_device_info`: `{"device_type": "desktop", "agent_name": "ClaudeCode"}`
+
+**Expedia error handling:** If the Expedia call returns an error or empty results, retry once with only the core parameters: `origin`, `destination`, `departure_date`, `adult_count`, `cabin_class`, `sort_type`, `limit`. Drop any optional parameters. If it still fails, proceed with Kiwi only and note: "Expedia returned no results — showing Kiwi results only."
 
 **Kiwi parameters:**
 - `flyFrom` / `flyTo`: city name or airport code
@@ -147,13 +148,33 @@ For each flight from all searches:
   - Flag `VIRTUAL_INTERLINE` for all Kiwi results with 1+ stops — Kiwi frequently books connections as separate tickets. If the first leg is delayed and the customer misses the second leg, the airline is not obligated to rebook them.
 - **Departure / arrival times**
 - **Airlines**
-- **Booking link**
+- **Booking link** — sourced as follows:
+  - **Kiwi results**: use the `deepLink` field returned by the API. Always render as a clickable markdown link: `[Book →](deepLink)`. Never omit this.
+  - **Expedia results**: the Expedia API does not return per-flight deep links. Construct a search URL using the pattern: `https://www.expedia.com/Flights-Search?trip=oneway&leg1=from%3A{ORIGIN}%2Cto%3A{DEST}%2Cdeparture%3A{YYYYMMDD}TANYT&passengers=adults%3A{N}&options=sortby%3Aprice%2Ccarriername%3A{AIRLINE_CODE}`. Render as `[Book on Expedia →](url)`. If the URL cannot be confidently constructed, write `[Search Expedia →](https://www.expedia.com/Flights)` as a fallback — never leave the Book column blank for Expedia results.
 - **Provider** (Expedia or Kiwi) and **Date** (if multiple dates were searched)
-- **Baggage** — from Expedia's `fare_options[].baggage_fees[]`:
-  - `PERSONAL_ITEM`: ALLOWED or NOT_ALLOWED
-  - `CARRY_ON`: ALLOWED / NOT_ALLOWED / FEE_APPLIES (note fee amount)
-  - `FIRST_BAG` (checked): ALLOWED / FEE_APPLIES (note fee amount) / NOT_ALLOWED
-  - Kiwi does **not** return baggage data — mark all as "unknown."
+- **Baggage** — resolved in this priority order:
+
+  **Priority 1 — Expedia API data** (most accurate): read from `options[].fare_options[].baggage_fees[]`. Each entry has:
+  - `bag_type`: `CARRY_ON` / `FIRST_BAG` / `SECOND_BAG` / `PERSONAL_ITEM`
+  - `category`: `ALLOWED` / `FEE_APPLIES` / `NOT_ALLOWED`
+  - `fees.fixed_charge` + `fees.currency`: fee amount when `category = FEE_APPLIES`
+  - `bag_weight.max_capacity` + `bag_weight.unit`: weight limit when applicable
+  - `ui_text.display_text`: human-readable summary (use as a sanity check)
+  - Label source as `(confirmed)` in the Baggage column.
+
+  **Priority 1.5 — Booking link page fetch** (use when Priority 1 data is absent or incomplete): after ranking is done and the top results are identified (the 2–3 per category that will appear in the table), fetch each booking link in parallel using WebFetch. Parse the page for baggage-related text — look for keywords: "carry-on", "cabin bag", "checked bag", "baggage", "bag fee", "included", "not included", "add a bag", "$", "€", "£". Extract the carry-on and first checked bag policy from the page. Label source as `(booking page)`.
+  - Only fetch links for the flights that will appear in the output table — do not fetch all search results.
+  - Run the fetches in parallel to avoid added latency.
+  - If the page is inaccessible (redirect to login, JavaScript wall, CAPTCHA, or empty response): skip silently and proceed to Priority 2.
+  - If the page loads but baggage info is not clearly parseable: proceed to Priority 2.
+
+  **Priority 2 — Airline Baggage Knowledge Base** (use when Priorities 1 and 1.5 yield no data): look up the operating airline's IATA code in the Airline Baggage Knowledge Base appendix at the bottom of this skill. Apply the policy for the matching fare class if determinable from the fare name, or use the Economy default. Label source as `(airline policy)`.
+
+  **Priority 3 — WebSearch fallback** (use only if airline not found in knowledge base): run a WebSearch for `[airline name] economy carry-on checked bag allowance 2025`. Extract carry-on and checked bag policy. Label source as `(via web)`.
+
+  **Priority 4 — Truly unknown**: if none of the above resolves it, mark as `unknown — check airline site` and include a direct link to the airline's official baggage page if known (see knowledge base).
+
+  Kiwi results always start at Priority 1.5 (never have API baggage data).
 - **Fare flexibility** — from Expedia's `fare_options[].refund_penalty` or `fare_options[].change_penalty`:
   - If no penalty and refunds allowed: `Refundable`
   - If changes allowed with fee: `Change fee: $X`
@@ -175,10 +196,13 @@ if customer needs checked bag(s):
     if checked = NOT_ALLOWED → flag it
     if checked = FEE_APPLIES → true_cost += checked_bag_fee × bags_count × adult_count
 
-For Kiwi results:
-    true_cost is unknown — display as "~$[base_fare]+ (bag fees unknown)"
+For Kiwi results OR Expedia results with no baggage_fees[] data:
+    Do NOT immediately mark as unknown.
+    First resolve baggage via Priority 2 (knowledge base) or Priority 3 (WebSearch).
+    If baggage is resolved: use the resolved fee in true_cost and label with source.
+    If baggage remains unresolved after all fallbacks: display as "~$[base_fare]+ (bag fees unknown)"
 
-**If Expedia returns a result with no `fare_options[].baggage_fees[]` data at all** (the field is absent or an empty array): treat this flight identically to a Kiwi result — mark all baggage as unknown and display true_cost as `~$[base_fare]+ (bag fees unknown)`. Do not guess or assume the bag is included.
+Do not guess or assume the bag is included when no source confirms it.
 ```
 
 ### Flag ULCC and Basic Economy fares
@@ -240,9 +264,9 @@ Group the top results into three categories. Show 2 flights per group max; never
 ### 💰 Cheapest True Cost
 | Route | Departure → Arrival | Duration | Stops | Baggage included | True Cost | Breakdown | Flexibility | Book |
 |---|---|---|---|---|---|---|---|---|
-| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | **$420** | base $420 | Non-refundable | [Book →](url) |
-| ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 | _(included in total above)_ | — | Refundable | — |
-| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop ⚠️ tight cnx | 🎒 +$45 / 🧳 +$70 | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
+| LHR → JFK | 08:30 → 11:45 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 (confirmed) | **$420** | base $420 | Non-refundable | [Book →](url) |
+| ↩ JFK → LHR | 14:00 → 02:15+1 | 7h 15m | Direct ✅ | 🎒 ✅ / 🧳 +$60 (confirmed) | _(included in total above)_ | — | Refundable | — |
+| LHR → JFK via AMS | 07:00 → 14:30 | 10h 30m | 1 stop ⚠️ tight cnx | 🎒 +$45 (airline policy) / 🧳 +$70 (airline policy) | **$384** | base $339 + carry-on $45 | Refundable | [Book →](url) |
 
 The True Cost and Breakdown columns on the return row show "_(included in total above)_" — the true cost on the outbound row already accounts for the full round-trip baggage fees.
 
@@ -275,9 +299,10 @@ _If a category (Cheapest / Fastest / Best Overall) has zero qualifying flights a
 
 ---
 🧳 **Baggage legend:** 🎒 = carry-on  •  🧳 = 1st checked bag  •  ✅ included  •  ❌ not allowed  •  +$X = fee
+📌 **Baggage data source:** `(confirmed)` = verified by Expedia API  •  `(booking page)` = fetched from the offer's booking page  •  `(airline policy)` = from airline's published policy  •  `(via web)` = looked up at search time  •  `unknown — check airline site` = could not be determined
 ⚠️ **Tight connection** = under 75 min at a complex airport or under 45 min elsewhere — delay on the first leg may cause you to miss the second.
 ⚠️ **Self-ticketed (Kiwi)** = two separate tickets booked to connect. A missed connection is at your expense — the second airline will not rebook you for free. Display in the Stops column as: `1 stop ⚠️ self-ticketed`
-⚠️ Kiwi results show base fare only — bag fees unknown. Verify on booking page before purchasing.
+⚠️ Kiwi baggage data is looked up from airline policy — fees shown are estimates. Verify on booking page before purchasing.
 _(Show the lines below only if at least one result carries a ulcc_warning or basic_economy_warning flag — omit entirely if all results are standard fares.)_
 ⚠️ **ULCC fares** (Spirit, Frontier, Ryanair, Wizz, easyJet, etc.) do not include seat selection — expect an additional $15–50/seat/leg at checkout. True cost above excludes this.
 ⚠️ **Basic Economy fares** may restrict seat selection and overhead bin access — verify on the booking page before purchasing.
@@ -328,11 +353,71 @@ If the departure date is on a peak day and dates were stated as fixed, prepend: 
 - **True cost (not base fare) is the primary ranking metric.** A $199 flight with an $89 carry-on fee loses to a $249 flight with carry-on included.
 - **Always search both providers.** Even if one returns better results, the comparison is the point.
 - **Never book or initiate checkout** — present options only.
+- **Every row in every results table must have a clickable booking link.** A table row without a Book link is incomplete. For Kiwi, use the API `deepLink`. For Expedia, construct a search URL or fall back to `[Search Expedia →](https://www.expedia.com/Flights)`. Never leave the Book column blank or write plain text like "Expedia" without a hyperlink.
 - **Children's ages are required** — always ask for ages (not just count) as they affect pricing tiers.
 - **Flexible date and nearby airport searches only run when the customer opts in** — don't add API calls they didn't ask for.
 - **Direct-only filter is hard** — only relax it if no results pass the filter, and always note the relaxation.
-- **Kiwi baggage data is unavailable.** Always flag Kiwi results as "bag fees unknown" when the customer needs bags. Their true cost may be higher than shown.
+- **Kiwi baggage data is not returned by the API.** Always resolve baggage for Kiwi results via the Airline Baggage Knowledge Base (Priority 2) or WebSearch (Priority 3) before falling back to "bag fees unknown." Label the source clearly. When baggage cannot be confirmed, warn the customer that fees shown are estimates.
 - **Carry-on NOT_ALLOWED fares are a dealbreaker** for customers who said they need a carry-on — flag them prominently or exclude them from the top recommendations.
 - **The recommendation must reference the customer's stated preferences.** It is the core value-add of a travel agent over a search engine.
 - **Out of scope — do not answer inline:** visa requirements, travel insurance, hotel booking, car hire, and price-trend predictions ("will prices drop?"). If the user asks these after results are shown, acknowledge briefly and suggest they ask separately: "That's outside what I can check here — happy to search flights again or you can ask about [topic] in a new question."
 - **Follow-up searches are in scope.** If the user asks to refine (different dates, different cabin class, add a bag), re-run the relevant step with the updated parameters. Do not restart from Step 1 unless the origin or destination changes.
+
+---
+
+## Airline Baggage Knowledge Base
+
+Use this table as Priority 2 fallback when Expedia returns no `baggage_fees[]` data or for all Kiwi results. Apply the Economy row unless the fare name clearly indicates a different class. Where a fare name is determinable (e.g., "Basic Economy", "Economy Light", "Hand Baggage Only"), apply the matching row instead.
+
+All policies reflect a single adult in economy. Policies are subject to change — label source as `(airline policy)` and link to the airline's baggage page when the customer needs to verify.
+
+| Airline | IATA | Fare name signal | Carry-on | 1st Checked Bag | Baggage policy URL |
+|---|---|---|---|---|---|
+| Delta | DL | "Basic Economy" | ✅ included | ❌ not included ($35–40) | delta.com/baggage |
+| Delta | DL | "Main Cabin" / "Comfort+" | ✅ included | $35–40 (domestic); varies international | delta.com/baggage |
+| United | UA | "Basic Economy" | ✅ included | ❌ not included ($35–40) | united.com/bagfees |
+| United | UA | "Economy" / "Economy Plus" | ✅ included | $35–40 (domestic); varies international | united.com/bagfees |
+| American Airlines | AA | "Basic Economy" | ✅ included | ❌ not included ($35–40) | aa.com/baggagefees |
+| American Airlines | AA | "Main Cabin" / "Preferred" | ✅ included | $35–40 (domestic); varies international | aa.com/baggagefees |
+| Southwest | WN | Any | ✅ included | ✅ 2 bags FREE | southwest.com/baggage |
+| JetBlue | B6 | "Blue Basic" | ✅ included (overhead restricted) | ❌ not included ($35) | jetblue.com/baggage |
+| JetBlue | B6 | "Blue" / "Blue Extra" | ✅ included | $35 | jetblue.com/baggage |
+| Alaska Airlines | AS | "Saver" | ✅ included (overhead restricted) | ❌ not included ($30) | alaskaair.com/baggage |
+| Alaska Airlines | AS | "Main Cabin" | ✅ included | $30 | alaskaair.com/baggage |
+| Spirit | NK | Any | ❌ NOT included (personal item only) | FEE APPLIES ($29–$79) | spirit.com/baggage |
+| Frontier | F9 | Any | ❌ NOT included (personal item only) | FEE APPLIES ($25–$79) | flyfrontier.com/travel-info/baggage |
+| Allegiant | G4 | Any | ❌ NOT included (personal item only) | FEE APPLIES | allegiantair.com/baggage |
+| British Airways | BA | "Hand Baggage Only" | ✅ included | ❌ not included | britishairways.com/baggage |
+| British Airways | BA | "Economy" / "Plus" / "Flex" | ✅ included | ✅ 23kg included | britishairways.com/baggage |
+| Lufthansa | LH | "Economy Light" | ✅ included | ❌ not included (FEE APPLIES) | lufthansa.com/baggage |
+| Lufthansa | LH | "Economy Classic" / "Economy Flex" | ✅ included | ✅ 23kg included | lufthansa.com/baggage |
+| Air France | AF | "Light" | ✅ included | ❌ not included (FEE APPLIES) | airfrance.com/baggage |
+| Air France | AF | "Standard" / "Flex" | ✅ included | ✅ 23kg included | airfrance.com/baggage |
+| KLM | KL | "Light" | ✅ included | ❌ not included (FEE APPLIES) | klm.com/baggage |
+| KLM | KL | "Standard" / "Flex" | ✅ included | ✅ 23kg included | klm.com/baggage |
+| Iberia | IB | "Básico" | ✅ included | ❌ not included (FEE APPLIES) | iberia.com/baggage |
+| Iberia | IB | "Clásico" / "Flexible" | ✅ included | ✅ 23kg included | iberia.com/baggage |
+| Ryanair | FR | Standard (no priority) | ❌ NOT included (small bag under seat only) | FEE APPLIES | ryanair.com/baggage |
+| Ryanair | FR | "Priority" / "Plus" / "Flex" | ✅ included | FEE APPLIES ($25–50) | ryanair.com/baggage |
+| easyJet | U2 | Standard | ❌ NOT included (small under-seat bag only) | FEE APPLIES | easyjet.com/baggage |
+| easyJet | U2 | "FLEXI" / "Large Cabin Bag" add-on | ✅ included | FEE APPLIES | easyjet.com/baggage |
+| Wizz Air | W6 | "WIZZ Go" / Standard | ❌ NOT included (small bag only) | FEE APPLIES | wizzair.com/baggage |
+| Wizz Air | W6 | "WIZZ Plus" / "WIZZ Pro" | ✅ included | FEE APPLIES | wizzair.com/baggage |
+| Norwegian | DY | "LowFare" | ❌ NOT included (personal item only) | FEE APPLIES | norwegian.com/baggage |
+| Norwegian | DY | "LowFare+" / "Flex" | ✅ included | ✅ 20kg included | norwegian.com/baggage |
+| Transavia | TO | Any | ❌ NOT included | FEE APPLIES | transavia.com/baggage |
+| Vueling | VY | "Basic" | ❌ NOT included | FEE APPLIES | vueling.com/baggage |
+| Vueling | VY | "Optima" / "TimeFlex" | ✅ included | ✅ 23kg included | vueling.com/baggage |
+| Emirates | EK | "Economy" | ✅ included | ✅ 25–35kg included (varies by route) | emirates.com/baggage |
+| Qatar Airways | QR | "Economy" | ✅ included | ✅ 23–30kg included (varies by route) | qatarairways.com/baggage |
+| Turkish Airlines | TK | "Economy" | ✅ included | ✅ 20–30kg included (varies by route) | turkishairlines.com/baggage |
+| Singapore Airlines | SQ | "Economy" | ✅ included | ✅ 25–30kg included | singaporeair.com/baggage |
+| Etihad | EY | "Economy" | ✅ included | ✅ 23kg included | etihad.com/baggage |
+| TAP Air Portugal | TP | "Discount" | ✅ included | ❌ not included (FEE APPLIES) | tapairportugal.com/baggage |
+| TAP Air Portugal | TP | "Basic" / "Classic" / "Plus" | ✅ included | ✅ 23kg included | tapairportugal.com/baggage |
+
+**How to apply this table:**
+1. Identify the operating airline IATA code from the flight result.
+2. Look for a fare name signal in the fare name/class returned by the API. If a match is found, use that row.
+3. If no fare name is available, default to the "Economy" / standard row for that airline.
+4. If the airline is not in the table at all, proceed to Priority 3 (WebSearch).
