@@ -17,13 +17,14 @@
 - `search linkedin` results must reuse the existing `posting()` field shape exactly (`source, title, company, location, remote, url, tags, salary, posted_date, description`) — no new field added to `posting()` itself.
 - LinkedIn access is personal-use-only per its Terms of Service — both the `job_tool.py` module docstring and SKILL.md must carry this warning; keep query volume low in any live test.
 - No pytest baseline applies to this tool (no Python test infra exists anywhere in this repo). Tests use stdlib `unittest`, run directly with `python3 -m unittest` — no new test framework dependency.
+- `tools/job-search/scripts/job_tool.py`, `tools/job-search/SKILL.md`, and related files (README, manifest, registry.json) already carry unrelated, uncommitted work on this branch adding a `discover-ats` subcommand and three more ATS platforms (smartrecruiters, recruitee, workable). This is pre-existing, in-progress work to build on top of, not to revert, undo, or fold into these tasks' commits — every `git add` in this plan targets only the specific files this plan's tasks touch (`job_tool.py`, `test_job_tool.py`, `SKILL.md`), never a blanket `git add -A`/`git add .`, so the unrelated diff rides along unstaged in each commit until the user commits it separately.
 
 ---
 
 ### Task 1: HTML entity decoding + clean-text helper
 
 **Files:**
-- Modify: `tools/job-search/scripts/job_tool.py` (add functions after the existing `strip_html` function, currently at lines 261–266)
+- Modify: `tools/job-search/scripts/job_tool.py` (add functions immediately after the existing `strip_html` function — find it by name; unrelated uncommitted work on this branch has shifted its line number since this plan was written, currently around line 282)
 - Create: `tools/job-search/scripts/test_job_tool.py`
 
 **Interfaces:**
@@ -791,7 +792,10 @@ def cmd_search_linkedin(args):
     print_search_result("linkedin", results, None)
 ```
 
-Then in `main()`, immediately after the existing `p_ats` block (right before `args = parser.parse_args()`), add:
+Note: `job_tool.py` has since gained a `discover-ats` subcommand (uncommitted work on this branch,
+unrelated to this plan) with its own `p_discover` subparser block, added right after `p_ats`. Add
+the block below immediately after whichever of `p_ats`/`p_discover` is now last in `main()` — right
+before `args = parser.parse_args()`:
 
 ```python
     p_linkedin = search_sub.add_parser("linkedin")
@@ -902,16 +906,21 @@ Then in `main()`, immediately after the `p_linkedin` block added in Task 6, add:
     p_linkedin_detail.set_defaults(func=cmd_search_linkedin_detail)
 ```
 
-Finally, update the module docstring at the top of `job_tool.py`. In the `Usage:` block, immediately
-after the existing `job_tool.py search ats ...` line, add:
+Finally, update the module docstring at the top of `job_tool.py`. In the `Usage:` block, the
+uncommitted `discover-ats` work above already added a `job_tool.py search discover-ats ...` usage
+line (spanning two lines with a `\` continuation) after the `search ats` line — add the LinkedIn
+lines immediately after that `discover-ats` usage entry:
 
 ```
   job_tool.py search linkedin --query "backend" --location "Remote" [--jobage 7] [--remote remote|hybrid|onsite] [--limit 25]
   job_tool.py search linkedin-detail --id <job-id|job-url>
 ```
 
-And in the closing paragraph of the docstring (after the sentence ending "...never a stack trace,
-so a caller can fall back to another source without the whole run failing."), add a new paragraph:
+The same uncommitted work also appended a paragraph about `discover-ats`'s `confidence` field to
+the end of the docstring, after the sentence ending "...never a stack trace, so a caller can fall
+back to another source without the whole run failing." Add the LinkedIn notice as a new paragraph
+after that `discover-ats`/`confidence` paragraph — i.e. at the very end of the docstring, just
+before the closing `"""`:
 
 ```
 The `linkedin` and `linkedin-detail` sources hit LinkedIn's public jobs-guest endpoints directly
@@ -964,14 +973,24 @@ git commit -m "Add search linkedin-detail subcommand and personal-use notice"
 
 - [ ] **Step 1: Add the Stage 2a call**
 
-In `tools/job-search/SKILL.md`, in the "2a — Structured search via `job_tool.py`" section, immediately
-after the existing `search ats` code block and its explanatory paragraph, add:
+In `tools/job-search/SKILL.md`, in the "2a — Structured search via `job_tool.py`" section, find the
+paragraph that ends "...weakest on senior/staff-level and non-remote roles." (it immediately
+follows the `remotive`/`arbeitnow` code block). Immediately after that paragraph, and before the
+next paragraph beginning "**If `target_companies` is set in the profile**...", insert this new
+paragraph and code block:
 
-```markdown
+Paragraph text:
+```
 Also run, once per (role × location) pair from the resolved criteria, in parallel with the calls
 above:
+```
+
+Code block:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search linkedin --query "<role keyword>" --location "<location>" --limit 25
+```
+
+Closing paragraph text:
 ```
 This hits LinkedIn's public job-search endpoint directly — more reliable than the `WebSearch`-based
 LinkedIn queries in Stage 2b below, since it returns structured fields instead of snippets.
@@ -994,14 +1013,19 @@ step that previously 403'd on LinkedIn specifically with the same native endpoin
 
 - [ ] **Step 3: Update the Stage 4 summary line**
 
-In the Stage 4 output template, change:
+In the Stage 4 output template (inside the fenced example block under "## Stage 4 — Present the
+shortlist"), the uncommitted `discover-ats` work above already changed this line to mention direct
+career pages. Change:
 ```
-Searched: Remotive, Arbeitnow, [ATS companies checked], LinkedIn (WebSearch) — [N] postings found,
+Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn +
+direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N] after constraint
+filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
 ```
 to:
 ```
-Searched: Remotive, Arbeitnow, [ATS companies checked], LinkedIn (native), LinkedIn (WebSearch) —
-[N] postings found,
+Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn
+(native), LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N]
+after constraint filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
 ```
 
 - [ ] **Step 4: Add a Key rules bullet**
