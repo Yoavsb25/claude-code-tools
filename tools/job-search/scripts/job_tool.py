@@ -602,15 +602,18 @@ def http_get_json(url):
         return None, f"unexpected error fetching {url}: {e}"
 
 
-def http_post_json(url, payload):
+def http_post_json(url, payload, extra_headers=None):
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     try:
@@ -874,10 +877,9 @@ def cmd_search_workday(args):
         return
 
     actor = os.environ.get("APIFY_WORKDAY_ACTOR_ID", APIFY_DEFAULT_WORKDAY_ACTOR)
-    run_url = (
-        f"{APIFY_API_BASE}/acts/{urllib.parse.quote(actor, safe='')}"
-        f"/run-sync-get-dataset-items?token={urllib.parse.quote(token)}"
-    )
+    # Token goes in the Authorization header, never the URL — a query-string token would leak
+    # into any error message that echoes the URL back (see http_post_json's except clauses).
+    run_url = f"{APIFY_API_BASE}/acts/{urllib.parse.quote(actor, safe='')}/run-sync-get-dataset-items"
     payload = {
         "companyUrl": args.url,
         "searchQuery": args.query or "",
@@ -886,7 +888,7 @@ def cmd_search_workday(args):
         "includeDescription": True,
     }
 
-    items, err = http_post_json(run_url, payload)
+    items, err = http_post_json(run_url, payload, extra_headers={"Authorization": f"Bearer {token}"})
     if err:
         print_search_result("workday", [], err)
         return
