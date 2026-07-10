@@ -1,11 +1,11 @@
 {
   "name": "job-search",
-  "version": "1.6.0",
-  "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, company ATS feeds and career pages (with an optional Apify Workday fallback), tracks applications, and kicks off resume-tailor",
+  "version": "1.7.0",
+  "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, kicks off resume-tailor, and surfaces warm-intro connections at target companies",
   "type": "tool",
   "category": "career",
   "complexity": "advanced",
-  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery", "workday", "apify"],
+  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery", "workday", "apify", "linkedin-connections", "warm-intro", "network"],
   "install": {
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },

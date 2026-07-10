@@ -44,13 +44,26 @@ python3 scripts/job_tool.py search arbeitnow --query "backend" [--limit 25] [--m
 python3 scripts/job_tool.py search ats --platform greenhouse|lever|ashby|smartrecruiters|recruitee|workable --company <slug> [--query X]
 python3 scripts/job_tool.py search discover-ats --company "Acme Corp" [--slug-hint acme] [--query X]
 python3 scripts/job_tool.py search workday --url <company myworkdayjobs.com URL> [--query X] [--location Y] [--limit 25]
+python3 scripts/job_tool.py network import --csv "<path to LinkedIn Connections.csv>"
+python3 scripts/job_tool.py network list [--company "<name>"]
+python3 scripts/job_tool.py network match [--company "<name>"]
 ```
 
 State lives in `~/Desktop/Job-Search/` by default (override with `JOB_SEARCH_DIR`):
-`profile.json`, `tracker.json` (source of truth), and the generated `Tracker.md`. Moving a row's
-status to `Applied`, `Phone Screen`, or `Interviewing` auto-computes `applied_date`/`followup_date`;
-`tracker list --stale-only` flags shortlisted roles idle 10+ days and applied/interviewing roles
-past their follow-up date with no status change since.
+`profile.json`, `tracker.json` (source of truth), `connections.json` (imported LinkedIn
+connections), and the generated `Tracker.md`. Moving a row's status to `Applied`, `Phone Screen`,
+or `Interviewing` auto-computes `applied_date`/`followup_date`; `tracker list --stale-only` flags
+shortlisted roles idle 10+ days and applied/interviewing roles past their follow-up date with no
+status change since.
+
+## Optional: warm intros from your LinkedIn connections
+
+`network match` cross-references an imported LinkedIn connections list against your
+`target_companies` watchlist to surface people you already know at companies you're targeting.
+This uses **LinkedIn's own official data export** (Settings & Privacy → Data Privacy → "Get a
+copy of your data" → request "Connections"), not scraping — no session cookie, no API key, no
+account risk, just a `Connections.csv` with real Company/Position columns. See
+`SKILL.md`'s "Network — warm intros" section for the full walkthrough.
 
 The `search` subcommands call Remotive, Arbeitnow, and six ATS platforms' public job-board APIs
 directly (`urllib`, no dependencies, no API key): Greenhouse, Lever, Ashby, SmartRecruiters,
