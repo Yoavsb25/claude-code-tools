@@ -18,6 +18,7 @@ Usage:
       [--platforms a,b,c] [--query X] [--limit 25]
   job_tool.py search linkedin --query "backend" --location "Remote" [--jobage 7] [--remote remote|hybrid|onsite] [--limit 25]
   job_tool.py search linkedin-detail --id <job-id|job-url>
+  job_tool.py search workday --url <company myworkdayjobs.com URL> [--query X] [--location Y] [--limit 25]
 
 State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
@@ -28,6 +29,8 @@ The `search` group hits public, keyless JSON APIs directly (no scraping, no MCP)
 prints a JSON object with a "results" list — a fetch failure for one source (network policy,
 outage, unknown company slug) is reported as an "error" string with an empty "results" list,
 never a stack trace, so a caller can fall back to another source without the whole run failing.
+`search workday` is the one exception to "keyless" — it's an optional paid fallback via Apify
+for Workday-hosted career sites (see below), off by default until APIFY_TOKEN is set.
 
 `search discover-ats` is the one exception to "always error or results": since a company simply
 not being on any of the six supported ATS platforms is a normal outcome, not a failure, it never
@@ -38,6 +41,11 @@ this is a guess, not a confirmed match), or "none" (nothing resolved on any plat
 The `linkedin` and `linkedin-detail` sources hit LinkedIn's public jobs-guest endpoints directly
 (no auth, no API key). Automated access to these pages is against LinkedIn's Terms of Service —
 personal use only, keep query volume low, never bulk or commercial use.
+
+The `workday` source runs a paid Apify Actor (Workday has no keyless API) to cover large
+enterprises that WebFetch/Playwright often can't reach. Requires an APIFY_TOKEN env var — with
+no token set, it degrades the same way any other source degrades on failure: an "error" string
+and empty "results", never a stack trace. See tools/job-search/README.md for setup and cost.
 """
 
 import json
@@ -54,6 +62,9 @@ from pathlib import Path
 
 HTTP_TIMEOUT = 15
 USER_AGENT = "job-search-skill/1.2 (+https://github.com/Yoavsb25/claude-code-tools)"
+APIFY_API_BASE = "https://api.apify.com/v2"
+APIFY_DEFAULT_WORKDAY_ACTOR = "automation-lab/workday-jobs-scraper"
+APIFY_TIMEOUT = 90  # actor runs are synchronous and can take much longer than a plain GET
 REMOTIVE_URL = "https://remotive.com/api/remote-jobs"
 ARBEITNOW_URL = "https://www.arbeitnow.com/api/job-board-api"
 ATS_ENDPOINTS = {
@@ -73,10 +84,11 @@ LINKEDIN_USER_AGENT = (
 LINKEDIN_MAX_RETRIES = 6
 LINKEDIN_BACKOFF_BASE_MS = 500
 LINKEDIN_BACKOFF_CAP_MS = 8000
-# Platforms this script deliberately does NOT support: Workday has no universal keyless GET
-# endpoint (tenant-specific wd{N} subdomain + variable site-name path, and the real job-data
-# call is a POST with a JSON body, not a GET like every platform above) — it's handled only via
-# WebSearch/WebFetch in SKILL.md, never here.
+# Platforms ATS_ENDPOINTS deliberately does NOT support: Workday has no universal keyless GET
+# endpoint (tenant-specific wd{N} subdomain + variable site-name path, and the real job-data call
+# is a POST with a JSON body, not a GET like every platform below). It's still reachable via the
+# separate `search workday` command below (a paid Apify Actor, not a keyless API), with
+# WebSearch/WebFetch in SKILL.md as the free fallback when no APIFY_TOKEN is configured.
 ATS_PROBE_ORDER = ["greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable"]
 ATS_SLUG_SUFFIXES = {
     "inc", "llc", "ltd", "corp", "corporation", "co", "company",
@@ -590,6 +602,30 @@ def http_get_json(url):
         return None, f"unexpected error fetching {url}: {e}"
 
 
+def http_post_json(url, payload):
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=APIFY_TIMEOUT) as resp:
+            return json.loads(resp.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        return None, f"HTTP {e.code} from {url}"
+    except urllib.error.URLError as e:
+        return None, f"network error reaching {url}: {e.reason}"
+    except json.JSONDecodeError as e:
+        return None, f"invalid JSON from {url}: {e}"
+    except Exception as e:
+        return None, f"unexpected error fetching {url}: {e}"
+
+
 def posting(source, title, company, location, remote, url, tags, salary, posted_date, description):
     return {
         "source": source, "title": title, "company": company, "location": location,
@@ -825,6 +861,48 @@ def cmd_search_discover_ats(args):
     })
 
 
+def cmd_search_workday(args):
+    """Optional paid fallback: runs an Apify Actor against a company's Workday career site.
+    Requires APIFY_TOKEN — with no token set, degrades like any other source (error + no results),
+    never raises. See README.md for setup/cost."""
+    token = os.environ.get("APIFY_TOKEN")
+    if not token:
+        print_search_result(
+            "workday", [],
+            "APIFY_TOKEN not set — Workday search is an optional paid fallback, see README",
+        )
+        return
+
+    actor = os.environ.get("APIFY_WORKDAY_ACTOR_ID", APIFY_DEFAULT_WORKDAY_ACTOR)
+    run_url = (
+        f"{APIFY_API_BASE}/acts/{urllib.parse.quote(actor, safe='')}"
+        f"/run-sync-get-dataset-items?token={urllib.parse.quote(token)}"
+    )
+    payload = {
+        "companyUrl": args.url,
+        "searchQuery": args.query or "",
+        "location": args.location or "",
+        "maxJobs": args.limit,
+        "includeDescription": True,
+    }
+
+    items, err = http_post_json(run_url, payload)
+    if err:
+        print_search_result("workday", [], err)
+        return
+
+    results = [
+        posting(
+            "workday", item.get("title"), item.get("company"), item.get("location"),
+            item.get("remoteType") == "Remote", item.get("url"),
+            [item["category"]] if item.get("category") else [],
+            item.get("compensation"), item.get("postedDate"), item.get("description"),
+        )
+        for item in (items or [])[: args.limit]
+    ]
+    print_search_result("workday", results, None)
+
+
 def main():
     import argparse
 
@@ -891,6 +969,13 @@ def main():
     p_linkedin_detail = search_sub.add_parser("linkedin-detail")
     p_linkedin_detail.add_argument("--id", required=True)
     p_linkedin_detail.set_defaults(func=cmd_search_linkedin_detail)
+
+    p_workday = search_sub.add_parser("workday")
+    p_workday.add_argument("--url", required=True, help="Company's myworkdayjobs.com career-site URL")
+    p_workday.add_argument("--query")
+    p_workday.add_argument("--location")
+    p_workday.add_argument("--limit", type=int, default=25)
+    p_workday.set_defaults(func=cmd_search_workday)
 
     args = parser.parse_args()
     args.func(args)

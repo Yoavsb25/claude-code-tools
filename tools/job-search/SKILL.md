@@ -72,10 +72,15 @@ Profile fields (all optional except `roles`):
 | `must_haves` | e.g. `["Kubernetes", "no on-call"]` |
 | `deal_breakers` | Hard excludes — companies, conditions (e.g. "RTO 5 days") |
 | `salary_floor` | Only used to flag postings that disclose a lower range |
-| `target_companies` | Optional watchlist of `{"name": "...", "platform": "greenhouse\|lever\|ashby\|smartrecruiters\|recruitee\|workable\|workday", "slug": "..."}`. `platform`/`slug` are optional — if missing, Stage 2a auto-detects them before falling back to Stage 2b. A `workday` entry is bookkeeping only: `job_tool.py` has no reliable keyless endpoint for Workday, so those companies are always checked via Stage 2b's direct career-page WebFetch, never via `search ats` |
+| `target_companies` | Optional watchlist of `{"name": "...", "platform": "greenhouse\|lever\|ashby\|smartrecruiters\|recruitee\|workable\|other", "slug": "..."}`. `platform`/`slug` are optional — if missing, Stage 2a auto-detects them before falling back to Stage 2b (skipped for known large enterprises, see Stage 2a). `platform: "other"` covers Workday and any custom/non-ATS-API career site — the common case for large, well-known companies (Microsoft, NVIDIA, Amazon, most Fortune 500/public companies). It's bookkeeping only: `job_tool.py` has no reliable keyless endpoint for these, so they're always checked via Stage 2b's direct career-page search, never via `search ats`/`discover-ats` |
 
-**If the profile is empty (first run):** ask for the fields above in one conversational message,
-then save the answer with `profile set` before searching, so future runs don't re-ask.
+**If the profile is empty (first run):** ask for the fields above in a single `AskUserQuestion`
+call (multiple questions within one call is fine) or one free-text message — never split intake
+across multiple sequential question rounds, that's more friction than a first-time user should
+have to sit through. The one exception is `roles` itself, if the user hasn't already named one —
+resolve that first via **Role discovery** below (a legitimate back-and-forth, not intake-splitting),
+then batch everything else into one call. Save the answer with `profile set` before searching, so
+future runs don't re-ask.
 
 **If the profile exists:** don't re-ask for anything already set. Only ask about fields the user's
 current request doesn't cover and that materially change the search (e.g. they said "find me
@@ -87,6 +92,37 @@ must-have, added industry): after the search, ask whether to save it as the new 
 the changed keys if they say yes. Don't overwrite fields they didn't mention.
 
 **How many results:** default top 10 after ranking, unless the user asks for more/fewer.
+
+**Role discovery.** Run this when `roles` isn't set yet (first run and the user hasn't already
+named a role) or whenever the user explicitly asks for help figuring out what to search for
+("what roles should I look at", "suggest some titles", "I'm not sure what I want next").
+
+1. **Ask about direction before assuming continuity.** Don't default to "more of the same" just
+   because a resume shows a long history in one field — ask directly: *"Are you looking to
+   continue in your current field, or make a change? (Someone with 30 years as a software
+   engineer might now want something totally different — like becoming a pilot. Tell me if
+   that's the kind of shift you're making.)"* Take whatever direction the user states at face
+   value; it overrides anything the resume implies.
+2. **If they name a clear pivot or a specific role themselves:** use that directly as `roles` —
+   skip resume-based suggestions entirely. The resume can still inform Stage 3's requirements-fit
+   scoring (transferable skills), but it must never override a direction the user explicitly
+   stated.
+3. **If they're continuing in their field, or ask for suggestions:** load
+   `~/Desktop/Work/SysAid/profile-summaries/overall-profile.md` (same resume/skills reference used
+   in Stage 3 — adapt this path to your own setup if reusing this skill) and propose exactly 5
+   candidate role titles that fit their background and stated direction. Present them as a
+   numbered list with a one-line rationale each, and ask which (if any) to add. **Never add a
+   suggested title to `roles` without explicit confirmation** — this is a suggestion, not a
+   decision the skill gets to make. Once confirmed, save via `profile set` like any other Stage 1
+   change.
+
+**Ambiguous role titles.** Some titles carry more than one industry meaning — e.g. "Automation
+Engineer" can mean industrial/PLC/manufacturing automation *or* software test/process automation;
+"Analyst" can mean business, data, or security analyst. Before running broad searches on an
+ambiguous title, use the rest of the profile for context (e.g. paired with "Software Engineer" in
+`roles` → assume the software-automation reading). If context doesn't resolve it, ask a one-line
+clarifying question at intake rather than discovering the mismatch mid-search after already
+spending calls on the wrong industry's postings.
 
 ---
 
@@ -100,7 +136,10 @@ as required.
 ### 2a — Structured search via `job_tool.py` (always run this first)
 
 These hit public, keyless JSON APIs directly — no scraping, no bot-wall risk, and every call
-degrades to a clean `{"error": "...", "results": []}` instead of failing the whole search:
+degrades to a clean `{"error": "...", "results": []}` instead of failing the whole search. The one
+exception is `search workday` (see the Workday bullet in Stage 2b below) — a paid, optional Apify
+fallback for Workday-hosted enterprises, off by default until `APIFY_TOKEN` is configured (see
+README.md for setup/cost):
 
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search remotive --query "<role keyword>" --limit 25
@@ -110,6 +149,13 @@ python3 ~/.claude/skills/job-search/scripts/job_tool.py search arbeitnow --query
 Run one call per role in `roles` (varying the keyword), in parallel. These two sources are
 remote-job-focused aggregators — good general coverage, weakest on senior/staff-level and
 non-remote roles.
+
+**If none of the resolved `locations` mention "Remote", "Anywhere", or similar** (i.e. the search
+is strictly on-site/hybrid to specific cities): skip `search remotive`/`search arbeitnow`
+entirely. Both are remote-only aggregators and return near-100% irrelevant results for a
+location-locked search — running them just burns tokens parsing noise. Note in the Stage 4 summary
+that they were skipped and why. If `locations` includes any remote-friendly entry, run them as
+normal.
 
 Also run, once per (role × location) pair from the resolved criteria, in parallel with the calls
 above:
@@ -121,7 +167,8 @@ LinkedIn queries in Stage 2b below, since it returns structured fields instead o
 **Personal use only** per LinkedIn's Terms of Service — keep query volume low, never bulk or
 commercial use.
 
-**If `target_companies` is set in the profile**, also run, per entry:
+**If `target_companies` is set in the profile**, also run, per entry with a known
+Greenhouse/Lever/Ashby/SmartRecruiters/Recruitee/Workable `platform`:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --query "<role keyword>"
 ```
@@ -131,9 +178,18 @@ If the user names a specific company mid-conversation and gives (or you can find
 extract the slug from that URL and run this ad hoc even if it isn't saved to `target_companies` —
 then ask whether to add it to the watchlist for next time.
 
-**Auto-detecting a company's ATS.** For any company that's in `target_companies` without a
-`platform`/`slug`, or that Stage 2b's proactive discovery surfaces as a candidate (see below), try
-auto-detection before falling back to WebFetch:
+**Skip straight to Stage 2b for entries with `platform: "other"`** (or any company you recognize
+as an obviously large, well-known enterprise — Fortune 500, a major public tech company, a
+government contractor, a large consultancy: Microsoft, NVIDIA, Amazon, Deloitte, Google, and
+similar). Don't run `search ats` or `discover-ats` for these — they're virtually never on one of
+the six supported ATS platforms, they're almost always on Workday or a fully custom career site,
+and probing all six is a guaranteed-empty round trip. Go straight to Stage 2b's direct career-page
+search for these by name instead.
+
+**Auto-detecting a company's ATS.** For any other company in `target_companies` without a
+`platform`/`slug`, or that Stage 2b's proactive discovery surfaces as a candidate (see below) and
+isn't an obvious large enterprise per the rule above, try auto-detection before falling back to
+WebFetch:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-ats --company "<company name>" --query "<role keyword>"
 ```
@@ -190,8 +246,11 @@ isn't meant to fan out into dozens of speculative lookups per search. For each c
 run the auto-detect flow from 2a (`search discover-ats`) before falling back to the direct
 career-page search below.
 
-**Direct career-page search**, for companies with no ATS match. In addition to the
-`site:linkedin.com/jobs` queries above, search the company's own site directly:
+**Direct career-page search**, for companies with no ATS match — including every `platform:
+"other"` watchlist entry and every large enterprise skipped from `discover-ats` per Stage 2a (e.g.
+Microsoft, NVIDIA, Amazon, Deloitte). This is the primary path for those companies, not a
+fallback: go straight here for them rather than trying `search ats`/`discover-ats` first. In
+addition to the `site:linkedin.com/jobs` queries above, search the company's own site directly:
 - `site:<company-domain> careers [role]`
 - `"<company name>" careers [role] [location]`
 - `"<company name>" jobs apply [role]`
@@ -202,10 +261,22 @@ than a single JD, so pull out whichever open roles are visible and score them ag
 If `WebFetch` fails or 403s, don't drop the company — note it and rely on the LinkedIn/aggregator
 angle for that company this round instead.
 
-**Workday-hosted companies.** If a WebSearch result surfaces a `myworkdayjobs.com` URL for a
-target/discovered company, don't try `search ats` for it — `job_tool.py` has no reliable endpoint
-for Workday. Instead `WebFetch` the public career-page listing directly, same
-optional-enrichment/graceful-degradation treatment as any other page in this section.
+**Workday-hosted companies specifically.** If a WebSearch result surfaces a `myworkdayjobs.com`
+URL for a target/discovered company, don't try `search ats` for it — `job_tool.py`'s keyless ATS
+endpoints don't cover Workday. This is the single most common outcome for large enterprises, so
+expect it often. Two paths from here, in order:
+
+1. **If `APIFY_TOKEN` is configured for this install**, run
+   `search workday --url <the myworkdayjobs.com URL> --query "<role keyword>" --location "<location>"`
+   first — structured data straight from the company's own board, same graceful-degradation
+   contract as every other source (a bad URL or Actor hiccup degrades to `{"error": ..., "results": []}`,
+   never blocks the rest of the run). This is paid, so use it deliberately, not as a blanket
+   re-check every round — reserve it for `target_companies` watchlist entries and the proactive-discovery
+   hits already covered by the "~5 newly-discovered companies per round" cap above, the same
+   restraint already applied to the Playwright fallback below.
+2. **If `APIFY_TOKEN` isn't set, or the `search workday` call errors**, fall back to `WebFetch` on
+   the public career-page listing directly, same optional-enrichment/graceful-degradation treatment
+   as any other page in this section.
 
 **JS-rendered career pages (Playwright fallback).** `WebFetch` only reads raw HTML — it can't
 execute JavaScript, so many custom/non-ATS career pages that render listings client-side will come
@@ -219,6 +290,12 @@ from proactive discovery above. If Playwright tools aren't configured in a given
 server isn't guaranteed to be present), skip this step entirely and fall back to the WebSearch
 snippet exactly as before — this is optional enrichment on top of optional enrichment, never a
 hard requirement.
+
+**Sanity-check company names before spending a detail-fetch call.** LinkedIn's public jobs index
+occasionally surfaces synthetic/placeholder listings — company names containing patterns like
+"test company", "sample", "demo", or otherwise clearly not a real employer. Skip these without
+calling `linkedin-detail`/`WebFetch` on them, and don't include them in the shortlist; note in the
+Stage 4 summary how many were filtered as likely test data.
 
 **For a LinkedIn result** (any `linkedin.com/jobs/view/...` URL, whether it came from Stage 2a's
 native search or a WebSearch hit below): use
@@ -255,7 +332,9 @@ near-identical description; keep the direct company/ATS result (2a) over an aggr
 mirror (2b), and merge any extra detail (e.g. salary shown only on one source) into the kept entry.
 Auto-detected ATS results (`search discover-ats`) count as 2a for this ordering; direct
 company-career-page hits from the new proactive-discovery queries count as 2b, exactly like any
-other WebSearch/WebFetch result — no separate dedupe pass is needed for either.
+other WebSearch/WebFetch result — no separate dedupe pass is needed for either. A successful
+`search workday` result is also a direct company-board source, so treat it at the same priority
+as 2a/`search ats` results when deduping against a WebFetch/LinkedIn mirror of the same posting.
 
 **Cross-check against the Stage 0 tracker list.** Drop any posting matching an existing row's
 company + role (any status) — don't re-surface something already tracked, applied to, or
@@ -285,6 +364,15 @@ Exclude anything scoring under 5 overall — don't pad the list with weak matche
 
 Sort descending by overall score. Cap at the requested count (default 10).
 
+**Salary enrichment for the near-final shortlist.** If `salary_floor` is set and a posting in the
+top-scoring set doesn't disclose salary, run one `WebSearch` per such posting — capped at the top
+5–6 candidates, so this doesn't multiply cost across the whole list — for `"<company> <role>
+salary <location>"` to check public salary-aggregator data (Glassdoor, levels.fyi, Payscale-style
+results). Use this only to annotate the posting with an estimated range and flag it if the
+estimate looks below the floor. Never exclude a posting based on estimated data alone, and mark it
+clearly as `"salary: ~$X estimated, unconfirmed"` in the output — it's a data point to verify
+during application, not a scored fact.
+
 ---
 
 ## Stage 4 — Present the shortlist
@@ -292,14 +380,17 @@ Sort descending by overall score. Cap at the requested count (default 10).
 ```
 ## 🔍 Job Search — [role(s)]  •  [location(s)]  •  [date]
 
-Searched: Remotive, Arbeitnow, [ATS companies checked, including any auto-detected], LinkedIn
-(native), LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after dedupe, [N]
-after constraint filtering. [Note any source that errored, e.g. "Remotive: unreachable, skipped."]
+Searched: Remotive, Arbeitnow (or "skipped — on-site/hybrid only" if applicable), [ATS companies
+checked, including any auto-detected; large enterprises routed directly to career-page search],
+LinkedIn (native), Workday via Apify (or "skipped — APIFY_TOKEN not configured" if applicable),
+LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after
+dedupe, [N] after constraint filtering, [N] filtered as likely test data. [Note any source that
+errored, e.g. "Remotive: unreachable, skipped."]
 
 | # | Company | Role | Fit | Posted | Salary | Link |
 |---|---|---|---|---|---|---|
 | 1 | Acme Corp | Staff Backend Engineer | 9.2/10 | 3 days ago | $180–220k | [Apply →](url) |
-| 2 | Widgets Inc | Senior Platform Engineer | 8.1/10 | 1 week ago | Not disclosed | [Apply →](url) |
+| 2 | Widgets Inc | Senior Platform Engineer | 8.1/10 | 1 week ago | ~$150k estimated, unconfirmed | [Apply →](url) |
 
 ⚠️ Possibly stale (posted 5+ weeks ago, include only if nothing fresher fit as well):
 | # | Company | Role | Fit | Posted | Link |
@@ -378,3 +469,10 @@ date with no status change logged since.
   lowering the bar to fill the table.
 - **LinkedIn access is personal-use-only** per its Terms of Service — keep query volume low on
   both `search linkedin` and `search linkedin-detail`, never bulk or commercial use.
+- **Deliberately skipping a source is not the same as it failing.** Remotive/Arbeitnow being
+  skipped for an on-site-only search, or `discover-ats` being skipped for a known large enterprise,
+  are judgment calls to avoid wasted, guaranteed-empty calls — note them plainly in the Stage 4
+  summary, distinct from an actual `error`.
+- **Large enterprises go straight to Stage 2b.** Don't probe `search ats`/`discover-ats` against
+  companies you already know are unlikely to be on a supported ATS platform (Microsoft, NVIDIA,
+  Amazon, Deloitte, and similar) — go directly to their real career page.
