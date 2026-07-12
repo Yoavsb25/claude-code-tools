@@ -394,10 +394,13 @@ other WebSearch/WebFetch result — no separate dedupe pass is needed for either
 `search workday` result is also a direct company-board source, so treat it at the same priority
 as 2a/`search ats` results when deduping against a WebFetch/LinkedIn mirror of the same posting.
 
-**Cross-check against the Stage 0 tracker list.** Drop any posting matching an existing row's
-company + role (any status) — don't re-surface something already tracked, applied to, or
-rejected. Exception: if the user explicitly asks to re-check a company, include it and note
-"already tracked as [status]."
+**Cross-check against the Stage 0 tracker list and this conversation's earlier rounds.** Drop any
+posting matching an existing tracker row's company + role (any status) — don't re-surface
+something already tracked, applied to, or rejected. Exception: if the user explicitly asks to
+re-check a company, include it and note "already tracked as [status]." Also drop any posting
+already shown earlier in this same conversation (e.g. a follow-up "check big companies too" or
+"check these via Workday" round) — a second round should never re-present something the first
+round already surfaced, even before anything's been saved to the tracker.
 
 For each remaining posting, score three dimensions:
 
