@@ -1,6 +1,6 @@
 {
   "name": "job-search",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, kicks off resume-tailor, and surfaces warm-intro connections at target companies",
   "type": "tool",
   "category": "career",
@@ -9,13 +9,14 @@
   "install": {
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },
-      { "src": "scripts/job_tool.py", "dest": "~/.claude/skills/job-search/scripts/job_tool.py" }
+      { "src": "scripts/job_tool.py", "dest": "~/.claude/skills/job-search/scripts/job_tool.py" },
+      { "src": "references/search-fallbacks.md", "dest": "~/.claude/skills/job-search/references/search-fallbacks.md" }
     ]
   },
   "requirements": {
     "platform": "any",
-    "mcp_servers": [],
-    "env_vars": [],
+    "mcp_servers": ["apify (optional)", "playwright (optional)"],
+    "env_vars": ["APIFY_TOKEN (optional)"],
     "python": ">=3.9"
   }
 }
