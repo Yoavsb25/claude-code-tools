@@ -517,5 +517,113 @@ class TestCmdNetworkMatch(TempStateDirTestCase):
         self.assertIn("Anthropic", out["no_match_companies"])
 
 
+class TestParseAtsPayload(unittest.TestCase):
+    def test_greenhouse(self):
+        data = {"jobs": [{
+            "title": "Staff Backend Engineer", "location": {"name": "Remote"},
+            "absolute_url": "https://boards.greenhouse.io/acme/jobs/1",
+            "departments": [{"name": "Engineering"}], "updated_at": "2026-06-01", "content": "<p>JD</p>",
+        }]}
+        out = job_tool.parse_ats_payload("greenhouse", "Acme", data)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["title"], "Staff Backend Engineer")
+        self.assertEqual(out[0]["location"], "Remote")
+        self.assertEqual(out[0]["tags"], ["Engineering"])
+        self.assertEqual(out[0]["description"], "JD")
+
+    def test_lever(self):
+        data = [{
+            "text": "Platform Engineer", "categories": {"location": "Berlin", "allLocations": ["Berlin"]},
+            "hostedUrl": "https://jobs.lever.co/acme/1", "createdAt": "2026-06-01",
+            "descriptionPlain": "JD text",
+        }]
+        out = job_tool.parse_ats_payload("lever", "Acme", data)
+        self.assertEqual(out[0]["title"], "Platform Engineer")
+        self.assertEqual(out[0]["location"], "Berlin")
+        self.assertEqual(out[0]["tags"], ["Berlin"])
+
+    def test_ashby(self):
+        data = {"jobs": [{
+            "title": "Backend Engineer", "location": "Remote", "isRemote": True,
+            "jobUrl": "https://jobs.ashbyhq.com/acme/1", "departmentName": "Engineering",
+            "publishedAt": "2026-06-01", "descriptionPlain": "JD text",
+        }]}
+        out = job_tool.parse_ats_payload("ashby", "Acme", data)
+        self.assertEqual(out[0]["remote"], True)
+        self.assertEqual(out[0]["tags"], ["Engineering"])
+
+    def test_smartrecruiters(self):
+        data = {"content": [{
+            "name": "Backend Engineer", "id": "123",
+            "location": {"city": "London", "country": "UK", "remote": False},
+            "postingUrl": "https://jobs.smartrecruiters.com/Acme/123",
+            "department": {"label": "Engineering"}, "releasedDate": "2026-06-01",
+        }]}
+        out = job_tool.parse_ats_payload("smartrecruiters", "Acme", data)
+        self.assertEqual(out[0]["location"], "London, UK")
+        self.assertEqual(out[0]["tags"], ["Engineering"])
+
+    def test_recruitee(self):
+        data = {"offers": [{
+            "title": "Backend Engineer", "city": "Amsterdam", "country": "Netherlands", "remote": True,
+            "careers_url": "https://acme.recruitee.com/o/backend-engineer",
+            "department": "Engineering", "created_at": "2026-06-01", "description": "<p>JD</p>",
+        }]}
+        out = job_tool.parse_ats_payload("recruitee", "Acme", data)
+        self.assertEqual(out[0]["location"], "Amsterdam, Netherlands")
+        self.assertEqual(out[0]["tags"], ["Engineering"])
+        self.assertEqual(out[0]["description"], "JD")
+
+    def test_workable(self):
+        data = {"jobs": [{
+            "title": "Backend Engineer", "location": {"location_str": "Remote"}, "telecommute": True,
+            "url": "https://apply.workable.com/acme/j/123", "department": "Engineering",
+            "published_on": "2026-06-01", "description": "<p>JD</p>",
+        }]}
+        out = job_tool.parse_ats_payload("workable", "Acme", data)
+        self.assertEqual(out[0]["location"], "Remote")
+        self.assertEqual(out[0]["remote"], True)
+        self.assertEqual(out[0]["tags"], ["Engineering"])
+
+
+class TestCmdSearchDiscoverAts(unittest.TestCase):
+    def _run(self, company, platforms=None):
+        args = argparse.Namespace(company=company, slug_hint=None, platforms=platforms, query=None, limit=25)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            job_tool.cmd_search_discover_ats(args)
+        return json.loads(buf.getvalue())
+
+    @patch("job_tool.http_get_json")
+    def test_high_confidence_when_postings_found(self, mock_get):
+        def fake_get(url):
+            if "boards-api.greenhouse.io" in url:
+                return {"jobs": [{"title": "Backend Engineer", "absolute_url": "https://x", "departments": []}]}, None
+            return None, "HTTP 404"
+        mock_get.side_effect = fake_get
+
+        out = self._run("Acme Corp", platforms="greenhouse")
+        self.assertEqual(out["confidence"], "high")
+        self.assertEqual(out["detected_platform"], "greenhouse")
+        self.assertEqual(len(out["results"]), 1)
+
+    @patch("job_tool.http_get_json")
+    def test_low_confidence_when_board_resolves_with_zero_postings(self, mock_get):
+        mock_get.return_value = ({"jobs": []}, None)
+
+        out = self._run("Acme Corp", platforms="greenhouse")
+        self.assertEqual(out["confidence"], "low")
+        self.assertEqual(out["detected_platform"], "greenhouse")
+
+    @patch("job_tool.http_get_json")
+    def test_none_confidence_when_nothing_resolves(self, mock_get):
+        mock_get.return_value = (None, "HTTP 404")
+
+        out = self._run("Acme Corp", platforms="greenhouse")
+        self.assertEqual(out["confidence"], "none")
+        self.assertIsNone(out["detected_platform"])
+        self.assertEqual(out["results"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
