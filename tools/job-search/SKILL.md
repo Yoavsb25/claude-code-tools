@@ -495,6 +495,13 @@ setup, the `network import`/`list`/`match` commands, and the presentation format
 - **The script owns the tracker and profile files.** Never hand-edit `Tracker.md`,
   `tracker.json`, or `profile.json` directly — always go through `job_tool.py`, so state can't
   silently drift or lose rows across sessions.
+- **Array-valued profile fields overwrite, they don't merge.** `profile set` performs a shallow
+  merge (`profile.update(patch)`) — passing `locations`, `skills`, `must_haves`, `deal_breakers`,
+  `industries_prefer`/`industries_avoid`, `education`, or `target_companies` replaces that field's
+  entire array. Before adding or removing a single item (e.g. "add Berlin as a location," "drop
+  the Kubernetes requirement"), read the field's current value from `profile show` first, splice
+  the change in, and write back the full array — never patch with just the delta, or the rest of
+  the list is silently dropped.
 - **No single search source is required.** `search remotive`/`arbeitnow`/`ats` and `WebFetch`
   enrichment can each fail independently (network policy, an API being down, a bot wall) — every
   one degrades to an empty/partial result with a clear reason instead of stopping the pipeline.
