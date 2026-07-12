@@ -425,5 +425,28 @@ class TestCmdTrackerUpsertBehavior(TempStateDirTestCase):
         self.assertIn("require both 'company' and 'role'", buf_err.getvalue())
 
 
+class TestCmdProfileSet(TempStateDirTestCase):
+    def _set(self, patch_dict):
+        return self._run_json(job_tool.cmd_profile_set, argparse.Namespace(patch=json.dumps(patch_dict)))
+
+    def test_first_call_creates_profile_with_updated_stamp(self):
+        out = self._set({"roles": ["Staff Backend Engineer"], "locations": ["Remote EU"]})
+        self.assertEqual(out["roles"], ["Staff Backend Engineer"])
+        self.assertEqual(out["locations"], ["Remote EU"])
+        self.assertEqual(out["updated"], job_tool.today_str())
+
+    def test_second_call_preserves_untouched_top_level_fields(self):
+        self._set({"roles": ["Staff Backend Engineer"], "locations": ["Remote EU"]})
+        out = self._set({"seniority": "Staff+"})
+        self.assertEqual(out["roles"], ["Staff Backend Engineer"])
+        self.assertEqual(out["locations"], ["Remote EU"])
+        self.assertEqual(out["seniority"], "Staff+")
+
+    def test_array_field_patch_replaces_rather_than_merges(self):
+        self._set({"locations": ["Remote EU", "London"]})
+        out = self._set({"locations": ["Berlin"]})
+        self.assertEqual(out["locations"], ["Berlin"])
+
+
 if __name__ == "__main__":
     unittest.main()
