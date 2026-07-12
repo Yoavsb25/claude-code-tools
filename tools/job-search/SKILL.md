@@ -225,6 +225,11 @@ why, briefly) in the Stage 4 output, and rely on the other sources for that roun
 source failing (e.g. this environment's network policy, or that API being temporarily down) must
 never block the rest of the pipeline.
 
+**If a source starts erroring partway through a round** after earlier calls to it succeeded (e.g.
+rate-limited after the third `search ats` call this round): stop issuing further calls to that
+source for the rest of the round and treat it as a single failure in the Stage 4 summary — don't
+retry it call-by-call or log each subsequent failure as a separate error.
+
 ### 2b — WebSearch / WebFetch (broader net, especially for LinkedIn)
 
 Run `WebSearch` queries built from the resolved criteria, varying phrasing. Prefer patterns that
