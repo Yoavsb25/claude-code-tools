@@ -250,12 +250,20 @@ never block the rest of the pipeline.
 
 ### 2b — WebSearch / WebFetch (broader net, especially for LinkedIn)
 
-Run `WebSearch` queries built from the resolved criteria, varying phrasing:
+Run `WebSearch` queries built from the resolved criteria, varying phrasing. Prefer patterns that
+resolve to individual posting pages over generic phrasing that tends to surface aggregator
+listing/landing pages (Glassdoor "N jobs in..." pages, Totaljobs category pages) — those cost a
+query without returning a scoreable result:
 - `site:linkedin.com/jobs [role] [location]`
 - `site:linkedin.com/jobs "[role]" remote`
 - `"[role]" hiring [location] 2026`
 - Plain-language query combining role + location + must-haves, e.g. `Staff Backend Engineer
   remote Kubernetes hiring`
+
+**If `skills` is set**, add exactly one additional query per role blending the role title with the
+top 2–3 skills, e.g. `Software Engineer React Node CI/CD hiring London` — additive to the queries
+above, not a replacement. Bounded to one extra query per role, not one per skill, to keep volume
+in check.
 
 **If `industries_prefer` is set**, add targeted queries per industry, e.g. `[role] fintech
 [location] hiring`.
