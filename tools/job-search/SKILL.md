@@ -483,8 +483,9 @@ date with no status change logged since.
 ## Network — warm intros at target companies
 
 Trigger this section instead of the Stage 0–6 search pipeline for requests like "who do I know at
-X", "find warm intros for my target companies", "which connections work at [company]", or "who can
-refer me at Google". This is a separate, on-demand lookup — it never touches `tracker.json` and
+X", "find warm intros for my target companies", "which connections work at [company]", "who can
+refer me at Google", "what companies am I connected to", or "show me my network by company". This
+is a separate, on-demand lookup — it never touches `tracker.json` and
 never runs a job search. Read `references/network-warm-intros.md` for one-time connections-export
 setup, the `network import`/`list`/`match` commands, and the presentation format.
 

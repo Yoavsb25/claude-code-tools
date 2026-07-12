@@ -26,6 +26,7 @@ exist yet, walk the user through:
 python3 ~/.claude/skills/job-search/scripts/job_tool.py network import --csv "<path>"
 python3 ~/.claude/skills/job-search/scripts/job_tool.py network list [--company "<name>"]
 python3 ~/.claude/skills/job-search/scripts/job_tool.py network match [--company "<name>"]
+python3 ~/.claude/skills/job-search/scripts/job_tool.py network companies
 ```
 
 - **`network import`** parses the export (skipping LinkedIn's preamble lines to find the real
@@ -33,6 +34,12 @@ python3 ~/.claude/skills/job-search/scripts/job_tool.py network match [--company
 - **`network list`** is for general browsing ("show me my network"), with an optional filter on
   Company. Still useful for eyeballing the network, but treat `match` as the source of truth for
   intro-suggestion precision.
+- **`network companies`** answers "what companies do I know people at" / "show me my network by
+  company" — it groups every imported connection by normalized company name and returns three
+  buckets (3+ connections, 2 connections, 1 connection) plus a `no_company_listed` count. Use this
+  instead of `list` whenever the user wants a company-level overview rather than a per-person one
+  — `list`'s flat per-connection output is unusable once someone has hundreds or thousands of
+  connections.
 - **`network match`** is the precision tool for intro suggestions:
   - With no `--company`, checks every entry in the profile's `target_companies` watchlist and
     returns per-company matches plus a `no_match_companies` list.
@@ -45,6 +52,8 @@ python3 ~/.claude/skills/job-search/scripts/job_tool.py network match [--company
     name, suggest the user double-check with `network list --company <broader term>`.
 
 ## Presenting results
+
+### `network match`
 
 Group by target company, most-matches-first. Show name, position, connected-on date, and profile
 URL (if present) for each match:
@@ -63,3 +72,31 @@ Want a short referral-request message drafted for reaching out to Jane?
 Offer to draft a short, specific referral/intro-request message on request — reference the
 connection's actual role and how long you've been connected, not a generic template. Never send
 anything on the user's behalf — draft only.
+
+### `network companies`
+
+Print the `3+ connections` and `2 connections` buckets in full (company — count), since those are
+usually short. For `1 connection`, don't dump the whole list into the reply by default — with
+1000+ connections that bucket alone can run into the hundreds; state the count and offer to list
+them:
+
+```
+## Your network by company (1,240 connections across 812 companies)
+
+### 3+ connections
+- **SysAid** — 5
+- **Amazon Web Services (AWS)** — 4
+...
+
+### 2 connections
+- **Cloudflare** — 2
+- **PayPal** — 2
+...
+
+### 1 connection
+614 companies with a single connection each. Want the full list?
+
+(14 connections had no company listed.)
+```
+
+Only mention the `no_company_listed` line if it's non-zero.

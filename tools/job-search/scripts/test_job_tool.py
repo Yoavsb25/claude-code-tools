@@ -517,6 +517,50 @@ class TestCmdNetworkMatch(TempStateDirTestCase):
         self.assertIn("Anthropic", out["no_match_companies"])
 
 
+NETWORK_COMPANIES_CSV_FIXTURE = """First Name,Last Name,URL,Email Address,Company,Position,Connected On
+A,One,https://www.linkedin.com/in/a1,,Google,Engineer,01 Jan 2022
+B,Two,https://www.linkedin.com/in/b2,,Google Inc,Engineer,02 Jan 2022
+C,Three,https://www.linkedin.com/in/c3,,Google LLC,Engineer,03 Jan 2022
+D,Four,https://www.linkedin.com/in/d4,,Amazon Web Services (AWS),Engineer,04 Jan 2022
+E,Five,https://www.linkedin.com/in/e5,,Amazon Web Services (AWS) Inc,Engineer,05 Jan 2022
+F,Six,https://www.linkedin.com/in/f6,,Cloudflare,Engineer,06 Jan 2022
+G,Seven,https://www.linkedin.com/in/g7,,Anthropic,Engineer,07 Jan 2022
+H,Eight,https://www.linkedin.com/in/h8,,,Engineer,08 Jan 2022
+"""
+
+
+class TestCmdNetworkCompanies(TempStateDirTestCase):
+    def setUp(self):
+        super().setUp()
+        csv_path = Path(self._tmpdir.name) / "Connections.csv"
+        csv_path.write_text(NETWORK_COMPANIES_CSV_FIXTURE, encoding="utf-8")
+        self._run_json(job_tool.cmd_network_import, argparse.Namespace(csv=str(csv_path)))
+        self.out = self._run_json(job_tool.cmd_network_companies, argparse.Namespace())
+
+    def _bucket(self, label):
+        return next(b for b in self.out["buckets"] if b["label"] == label)
+
+    def test_totals(self):
+        self.assertEqual(self.out["total_connections"], 8)
+        self.assertEqual(self.out["unique_companies"], 4)
+        self.assertEqual(self.out["no_company_listed"], 1)
+
+    def test_legal_suffix_variants_collapse_into_one_group_with_shortest_display_name(self):
+        bucket = self._bucket("3+ connections")
+        self.assertEqual(bucket["companies"], [{"company": "Google", "count": 3}])
+
+    def test_two_connection_bucket_collapses_variants_too(self):
+        bucket = self._bucket("2 connections")
+        self.assertEqual(bucket["companies"], [{"company": "Amazon Web Services (AWS)", "count": 2}])
+
+    def test_one_connection_bucket_sorted_alphabetically(self):
+        bucket = self._bucket("1 connection")
+        self.assertEqual(bucket["companies"], [
+            {"company": "Anthropic", "count": 1},
+            {"company": "Cloudflare", "count": 1},
+        ])
+
+
 class TestParseAtsPayload(unittest.TestCase):
     def test_greenhouse(self):
         data = {"jobs": [{

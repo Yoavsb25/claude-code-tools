@@ -22,6 +22,7 @@ Usage:
   job_tool.py network import --csv "<path to LinkedIn Connections.csv>"
   job_tool.py network list [--company "<name>"]
   job_tool.py network match [--company "<name>"]
+  job_tool.py network companies
 
 State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
@@ -34,7 +35,9 @@ connections export against `profile.json`'s `target_companies` watchlist to surf
 contacts. `network import` reads a `Connections.csv` from LinkedIn's own official data export
 (Settings & Privacy > Data Privacy > "Get a copy of your data") — no scraping, no session cookie,
 no API key. `network match` does the actual company matching; `network list` is for general
-browsing. See tools/job-search/SKILL.md's "Network — warm intros" section.
+browsing; `network companies` summarizes the whole imported set grouped by company so it's
+scannable even with 1000+ connections. See tools/job-search/SKILL.md's "Network — warm intros"
+section.
 
 The `search` group hits public, keyless JSON APIs directly (no scraping, no MCP) and always
 prints a JSON object with a "results" list — a fetch failure for one source (network policy,
@@ -489,6 +492,50 @@ def cmd_network_match(args):
         "results": results,
         "no_match_companies": [r["target_company"] for r in results if r["match_count"] == 0],
         "total_connections_loaded": len(conns),
+    }, indent=2))
+
+
+def cmd_network_companies(_args):
+    data = load_connections()
+    conns = data["connections"]
+
+    groups = {}  # normalized-company tuple -> {"display": str, "count": int}
+    no_company = 0
+    for c in conns:
+        company = (c.get("company") or "").strip()
+        if not company:
+            no_company += 1
+            continue
+        key = tuple(normalize_company(company))
+        group = groups.setdefault(key, {"display": company, "count": 0})
+        group["count"] += 1
+        # Prefer the shortest original spelling as the display name (e.g. "SysAid" over
+        # "SysAid Inc") since it's usually the cleanest form of the same company.
+        if len(company) < len(group["display"]):
+            group["display"] = company
+
+    bucket_3plus, bucket_2, bucket_1 = [], [], []
+    for group in groups.values():
+        entry = {"company": group["display"], "count": group["count"]}
+        if group["count"] >= 3:
+            bucket_3plus.append(entry)
+        elif group["count"] == 2:
+            bucket_2.append(entry)
+        else:
+            bucket_1.append(entry)
+
+    for bucket in (bucket_3plus, bucket_2, bucket_1):
+        bucket.sort(key=lambda e: e["company"].lower())
+
+    print(json.dumps({
+        "total_connections": len(conns),
+        "unique_companies": len(groups),
+        "no_company_listed": no_company,
+        "buckets": [
+            {"label": "3+ connections", "companies": bucket_3plus},
+            {"label": "2 connections", "companies": bucket_2},
+            {"label": "1 connection", "companies": bucket_1},
+        ],
     }, indent=2))
 
 
@@ -1129,6 +1176,9 @@ def main():
     p_net_match = network_sub.add_parser("match")
     p_net_match.add_argument("--company", help="Check one company ad hoc instead of iterating profile's target_companies")
     p_net_match.set_defaults(func=cmd_network_match)
+
+    p_net_companies = network_sub.add_parser("companies")
+    p_net_companies.set_defaults(func=cmd_network_companies)
 
     p_search = sub.add_parser("search")
     search_sub = p_search.add_subparsers(dest="action", required=True)
