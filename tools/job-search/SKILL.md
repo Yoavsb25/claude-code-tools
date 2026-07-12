@@ -405,10 +405,17 @@ For each remaining posting, score three dimensions:
 seniority? Use exact-title matches and JD language (not just the title) — a "Senior Software
 Engineer" posting that's really staff-scope work should score on scope, not label.
 
-**Requirements fit (0–10)** — Overlap between the JD's required skills and Yoav's profile. Load
-`~/Desktop/Work/SysAid/profile-summaries/overall-profile.md` for his skill set if not already in
-context this session. Penalize postings with hard requirements he clearly doesn't meet (e.g. a
-specific clearance, a language he doesn't speak, years of experience he doesn't have).
+**Requirements fit (0–10)** — Overlap between the JD's required skills and the profile's `skills`,
+`education`, and `experience_summary` (from `profile show` in Stage 0 — no external file to load).
+Judge overlap holistically, including reasonable synonyms (e.g. "CI/CD" should match "continuous
+integration," not just the literal string) — this stays a judgment call, not a keyword-matching
+formula, since JD phrasing varies too much for rigid matching to be reliable. Hard-check any
+explicit education requirement in the JD (minimum degree, a graduation-year window for grad/new-grad
+postings) against `education`, and penalize postings with other hard requirements clearly unmet
+(e.g. a specific clearance, a language not spoken, years of experience not met). If `skills`/
+`education`/`experience_summary` aren't set yet, score with looser judgment from `roles`/
+`seniority` alone and note the lower confidence rather than blocking the search on missing profile
+data.
 
 **Constraint fit (0–10)** — Location/remote match, industry alignment, and deal-breakers:
 - A hit on `deal_breakers` drops this to 0 regardless of other scores — exclude the posting
