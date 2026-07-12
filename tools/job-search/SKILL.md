@@ -309,19 +309,32 @@ angle for that company this round instead.
 **Workday-hosted companies specifically.** If a WebSearch result surfaces a `myworkdayjobs.com`
 URL for a target/discovered company, don't try `search ats` for it — `job_tool.py`'s keyless ATS
 endpoints don't cover Workday. This is the single most common outcome for large enterprises, so
-expect it often. Two paths from here, in order:
+expect it often. Three paths from here, in order:
 
-1. **If `APIFY_TOKEN` is configured for this install**, run
+1. **If `mcp__apify__*` tools are available in this session** (check the deferred-tools list —
+   independent of any environment variable), prefer this path: call
+   `mcp__apify__fetch-actor-details` on `automation-lab/workday-jobs-scraper` to confirm its input
+   schema, then `mcp__apify__call-actor` with the company's `myworkdayjobs.com` URL, a role
+   keyword, and location. Before spending anything, confirm the target company list with the user
+   first — unless they already named the companies explicitly — since this is a paid call
+   regardless of which path runs it. Keep runs cheap and payload-safe: default `maxJobs` to 10
+   (well under the Actor's own 20–50 default) rather than pulling everything, and fetch results
+   with a `fields` projection (`title,location,postedDate,url,compensation` first) before pulling
+   full descriptions — only fetch full descriptions for the subset that survives that first pass.
+   A large unprojected result set can overflow tool output entirely and get dumped to a file
+   instead of returned inline, which defeats the point of a quick check.
+2. **Else, if `APIFY_TOKEN` is configured for this install**, run
    `search workday --url <the myworkdayjobs.com URL> --query "<role keyword>" --location "<location>"`
-   first — structured data straight from the company's own board, same graceful-degradation
-   contract as every other source (a bad URL or Actor hiccup degrades to `{"error": ..., "results": []}`,
-   never blocks the rest of the run). This is paid, so use it deliberately, not as a blanket
-   re-check every round — reserve it for `target_companies` watchlist entries and the proactive-discovery
-   hits already covered by the "~5 newly-discovered companies per round" cap above, the same
-   restraint already applied to the Playwright fallback below.
-2. **If `APIFY_TOKEN` isn't set, or the `search workday` call errors**, fall back to `WebFetch` on
-   the public career-page listing directly, same optional-enrichment/graceful-degradation treatment
-   as any other page in this section.
+   — same graceful-degradation contract as every other source (a bad URL or Actor hiccup degrades
+   to `{"error": ..., "results": []}`, never blocks the rest of the run). Same confirm-before-spend
+   and lean-query discipline as path 1: confirm target companies with the user first unless
+   already named, and don't run it as a blanket re-check every round — reserve it for
+   `target_companies` watchlist entries and the proactive-discovery hits already covered by the
+   "~5 newly-discovered companies per round" cap above, the same restraint already applied to the
+   Playwright fallback below.
+3. **If neither is available, or the call errors**, fall back to `WebFetch` on the public
+   career-page listing directly, same optional-enrichment/graceful-degradation treatment as any
+   other page in this section.
 
 **JS-rendered career pages (Playwright fallback).** `WebFetch` only reads raw HTML — it can't
 execute JavaScript, so many custom/non-ATS career pages that render listings client-side will come
@@ -427,8 +440,8 @@ during application, not a scored fact.
 
 Searched: Remotive, Arbeitnow (or "skipped — on-site/hybrid only" if applicable), [ATS companies
 checked, including any auto-detected; large enterprises routed directly to career-page search],
-LinkedIn (native), Workday via Apify (or "skipped — APIFY_TOKEN not configured" if applicable),
-LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after
+LinkedIn (native), Workday via Apify (MCP or APIFY_TOKEN) (or "skipped — neither available" if
+applicable), LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after
 dedupe, [N] after constraint filtering, [N] filtered as likely test data. [Note any source that
 errored, e.g. "Remotive: unreachable, skipped."]
 
