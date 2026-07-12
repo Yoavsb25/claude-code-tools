@@ -69,6 +69,9 @@ Profile fields (all optional except `roles`):
 | `roles` | Target title(s), e.g. `["Staff Backend Engineer", "Platform Engineer"]` |
 | `locations` | Cities, "Remote EU", "Remote US", hybrid constraints |
 | `seniority` | Mid / Senior / Staff+ |
+| `skills` | Flat list of technical skills, e.g. `["JavaScript", "React", "Node.js", "CI/CD", "GitHub Actions", "Kubernetes"]`. Drives the skill-flavored query in Stage 2b and anchors requirements-fit scoring in Stage 3 |
+| `education` | List of `{"degree": "...", "field": "...", "institution": "...", "graduation_year": ...}` objects — a list, not a single object, to support multiple degrees. Used to hard-check education requirements in postings (minimum degree, graduation-year windows for grad schemes) |
+| `experience_summary` | Short free-text paragraph summarizing work history and domain focus, e.g. "2 years as a Software Engineer, focused on CI/CD infrastructure, deployment automation, and internal developer tools using React/Node." Used for holistic Stage 3 scoring judgment and Stage 1 role-discovery suggestions |
 | `industries_prefer` | Domains to weight up, e.g. `["devtools", "fintech"]` |
 | `industries_avoid` | Domains to weight down or exclude, e.g. `["adtech", "crypto"]` |
 | `must_haves` | e.g. `["Kubernetes", "no on-call"]` |
@@ -81,12 +84,20 @@ call (multiple questions within one call is fine) or one free-text message — n
 across multiple sequential question rounds, that's more friction than a first-time user should
 have to sit through. The one exception is `roles` itself, if the user hasn't already named one —
 resolve that first via **Role discovery** below (a legitimate back-and-forth, not intake-splitting),
-then batch everything else into one call. Save the answer with `profile set` before searching, so
-future runs don't re-ask.
+then batch everything else into one call. `skills`/`education`/`experience_summary` don't need to
+be exhaustive — a short list and a one-paragraph summary are enough to start; they can be refined
+later via `profile set`. Save the answer with `profile set` before searching, so future runs don't
+re-ask.
 
 **If the profile exists:** don't re-ask for anything already set. Only ask about fields the user's
 current request doesn't cover and that materially change the search (e.g. they said "find me
 jobs" with no other detail and the profile already has roles/locations — just proceed).
+
+**If the profile exists but predates `skills`/`education`/`experience_summary`** (i.e. `profile
+show` returns a profile with `roles`/`locations` set but none of the three): ask for them once, in
+the same low-friction single-message style as first-run intake, before proceeding with the search.
+Save via `profile set` and never ask again once they're present — even if the user later leaves
+one empty on purpose.
 
 **If the user's request conflicts with or extends the stored profile** (new location, dropped
 must-have, added industry): after the search, ask whether to save it as the new default —
