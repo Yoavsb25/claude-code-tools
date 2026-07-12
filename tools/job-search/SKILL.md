@@ -141,6 +141,17 @@ a one-line clarifying question during Stage 1 intake — before Stage 2 runs any
 role — rather than discovering the mismatch mid-search after already spending calls on the wrong
 industry's postings.
 
+**Salary floor vs. seniority sanity check.** Whenever `salary_floor` and `seniority` are both set
+(on profile creation or edit) and `seniority` reads as junior/entry-level, run one `WebSearch` for
+typical market salary at that role/seniority/location combination — e.g. `"[role] [seniority]
+salary [location]"` — before running the full multi-source search. If the floor looks materially
+above what the search turns up, flag it to the user up front, e.g.: *"Your £60k floor is well
+above typical London junior rates (~£35–49k) — want to adjust it, or proceed knowing most matches
+may fall short?"* Let them adjust or explicitly proceed before spending the full search budget,
+rather than only discovering the mismatch after several rounds of per-posting salary enrichment in
+Stage 3. This is a single check at intake time — distinct from, and in addition to, the per-posting
+salary enrichment in Stage 3 for the near-final shortlist.
+
 ---
 
 ## Stage 2 — Search adaptively
