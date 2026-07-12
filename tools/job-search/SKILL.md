@@ -370,11 +370,15 @@ data.
 **Constraint fit (0–10)** — Location/remote match, industry alignment, and deal-breakers:
 - A hit on `deal_breakers` drops this to 0 regardless of other scores — exclude the posting
   entirely, don't just rank it low.
+- A location mismatch that isn't a formal deal-breaker (on-site/hybrid in a city outside all
+  resolved `locations`, or no remote option when only remote locations are set) caps this at ≤3 —
+  a role someone can't actually work is a near-exclusion even when the user never listed it as a
+  deal-breaker.
 - A hit on `industries_avoid` weights this down heavily (score ≤3) but doesn't auto-exclude,
   unless the user has said otherwise.
 - A match with `industries_prefer` weights this up.
 
-**Overall score** = (Role fit × 0.4) + (Requirements fit × 0.4) + (Constraint fit × 0.2).
+**Overall score** = (Role fit × 0.35) + (Requirements fit × 0.35) + (Constraint fit × 0.3).
 Exclude anything scoring under 5 overall — don't pad the list with weak matches.
 
 Sort descending by overall score. Cap at the requested count (default 10).
