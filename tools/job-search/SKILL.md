@@ -120,14 +120,14 @@ named a role) or whenever the user explicitly asks for help figuring out what to
    skip resume-based suggestions entirely. The resume can still inform Stage 3's requirements-fit
    scoring (transferable skills), but it must never override a direction the user explicitly
    stated.
-3. **If they're continuing in their field, or ask for suggestions:** load
-   `~/Desktop/Work/SysAid/profile-summaries/overall-profile.md` (same resume/skills reference used
-   in Stage 3 — adapt this path to your own setup if reusing this skill) and propose exactly 5
-   candidate role titles that fit their background and stated direction. Present them as a
-   numbered list with a one-line rationale each, and ask which (if any) to add. **Never add a
-   suggested title to `roles` without explicit confirmation** — this is a suggestion, not a
-   decision the skill gets to make. Once confirmed, save via `profile set` like any other Stage 1
-   change.
+3. **If they're continuing in their field, or ask for suggestions:** use the profile's `skills`,
+   `education`, and `experience_summary` (from `profile show` in Stage 0) to propose exactly 5
+   candidate role titles that fit their background and stated direction. If those fields aren't
+   set yet, ask for them first (see Stage 1's field table) rather than guessing from `roles` alone.
+   Present the 5 titles as a numbered list with a one-line rationale each, and ask which (if any)
+   to add. **Never add a suggested title to `roles` without explicit confirmation** — this is a
+   suggestion, not a decision the skill gets to make. Once confirmed, save via `profile set` like
+   any other Stage 1 change.
 
 **Ambiguous role titles.** Some titles carry more than one industry meaning — e.g. "Automation
 Engineer" can mean industrial/PLC/manufacturing automation *or* software test/process automation;
