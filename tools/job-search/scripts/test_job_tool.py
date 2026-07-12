@@ -2,8 +2,10 @@ import argparse
 import contextlib
 import io
 import json
+import tempfile
 import unittest
 import urllib.error
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import job_tool
@@ -311,6 +313,27 @@ class TestCmdSearchLinkedinDetail(unittest.TestCase):
         self.assertIsNone(out["error"])
         self.assertEqual(out["result"]["id"], "4426311357")
         self.assertEqual(out["result"]["title"], "Staff Backend Engineer")
+
+
+class TestSaveJson(unittest.TestCase):
+    def test_writes_valid_content_and_leaves_no_tmp_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "state.json"
+            job_tool.save_json(path, {"a": 1})
+
+            self.assertEqual(json.loads(path.read_text()), {"a": 1})
+            self.assertFalse((Path(tmp) / "state.json.tmp").exists())
+
+    def test_preserves_original_file_if_write_fails_partway(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "state.json"
+            path.write_text('{"a": 1}\n', encoding="utf-8")
+
+            with patch("job_tool.json.dump", side_effect=RuntimeError("boom")):
+                with self.assertRaises(RuntimeError):
+                    job_tool.save_json(path, {"a": 2})
+
+            self.assertEqual(json.loads(path.read_text()), {"a": 1})
 
 
 if __name__ == "__main__":

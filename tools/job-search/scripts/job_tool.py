@@ -138,9 +138,11 @@ def load_json(path, default):
 
 
 def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
+    tmp_path = path.with_name(path.name + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, sort_keys=False)
         f.write("\n")
+    os.replace(tmp_path, path)
 
 
 def read_json_arg(arg):
