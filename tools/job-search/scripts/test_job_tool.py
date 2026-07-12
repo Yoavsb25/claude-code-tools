@@ -448,5 +448,74 @@ class TestCmdProfileSet(TempStateDirTestCase):
         self.assertEqual(out["locations"], ["Berlin"])
 
 
+CONNECTIONS_CSV_FIXTURE = """Notes:
+"When exporting your connection data, you may notice some columns are absent."
+
+First Name,Last Name,URL,Email Address,Company,Position,Connected On
+Jane,Doe,https://www.linkedin.com/in/janedoe,,Google,Senior PM,01 Mar 2022
+John,Smith,,,Google Inc,Software Engineer,15 Jun 2023
+Amy,Lee,https://www.linkedin.com/in/amylee,,Metabase,Founder,10 Jan 2021
+"""
+
+
+class TestCmdNetworkImport(TempStateDirTestCase):
+    def _import(self, csv_text):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "Connections.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            return self._run_json(job_tool.cmd_network_import, argparse.Namespace(csv=str(csv_path)))
+
+    def test_imports_new_connections(self):
+        out = self._import(CONNECTIONS_CSV_FIXTURE)
+        self.assertEqual(out["added"], 3)
+        self.assertEqual(out["updated"], 0)
+        self.assertEqual(out["total_connections"], 3)
+
+    def test_rerun_dedupes_by_url_and_updates_changed_fields(self):
+        self._import(CONNECTIONS_CSV_FIXTURE)
+        updated_csv = CONNECTIONS_CSV_FIXTURE.replace("Senior PM", "Director of Product")
+        out = self._import(updated_csv)
+        self.assertEqual(out["added"], 0)
+        self.assertEqual(out["updated"], 1)
+        self.assertEqual(out["unchanged"], 2)
+        self.assertEqual(out["total_connections"], 3)
+
+    def test_missing_file_errors(self):
+        buf_err = io.StringIO()
+        with contextlib.redirect_stderr(buf_err):
+            with self.assertRaises(SystemExit):
+                job_tool.cmd_network_import(argparse.Namespace(csv="/nonexistent/Connections.csv"))
+        self.assertIn("file not found", buf_err.getvalue())
+
+
+class TestCmdNetworkMatch(TempStateDirTestCase):
+    def setUp(self):
+        super().setUp()
+        csv_path = Path(self._tmpdir.name) / "Connections.csv"
+        csv_path.write_text(CONNECTIONS_CSV_FIXTURE, encoding="utf-8")
+        self._run_json(job_tool.cmd_network_import, argparse.Namespace(csv=str(csv_path)))
+
+    def test_matches_google_across_legal_suffix_variants(self):
+        out = self._run_json(job_tool.cmd_network_match, argparse.Namespace(company="Google"))
+        result = out["results"][0]
+        self.assertEqual(result["match_count"], 2)
+        names = {c["name"] for c in result["connections"]}
+        self.assertEqual(names, {"Jane Doe", "John Smith"})
+
+    def test_does_not_false_positive_on_substring(self):
+        out = self._run_json(job_tool.cmd_network_match, argparse.Namespace(company="Meta"))
+        result = out["results"][0]
+        self.assertEqual(result["match_count"], 0)
+
+    def test_uses_target_companies_from_profile_when_no_company_arg(self):
+        self._run_json(
+            job_tool.cmd_profile_set,
+            argparse.Namespace(patch=json.dumps({"target_companies": [{"name": "Google"}, {"name": "Anthropic"}]})),
+        )
+        out = self._run_json(job_tool.cmd_network_match, argparse.Namespace(company=None))
+        self.assertEqual(out["target_companies_checked"], 2)
+        self.assertIn("Anthropic", out["no_match_companies"])
+
+
 if __name__ == "__main__":
     unittest.main()
