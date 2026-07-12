@@ -131,11 +131,15 @@ named a role) or whenever the user explicitly asks for help figuring out what to
 
 **Ambiguous role titles.** Some titles carry more than one industry meaning — e.g. "Automation
 Engineer" can mean industrial/PLC/manufacturing automation *or* software test/process automation;
-"Analyst" can mean business, data, or security analyst. Before running broad searches on an
-ambiguous title, use the rest of the profile for context (e.g. paired with "Software Engineer" in
-`roles` → assume the software-automation reading). If context doesn't resolve it, ask a one-line
-clarifying question at intake rather than discovering the mismatch mid-search after already
-spending calls on the wrong industry's postings.
+"Analyst" can mean business, data, or security analyst. **Being adjacent to another role in the
+`roles` list does not by itself resolve the ambiguity** — a "Software Engineer" entry sitting next
+to "Automation Engineer" is not sufficient context to assume the software-automation reading; that
+inference has been wrong in practice. Only treat an ambiguous title as resolved if the stored role
+string itself already carries an explicit qualifier (e.g. "Software Automation Engineer," "QA
+Automation Engineer," "Test Automation Engineer," "Industrial Automation Engineer"). Otherwise, ask
+a one-line clarifying question during Stage 1 intake — before Stage 2 runs any search for that
+role — rather than discovering the mismatch mid-search after already spending calls on the wrong
+industry's postings.
 
 ---
 
