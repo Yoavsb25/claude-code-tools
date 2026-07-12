@@ -4,6 +4,56 @@ Conditional detail for Stage 2 of `job-search`'s SKILL.md. Only read this file w
 trigger conditions below actually applies — SKILL.md tells you when to branch here; this file
 tells you what to do once you have.
 
+## Checking a specific company (location-first method)
+
+**When to run this:** whenever you're checking a specific `target_companies` entry or a
+large-enterprise baseline company — as an alternative to `<company> + <one role title>` queries,
+which are unreliable: they silently under-cover roles (checking only 1-2 of the profile's `roles`
+titles per company misses the rest), and they miss postings entirely when the company uses a
+different internal title for the same job family. Known synonyms worth trying before concluding a
+company has nothing open in a given family:
+
+| Job family | Common alternate titles |
+|---|---|
+| Solutions/pre-sales engineering | Google: "Customer Engineer" · Microsoft: "Cloud Solution Architect" / "Technical Specialist" · AWS: "Solutions Architect" |
+| Customer-embedded software engineering | OpenAI, Anthropic, Palantir-style AI labs: "Forward Deployed Engineer" (a software-engineer/solutions-engineer hybrid — won't match a plain "Software Engineer" or "Solutions Engineer" query) |
+
+**The method**, since the result set for one named company is naturally bounded (unlike an
+open-ended market-wide search, where title-based querying is still necessary):
+1. **Known ATS (`search ats`):** omit `--query` entirely and pull the full board (raise `--limit`
+   as needed), then filter the results down to the profile's `locations` yourself.
+2. **No known ATS / large enterprise:** run `search linkedin --query "<Company Name>"` (company
+   name only, no role) `--location "<location>"`, which returns that company's actual open
+   postings at that location across whatever titles they use.
+3. **Either way, evaluate every remaining posting against the profile holistically** — title,
+   scope, and description against `roles`/`skills`/`experience_summary` — rather than
+   pre-filtering by whether the title matches one of the profile's role strings. A posting can be
+   an excellent fit under a title nobody would have thought to search for.
+
+This is slower per company than a single title query, but far more thorough — reserve it for named
+`target_companies` and large-enterprise baseline checks, not the open market-wide search across all
+of Stage 2a/2b, where there's no natural per-company boundary to exploit this way.
+
+**A company not in `target_companies` can still be missed even with a great-fitting posting.**
+Market-wide role searches (`search linkedin --query "<role>"` with no company) only return a
+capped, relevance/recency-ranked slice (`--limit`) of what can be thousands of matching postings
+citywide — there's no guarantee a specific company's specific posting surfaces in that slice, even
+when it's an excellent fit. The only reliable way to guarantee a specific company gets checked is
+to add it to `target_companies` (or run an ad hoc per-company check per the method above). If the
+user asks about a specific posting that didn't come up, check whether its company was actually in
+`target_companies` before diagnosing anything else — that's the most common reason, and the fix is
+adding the company to the watchlist, not just tweaking query phrasing.
+
+**Company-name-only queries are unreliable for short/common names.** Tested directly: a bare
+`--query "Palo Alto Networks"` (distinctive, multi-word) correctly returned ~10 real postings from
+that company. But bare queries for short or common single-word names — `"NVIDIA"`, `"Intel"`,
+`"Dell"`, `"Microsoft"`, `"Salesforce"`, `"Amdocs"`, `"ServiceNow"` — returned unrelated noise with
+zero actual postings from that company, even though some of these companies do have open London
+roles (confirmed separately). Always check the `company` field of returned results actually
+matches before concluding "nothing found" — if it doesn't, don't trust the negative result; fall
+back to the direct career-page/Workday route (below) instead of reporting the company as having no
+openings.
+
 ## ATS auto-detection
 
 **When to run this:**
