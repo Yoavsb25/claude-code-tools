@@ -270,7 +270,8 @@ in check.
 
 **Proactive company discovery.** Don't only check companies the user already named. Run
 `WebSearch` queries aimed at surfacing companies matching the profile, not just individual
-postings:
+postings — aggregator/listicle results here are expected and fine, since only company names get
+extracted from them, unlike the per-role queries above where an aggregator hit is a wasted query:
 - `"who is hiring" [role] [industries_prefer] 2026`
 - `best [industries_prefer] companies to work for [locations] 2026`
 - `[industries_prefer] startups hiring [role]`
@@ -281,6 +282,14 @@ list. Cap this at roughly the top 5 newly-surfaced companies per round — this 
 isn't meant to fan out into dozens of speculative lookups per search. For each candidate company,
 run the auto-detect flow from 2a (`search discover-ats`) before falling back to the direct
 career-page search below.
+
+**Large-enterprise baseline check.** If `target_companies` has no large enterprises in it and none
+have surfaced yet from the proactive discovery above, don't rely on WebSearch phrasing alone to
+surface them — check a small number (3–5, same budget as the cap above) of well-known large
+employers relevant to the resolved role/industry as a guaranteed baseline part of every search
+round, via Stage 2b's direct career-page search below. This is a default baseline, not a
+replacement for user-specified `target_companies`, which always take priority; it exists because
+proactive-discovery WebSearch queries don't reliably surface big-company names on their own.
 
 **Direct career-page search**, for companies with no ATS match — including every `platform:
 "other"` watchlist entry and every large enterprise skipped from `discover-ats` per Stage 2a (e.g.
