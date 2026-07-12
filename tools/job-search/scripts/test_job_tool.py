@@ -378,5 +378,52 @@ class TestCmdTrackerUpsertDedup(TempStateDirTestCase):
         self.assertEqual(out["company"], "Google Inc")
 
 
+class TestCmdTrackerUpsertBehavior(TempStateDirTestCase):
+    def _upsert(self, row):
+        return self._run_json(job_tool.cmd_tracker_upsert, argparse.Namespace(row=json.dumps(row)))
+
+    def test_new_row_gets_shortlisted_defaults(self):
+        out = self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer"})
+        self.assertEqual(out["id"], 1)
+        self.assertEqual(out["status"], "Shortlisted")
+        self.assertIsNone(out["fit"])
+        self.assertEqual(out["found_date"], job_tool.today_str())
+        self.assertIsNone(out["applied_date"])
+
+    def test_second_distinct_row_gets_next_id(self):
+        first = self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer"})
+        second = self._upsert({"company": "Widgets Inc", "role": "Platform Engineer"})
+        self.assertEqual(first["id"], 1)
+        self.assertEqual(second["id"], 2)
+        self.assertEqual(len(job_tool.load_rows()["rows"]), 2)
+
+    def test_matches_by_explicit_id_even_when_company_and_role_change(self):
+        created = self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer"})
+        updated = self._upsert({"id": created["id"], "company": "Acme Corp", "role": "Principal Engineer"})
+        rows = job_tool.load_rows()["rows"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(updated["role"], "Principal Engineer")
+
+    def test_followup_date_set_14_days_after_applied_date(self):
+        self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer"})
+        out = self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer", "status": "Applied"})
+        expected = (job_tool.date.today() + job_tool.timedelta(days=job_tool.DEFAULT_FOLLOWUP_DAYS)).isoformat()
+        self.assertEqual(out["applied_date"], job_tool.today_str())
+        self.assertEqual(out["followup_date"], expected)
+
+    def test_followup_date_resets_to_7_days_on_interviewing(self):
+        self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer", "status": "Applied"})
+        out = self._upsert({"company": "Acme Corp", "role": "Staff Backend Engineer", "status": "Interviewing"})
+        expected = (job_tool.date.today() + job_tool.timedelta(days=job_tool.INTERVIEW_FOLLOWUP_DAYS)).isoformat()
+        self.assertEqual(out["followup_date"], expected)
+
+    def test_missing_company_or_role_on_new_row_errors(self):
+        buf_out, buf_err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+            with self.assertRaises(SystemExit):
+                job_tool.cmd_tracker_upsert(argparse.Namespace(row=json.dumps({"role": "Staff Backend Engineer"})))
+        self.assertIn("require both 'company' and 'role'", buf_err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
