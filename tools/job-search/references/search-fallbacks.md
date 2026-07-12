@@ -36,7 +36,8 @@ and returns whichever combination actually resolves.
    (<slug>, confidence: <level>) — want me to save that to your watchlist?"`
 3. If yes: read the current `target_companies` from `profile show` (Stage 0's copy, or a fresh
    call if this is late in a long turn), add or update the entry by matching `name`
-   case-insensitively, and write back the **full merged array** — `profile.update(patch)` is a shallow merge), so never patch with
+   case-insensitively, and write back the **full merged array** — `profile set` replaces
+   `target_companies` wholesale (`profile.update(patch)` is a shallow merge), so never patch with
    just the new entry, or the rest of the watchlist is silently dropped:
    ```bash
    python3 ~/.claude/skills/job-search/scripts/job_tool.py profile set '{"target_companies": [ ...existing entries unchanged..., {"name": "<Company>", "platform": "<platform>", "slug": "<slug>"} ]}'
