@@ -166,8 +166,8 @@ as required.
 These hit public, keyless JSON APIs directly — no scraping, no bot-wall risk, and every call
 degrades to a clean `{"error": "...", "results": []}` instead of failing the whole search. The one
 exception is `search workday` (see the Workday bullet in Stage 2b below) — a paid, optional Apify
-fallback for Workday-hosted enterprises, off by default until `APIFY_TOKEN` is configured (see
-README.md for setup/cost):
+fallback for Workday-hosted enterprises, off by default unless an Apify MCP server is available or
+`APIFY_TOKEN` is configured (see README.md for setup/cost):
 
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search remotive --query "<role keyword>" --limit 25
@@ -285,9 +285,10 @@ career-page search below.
 
 **Large-enterprise baseline check.** If `target_companies` has no large enterprises in it and none
 have surfaced yet from the proactive discovery above, don't rely on WebSearch phrasing alone to
-surface them — check a small number (3–5, same budget as the cap above) of well-known large
-employers relevant to the resolved role/industry as a guaranteed baseline part of every search
-round, via Stage 2b's direct career-page search below. This is a default baseline, not a
+surface them — check a small number (3–5) of well-known large employers relevant to the resolved
+role/industry as a guaranteed baseline part of every search round, via Stage 2b's direct
+career-page search below. This is additional to, not carved out of, the proactive-discovery cap
+above — a quiet discovery round doesn't consume this budget. It's a default baseline, not a
 replacement for user-specified `target_companies`, which always take priority; it exists because
 proactive-discovery WebSearch queries don't reliably surface big-company names on their own.
 
