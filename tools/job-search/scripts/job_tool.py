@@ -237,9 +237,12 @@ def cmd_tracker_upsert(args):
     if patch.get("id"):
         match = next((r for r in rows if r["id"] == patch["id"]), None)
     if match is None and patch.get("company") and patch.get("role"):
-        key = (patch["company"].strip().lower(), patch["role"].strip().lower())
+        key = (normalize_company(patch["company"]), patch["role"].strip().lower())
         match = next(
-            (r for r in rows if (r["company"].strip().lower(), r["role"].strip().lower()) == key),
+            (
+                r for r in rows
+                if (normalize_company(r["company"]), r["role"].strip().lower()) == key
+            ),
             None,
         )
 

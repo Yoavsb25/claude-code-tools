@@ -336,5 +336,47 @@ class TestSaveJson(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text()), {"a": 1})
 
 
+class TempStateDirTestCase(unittest.TestCase):
+    """Isolates job_tool's file-backed commands (profile/tracker/network) from the real
+    ~/Desktop/Job-Search directory by pointing state_dir() at a temp directory for the test."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._state_patcher = patch.object(
+            job_tool, "state_dir", return_value=Path(self._tmpdir.name)
+        )
+        self._state_patcher.start()
+
+    def tearDown(self):
+        self._state_patcher.stop()
+        self._tmpdir.cleanup()
+
+    def _run_json(self, func, args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            func(args)
+        return json.loads(buf.getvalue())
+
+
+class TestCmdTrackerUpsertDedup(TempStateDirTestCase):
+    def test_dedupes_company_name_variants_via_normalization(self):
+        self._run_json(
+            job_tool.cmd_tracker_upsert,
+            argparse.Namespace(row=json.dumps({"company": "Google", "role": "Staff Backend Engineer"})),
+        )
+        out = self._run_json(
+            job_tool.cmd_tracker_upsert,
+            argparse.Namespace(row=json.dumps({
+                "company": "Google Inc",
+                "role": "Staff Backend Engineer",
+                "notes": "found on greenhouse",
+            })),
+        )
+        data = job_tool.load_rows()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(out["notes"], "found on greenhouse")
+        self.assertEqual(out["company"], "Google Inc")
+
+
 if __name__ == "__main__":
     unittest.main()
