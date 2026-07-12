@@ -289,6 +289,17 @@ than a single JD, so pull out whichever open roles are visible and score them ag
 If `WebFetch` fails or 403s, don't drop the company — note it and rely on the LinkedIn/aggregator
 angle for that company this round instead.
 
+**Checking a specific company: location-first, not title-first.** A `<company> + <one role title>`
+query silently under-covers roles and misses postings when the company uses a different internal
+title for the same job family (e.g. Google's "Customer Engineer" vs. "Solutions Engineer"). Also,
+a company not in `target_companies` can be missed even with a great-fitting posting, since
+market-wide role searches only return a capped, relevance-ranked slice of citywide results — if the
+user asks about a specific posting that didn't come up, check whether its company was in
+`target_companies` before diagnosing anything else. Read `references/search-fallbacks.md`
+(§ "Checking a specific company") for the location-first method, known title synonyms, and a
+documented reliability caveat about bare company-name queries before concluding a target/large
+enterprise has nothing open.
+
 **Workday-hosted companies specifically.** If a WebSearch result surfaces a `myworkdayjobs.com`
 URL for a target/discovered company, don't try `search ats` for it — `job_tool.py`'s keyless ATS
 endpoints don't cover Workday. This is the single most common outcome for large enterprises, so
@@ -472,70 +483,11 @@ date with no status change logged since.
 ## Network — warm intros at target companies
 
 Trigger this section instead of the Stage 0–6 search pipeline for requests like "who do I know at
-X", "find warm intros for my target companies", "which connections work at [company]", or "who can
-refer me at Google". This is a separate, on-demand lookup — it never touches `tracker.json` and
-never runs a job search.
-
-### One-time setup: exporting connections
-
-`network list`/`network match` read from a local `connections.json`, built from LinkedIn's own
-data export — no live scraping, no session cookie, no account risk. If a connections file doesn't
-exist yet, walk the user through:
-
-1. On LinkedIn: **Settings & Privacy → Data privacy → Get a copy of your data**.
-2. Request the **"Connections"** archive (or "The works" for everything).
-3. LinkedIn emails a download link once ready — this can take anywhere from a few minutes to
-   ~24 hours, so it isn't instant; tell the user to come back once they have the file.
-4. Import it:
-   ```bash
-   python3 ~/.claude/skills/job-search/scripts/job_tool.py network import --csv "<path to Connections.csv>"
-   ```
-   Safe to re-run whenever they refresh the export — it merges by profile URL (or by name if no
-   URL is in the export) rather than duplicating or wiping existing entries.
-
-### Commands
-
-```bash
-python3 ~/.claude/skills/job-search/scripts/job_tool.py network import --csv "<path>"
-python3 ~/.claude/skills/job-search/scripts/job_tool.py network list [--company "<name>"]
-python3 ~/.claude/skills/job-search/scripts/job_tool.py network match [--company "<name>"]
-```
-
-- **`network import`** parses the export (skipping LinkedIn's preamble lines to find the real
-  header row) into `connections.json`, reporting counts added/updated/unchanged.
-- **`network list`** is for general browsing ("show me my network"), with an optional filter on
-  Company. Still useful for eyeballing the network, but treat `match` as the source of truth for
-  intro-suggestion precision.
-- **`network match`** is the precision tool for intro suggestions:
-  - With no `--company`, checks every entry in the profile's `target_companies` watchlist and
-    returns per-company matches plus a `no_match_companies` list.
-  - With `--company "<name>"`, checks one name ad hoc — for "who do I know at Anthropic" even if
-    it isn't on the watchlist yet.
-  - Matching normalizes both sides (strips legal suffixes like Inc/LLC/Ltd, lowercases) and
-    requires a whole-word match/prefix, never a loose substring — so "Google" catches "Google
-    Ireland Limited" but never falsely catches "Metabase" for a "Meta" target or "DeepMind" for a
-    "Google" target. If you suspect a real match was missed due to a subsidiary/stale company
-    name, suggest the user double-check with `network list --company <broader term>`.
-
-### Presenting results
-
-Group by target company, most-matches-first. Show name, position, connected-on date, and profile
-URL (if present) for each match:
-
-```
-## 🤝 Warm intros at your target companies
-
-**Google** — 2 connections
-- Jane Doe — Senior PM (connected 01 Mar 2022) — linkedin.com/in/janedoe
-
-No connections found at: Anthropic, DeepMind
-
-Want a short referral-request message drafted for reaching out to Jane?
-```
-
-Offer to draft a short, specific referral/intro-request message on request — reference the
-connection's actual role and how long you've been connected, not a generic template. Never send
-anything on the user's behalf — draft only.
+X", "find warm intros for my target companies", "which connections work at [company]", "who can
+refer me at Google", "what companies am I connected to", or "show me my network by company". This
+is a separate, on-demand lookup — it never touches `tracker.json` and
+never runs a job search. Read `references/network-warm-intros.md` for one-time connections-export
+setup, the `network import`/`list`/`match` commands, and the presentation format.
 
 ---
 
@@ -544,6 +496,13 @@ anything on the user's behalf — draft only.
 - **The script owns the tracker and profile files.** Never hand-edit `Tracker.md`,
   `tracker.json`, or `profile.json` directly — always go through `job_tool.py`, so state can't
   silently drift or lose rows across sessions.
+- **Array-valued profile fields overwrite, they don't merge.** `profile set` performs a shallow
+  merge (`profile.update(patch)`) — passing `locations`, `skills`, `must_haves`, `deal_breakers`,
+  `industries_prefer`/`industries_avoid`, `education`, or `target_companies` replaces that field's
+  entire array. Before adding or removing a single item (e.g. "add Berlin as a location," "drop
+  the Kubernetes requirement"), read the field's current value from `profile show` first, splice
+  the change in, and write back the full array — never patch with just the delta, or the rest of
+  the list is silently dropped.
 - **No single search source is required.** `search remotive`/`arbeitnow`/`ats` and `WebFetch`
   enrichment can each fail independently (network policy, an API being down, a bot wall) — every
   one degrades to an empty/partial result with a clear reason instead of stopping the pipeline.
