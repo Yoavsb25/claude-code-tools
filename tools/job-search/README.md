@@ -91,7 +91,15 @@ company's `myworkdayjobs.com` URL and returning structured job data — the same
 every other source, not a coin-flip.
 
 This is entirely optional — the skill works exactly as before with zero setup if you never touch
-this:
+this. There are two independent ways to enable it, and the skill prefers whichever is available:
+
+- **An Apify MCP server configured directly in your Claude Code environment** (`mcp__apify__*`
+  tools) — if present, the skill calls the same `automation-lab/workday-jobs-scraper` Actor
+  through it directly, no environment variable needed.
+- **The `APIFY_TOKEN` environment variable**, used by `job_tool.py search workday` (setup below) —
+  the fallback path when no Apify MCP server is configured.
+
+Either way, the skill always confirms target companies with you before running a paid Actor call.
 
 1. Create a free account at [apify.com](https://apify.com) and copy your API token.
 2. Set `APIFY_TOKEN` in your environment. With no token set, `search workday` degrades like any
@@ -129,11 +137,13 @@ Python 3.9+ (stdlib only, no dependencies) for `job_tool.py search`/tracker/prof
 discovery also uses `WebSearch`/`WebFetch`. If a `playwright` MCP server is configured, the skill
 also uses it as an optional fallback to render JS-heavy company career pages that `WebFetch` can't
 parse (raw HTML only, no JS execution) — the skill works fine without it, just with reduced
-coverage of custom career pages that render listings client-side. If `APIFY_TOKEN` is set, the
-skill also gets reliable structured coverage of Workday-hosted large enterprises via `search
-workday` (see "Optional: Workday coverage via Apify" above) — again, entirely optional. Works best
-alongside `resume-tailor` and `github-project-picker` for the hand-off step.
+coverage of custom career pages that render listings client-side. If an Apify MCP server is
+configured, or `APIFY_TOKEN` is set, the skill also gets reliable structured coverage of
+Workday-hosted large enterprises (see "Optional: Workday coverage via Apify" above) — again,
+entirely optional, and either one is enough on its own. Works best alongside `resume-tailor` and
+`github-project-picker` for the hand-off step.
 
-> **Note:** The SKILL.md references Yoav's local work documentation for requirements-fit scoring
-> (Stage 3) and resume-based role suggestions (Stage 1's Role discovery). Adapt that profile path
-> to your own setup before use.
+> **Note:** Requirements-fit scoring (Stage 3) and resume-based role suggestions (Stage 1's Role
+> discovery) run entirely off the `skills`, `education`, and `experience_summary` fields in
+> `profile.json` — set them via `profile set` (or answer the intake questions on first run). No
+> external file path to adapt.
