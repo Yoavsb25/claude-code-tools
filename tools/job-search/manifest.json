@@ -1,6 +1,6 @@
 {
   "name": "job-search",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, kicks off resume-tailor, and surfaces warm-intro connections at target companies",
   "type": "tool",
   "category": "career",
