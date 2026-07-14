@@ -54,6 +54,26 @@ matches before concluding "nothing found" — if it doesn't, don't trust the neg
 back to the direct career-page/Workday route (below) instead of reporting the company as having no
 openings.
 
+## Known large-enterprise career-site patterns
+
+**Why this table exists:** a generic "search the web, then fetch/scrape whatever URL comes back"
+approach reliably fails on large-enterprise career sites — it lands on the homepage or a marketing
+landing page, not the actual filtered job list, because these sites are either JS-rendered SPAs or
+gate their real listing behind a specific query-string pattern that a bare company-name search
+doesn't surface. Each row below was verified directly (not guessed) by actually fetching the URL
+and confirming real postings came back. Update this table whenever you verify a new company's
+pattern — don't let this knowledge evaporate at the end of a session.
+
+| Company | Platform / pattern | What actually works | Notes |
+|---|---|---|---|
+| NVIDIA | Workday (`nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite`) | Use the Workday fallback chain below (Apify `workday-jobs-scraper` actor, or `search workday --url https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite`) | Confirmed Workday tenant — never try `search ats`/`discover-ats` for it. |
+| Salesforce | Custom site, but has a working filtered-listing URL | Construct and fetch `https://careers.salesforce.com/en/jobs/?search=<role keyword>&country=United+Kingdom&pagesize=20#results` directly (WebFetch or Playwright) — do not fetch the bare `careers.salesforce.com` homepage, it returns marketing content with no listings. | `discover-ats` returns nothing (not on any of the 6 supported platforms) — expected, don't retry it. |
+| Palo Alto Networks | Custom site (Phenom People platform) | Use the location-taxonomy URL directly, e.g. `https://jobs.paloaltonetworks.com/en/location/london-jobs/47263/2635167-6269131-2643743/4` (find the numeric taxonomy path via one WebSearch for `"Palo Alto Networks" London jobs`, then reuse it) — the listing page itself is large (100K+ chars of markdown when scraped), so prefer targeted extraction (grep/search within fetched content for role keywords) over reading it in full. | Bare-name LinkedIn search (`search linkedin --query "Palo Alto Networks"`) does work reasonably here per the "Checking a specific company" section above — this is the one exception among this table's companies. |
+| Google | Custom site, server-rendered | `https://www.google.com/about/careers/applications/jobs/results` returns real listings even via a plain fetch and supports `&page=N` for pagination — but no confirmed location/query-string filter param (untested: `&location=`). Prefer `search linkedin --query "Customer Engineer" --location "London"` instead (Google's own internal title for Solutions Engineering roles — see the synonym table above) since it reliably surfaces real London Google postings without needing the careers-site's facet UI. | Don't use "Software Engineer" as the query for Google via LinkedIn — the company itself doesn't reliably surface that way; London Google postings found this way have skewed heavily towards Customer Engineer / Cloud / TPM roles, not generalist SWE. |
+| Microsoft | Mixed — no confirmed keyless API, not a confirmed Workday tenant | `careers.microsoft.com` homepage is a JS shell with no listings from a plain fetch. `microsoft.ai/careers/` (Microsoft AI's own vertical career page) DOES render full listings via a plain fetch, including London roles — use that directly for AI/ML-flavored roles. For general Microsoft SWE roles, no verified fast path yet — fall back to Playwright (`browser_navigate` + `browser_snapshot`) on `careers.microsoft.com`. | Bare-name LinkedIn search for "Microsoft" returns noise (documented in "Checking a specific company" above) — don't rely on it here either. |
+| Amdocs | Unconfirmed — not Workday (checked, no `myworkdayjobs.com` tenant found), not on any of the 6 supported ATS platforms | No verified fast path yet. `jobs.amdocs.com/careers` — try Playwright first; if that's not configured in the install, fall back to WebSearch snippets and note the gap rather than guessing. | Bare-name LinkedIn search for "Amdocs" returns noise — don't rely on it. |
+| Unity | Confirmed **not** on any of the 6 supported ATS platforms (tested via `discover-ats` — a `smartrecruiters` slug match returned 0 results and is very likely an unrelated company's board given "unity" is a common slug word; don't trust it) | `unity.com/careers/positions` is a custom Next.js-built SPA with no confirmed keyless listing endpoint — use Playwright, or use `search linkedin --query "Unity Technologies" --location "London"` (company-name-only, distinctive enough to avoid the "short/common name" noise problem) which has reliably surfaced real Unity London postings (including engineering roles, not just sales/client-partner roles). | Don't use `discover-ats`'s low-confidence SmartRecruiters hit as a real match. |
+
 ## ATS auto-detection
 
 **When to run this:**

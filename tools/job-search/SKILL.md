@@ -289,6 +289,17 @@ than a single JD, so pull out whichever open roles are visible and score them ag
 If `WebFetch` fails or 403s, don't drop the company — note it and rely on the LinkedIn/aggregator
 angle for that company this round instead.
 
+**Known large-enterprise career sites (verified patterns).** Don't spend a generic
+"fetch-the-homepage" call on a large enterprise before checking whether it's already documented.
+Read `references/search-fallbacks.md` (§ "Known large-enterprise career-site patterns") for
+verified listing-page URLs and per-company notes (Unity, NVIDIA, Google, Microsoft, Salesforce,
+Palo Alto Networks, Amdocs so far) — a homepage fetch (via `WebFetch` or a generic
+search-then-scrape tool) almost always lands on marketing content or an empty JS shell instead of
+the actual job list, wasting a call. When you learn a new large enterprise's pattern this way
+(a working filtered-listing URL, a confirmed Workday/ATS tenant, or a confirmed "custom SPA, no
+keyless route, use Playwright"), add it to that table so the next run doesn't rediscover it from
+scratch.
+
 **Checking a specific company: location-first, not title-first.** A `<company> + <one role title>`
 query silently under-covers roles and misses postings when the company uses a different internal
 title for the same job family (e.g. Google's "Customer Engineer" vs. "Solutions Engineer"). Also,
