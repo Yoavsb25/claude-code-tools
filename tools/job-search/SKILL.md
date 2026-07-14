@@ -423,20 +423,42 @@ during application, not a scored fact.
 
 ## Stage 4 — Present the shortlist
 
+**Standing preference: split by public vs. private, not filtered.** Yoav prefers publicly traded
+companies but wants to see private-company matches too, just labeled separately rather than
+excluded — this is why `must_haves` should never contain a hard "publicly traded company" filter
+(see Stage 1's field table). Default presentation is **two tables — Public companies and
+Private/non-public companies** — instead of one combined ranked table. Classify each company from
+general knowledge (ticker if known); mark genuinely uncertain cases "unclear" rather than guessing.
+Note recent status changes when known (e.g. a company taken private in an acquisition) rather than
+relying on an outdated assumption.
+
+**Skills Fit column.** Alongside the overall `Fit` score (Stage 3's weighted formula), add a
+separate `Skills Fit` column scoring Requirements fit in isolation — how well the role's technical
+stack/domain matches `profile.json`'s `skills`/`experience_summary`, independent of location or
+seniority. This answers "how well do my actual skills match" as its own question, since a role can
+score low overall (e.g. a seniority stretch) while still being an excellent skills match worth
+knowing about.
+
 ```
 ## 🔍 Job Search — [role(s)]  •  [location(s)]  •  [date]
 
 Searched: Remotive, Arbeitnow (or "skipped — on-site/hybrid only" if applicable), [ATS companies
-checked, including any auto-detected; large enterprises routed directly to career-page search],
+checked, including any auto-detected; large enterprises routed directly to career-page search —
+check references/search-fallbacks.md's "Known large-enterprise career-site patterns" table first],
 LinkedIn (native), Workday via Apify (MCP or APIFY_TOKEN) (or "skipped — neither available" if
 applicable), LinkedIn + direct career pages (WebSearch) — [N] postings found, [N] after
 dedupe, [N] after constraint filtering, [N] filtered as likely test data. [Note any source that
 errored, e.g. "Remotive: unreachable, skipped."]
 
-| # | Company | Role | Fit | Posted | Salary | Link |
-|---|---|---|---|---|---|---|
-| 1 | Acme Corp | Staff Backend Engineer | 9.2/10 | 3 days ago | $180–220k | [Apply →](url) |
-| 2 | Widgets Inc | Senior Platform Engineer | 8.1/10 | 1 week ago | ~$150k estimated, unconfirmed | [Apply →](url) |
+### 🏛️ Public companies
+| # | Company | Ticker | Role | Location | Fit | Skills Fit | Connections | Posted | Link |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Acme Corp | NASDAQ: ACME | Staff Backend Engineer | London | 9.2/10 | 8/10 | Jane Doe | 3 days ago | [Apply →](url) |
+
+### 🏢 Private / non-public companies
+| # | Company | Role | Location | Fit | Skills Fit | Connections | Posted | Link |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Widgets Inc | Senior Platform Engineer | London | 8.1/10 | 7/10 | — | 1 week ago | [Apply →](url) |
 
 ⚠️ Possibly stale (posted 5+ weeks ago, include only if nothing fresher fit as well):
 | # | Company | Role | Fit | Posted | Link |
@@ -451,6 +473,23 @@ any of them right now?"**
 **If all searches returned nothing above the score-5 threshold:** say so directly, list what was
 tried, and suggest the most likely fix (widen location, drop a must-have, adjust title) rather than
 showing an empty or padded table.
+
+---
+
+## Stage 4.5 — Connections enrichment
+
+If `~/Desktop/Job-Search/connections.json` exists and has at least one imported connection (check
+via `network companies` — skip this stage entirely if it reports zero connections, rather than
+running a match against an empty file every time): for each **unique** company in the shortlist,
+run
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py network match --company "<company name>"
+```
+and fold `match_count`/connection names into that company's row(s) in the Stage 4 table's
+`Connections` column (comma-separated names, or `—` for zero matches). This merges the previously
+separate "Network — warm intros" lookup into the default search output — no need for Yoav to ask
+for it separately every time. The standalone "who do I know at X" flow (below) still exists for
+ad hoc checks outside a full search run.
 
 ---
 
@@ -488,6 +527,51 @@ python3 ~/.claude/skills/job-search/scripts/job_tool.py tracker list --stale-onl
 Report every flagged row in your reply — don't just leave it sitting in the file. These are rows
 either shortlisted 10+ days with no decision, or applied/interviewing rows past their follow-up
 date with no status change logged since.
+
+---
+
+## Stage 7 — Export to Excel
+
+Standing preference: every search run also produces an Excel workbook of the Stage 4 shortlist
+(both tables — Public and Private companies as separate sheets), not just the in-conversation
+markdown tables. This uses `scripts/export_xlsx.py`, an optional script requiring `openpyxl` in a
+dedicated venv at `~/.claude/skills/job-search/.venv` (see README.md's "Optional: Excel export" for
+one-time setup).
+
+1. Build a JSON payload matching `export_xlsx.py`'s documented input shape: one sheet per table
+   (`"Public Companies"`, `"Private Companies"`), each row carrying `company`, `status` (ticker or
+   "Private"), `role`, `location`, `skills_fit` (Stage 4's Skills Fit column), `why` (one-line
+   rationale), `connections` (list of names from Stage 4.5, empty list if none), and `link`.
+2. Run it:
+   ```bash
+   ~/.claude/skills/job-search/.venv/bin/python3 ~/.claude/skills/job-search/scripts/export_xlsx.py --input <payload.json>
+   ```
+   Omit `--output` to default to `~/Desktop/Job-Search/searches/<date>-job-search-results.xlsx`.
+3. **If `openpyxl` isn't installed and the venv hasn't been set up yet:** the script exits 1 with
+   setup instructions on stderr. Don't block the rest of the run on this — report the shortlist
+   normally and note the export was skipped, with the one-time setup command, rather than failing
+   the whole search.
+4. In an interactive session, send the resulting file to the user (e.g. via the harness's
+   file-delivery mechanism) after presenting the Stage 4 tables. In a non-interactive/scheduled run
+   (see "Scheduled daily runs" below), the file simply lands on disk at that path — there's no chat
+   to attach it to, so mention the saved path in whatever summary output the scheduled run produces.
+
+---
+
+## Scheduled daily runs
+
+Yoav runs this skill every morning via a scheduled cloud agent (set up through the `schedule`
+skill) rather than triggering it manually each time. The scheduled prompt should run the full
+Stage 0–7 pipeline exactly as an interactive request would (load profile, search, dedupe/score,
+present the two-table shortlist, connections enrichment, export to Excel) — it should NOT skip
+stages just because no human is watching in real time. Since there's no one to answer Stage 4's
+"want me to track these?" question synchronously, the scheduled run should default to **Stage 6
+Persist as `Shortlisted`** for everything above the score threshold (equivalent to the user having
+said "add them all") rather than blocking on an answer that will never come, and should skip Stage
+5's resume-tailor hand-off entirely (that step requires an explicit human decision on which role to
+pursue). Use whatever wrap-up/notification mechanism the scheduled run has to leave a clear
+one-message summary — new roles found, the Excel file's path, and any tracker rows that came back
+stale — so Yoav can catch up in one read without re-running anything.
 
 ---
 
