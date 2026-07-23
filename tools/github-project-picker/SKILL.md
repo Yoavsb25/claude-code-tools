@@ -30,7 +30,9 @@ Run this to get Yoav's full repo list:
 gh api users/Yoavsb25/repos --paginate -q '.[].name'
 ```
 
-Skip these non-project repos: `Yoavsb25` (profile README), `private-website` (personal site), `wedding-website`, `Advanced_Programing_HW` (coursework homework), `RealtyCompanyListing` (minimal HTML listing).
+**If this fails** (command not found, or an auth error): `gh` isn't installed or isn't logged in. Tell Yoav to run `gh auth login` (or install the GitHub CLI first), and stop — don't fall back to guessing his project list from memory.
+
+Skip these non-project repos: `Yoavsb25` (profile README), `private-website` (personal site), `wedding-website`, `Advanced_Programing_HW` (coursework homework), `RealtyCompanyListing` (minimal HTML listing). This list will go stale as new repos get created — also skip, on sight, any repo that's clearly not a showcase project regardless of whether it's listed above: forks, dotfiles/config repos, empty or near-empty READMEs, and coursework/template repos. Note in Step 5's rationale which repos you skipped this way, distinct from the ones on the static list.
 
 For each remaining repo, fetch its README:
 ```bash

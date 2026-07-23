@@ -3,8 +3,6 @@ name: linkedin-project-adder
 description: >
   Adds a new entry to the LinkedIn Projects section with full detail: title, description,
   skills/technologies, dates, project URL, contributors, and optional company/education association.
-  Generates polished, recruiter-optimised content following LinkedIn best practices, then automates
-  filling it into LinkedIn using a headed Playwright browser.
   Use this skill whenever the user wants to add, create, or post a project to LinkedIn — even if
   they just say "add this to LinkedIn", "put this on my LinkedIn projects", "update my LinkedIn
   projects", "add my GitHub project to LinkedIn", "add project to LinkedIn profile",

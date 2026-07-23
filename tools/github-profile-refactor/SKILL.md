@@ -23,6 +23,7 @@ Then use the GitHub MCP to fetch the current profile README:
 - Use `mcp__github__get_file_contents` with `owner` = their username, `repo` = their username, `path` = `README.md`
 - If that file doesn't exist, check for `readme.md` or `README.MD`
 - If no profile README exists at all, tell the user and offer to create one from scratch (skip Step 2 audit, go straight to Step 3 rewrite)
+- **If the GitHub MCP tool isn't available/connected**, fall back to the `gh` CLI instead of failing: `gh api repos/<username>/<username>/contents/README.md -q '.content' | base64 -d` (or `gh api repos/<username>/<username>/readme -q '.content' | base64 -d`). If `gh` also isn't available, fall back to `WebFetch` on `https://raw.githubusercontent.com/<username>/<username>/main/README.md` (try `master` if `main` 404s).
 
 Also fetch a few of their public repos to understand what they actually build:
 - Use `mcp__github__get_file_contents` or browse their pinned repos via search to understand their actual work

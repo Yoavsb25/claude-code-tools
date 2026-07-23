@@ -10,7 +10,10 @@
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },
       { "src": "scripts/job_tool.py", "dest": "~/.claude/skills/job-search/scripts/job_tool.py" },
-      { "src": "references/search-fallbacks.md", "dest": "~/.claude/skills/job-search/references/search-fallbacks.md" }
+      { "src": "references/search-fallbacks.md", "dest": "~/.claude/skills/job-search/references/search-fallbacks.md" },
+      { "src": "references/network-warm-intros.md", "dest": "~/.claude/skills/job-search/references/network-warm-intros.md" },
+      { "src": "references/scheduled-runs.md", "dest": "~/.claude/skills/job-search/references/scheduled-runs.md" },
+      { "src": "scripts/test_job_tool.py", "dest": "~/.claude/skills/job-search/scripts/test_job_tool.py" }
     ]
   },
   "requirements": {

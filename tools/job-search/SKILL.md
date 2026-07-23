@@ -560,18 +560,9 @@ one-time setup).
 
 ## Scheduled daily runs
 
-Yoav runs this skill every morning via a scheduled cloud agent (set up through the `schedule`
-skill) rather than triggering it manually each time. The scheduled prompt should run the full
-Stage 0–7 pipeline exactly as an interactive request would (load profile, search, dedupe/score,
-present the two-table shortlist, connections enrichment, export to Excel) — it should NOT skip
-stages just because no human is watching in real time. Since there's no one to answer Stage 4's
-"want me to track these?" question synchronously, the scheduled run should default to **Stage 6
-Persist as `Shortlisted`** for everything above the score threshold (equivalent to the user having
-said "add them all") rather than blocking on an answer that will never come, and should skip Stage
-5's resume-tailor hand-off entirely (that step requires an explicit human decision on which role to
-pursue). Use whatever wrap-up/notification mechanism the scheduled run has to leave a clear
-one-message summary — new roles found, the Excel file's path, and any tracker rows that came back
-stale — so Yoav can catch up in one read without re-running anything.
+Yoav runs this skill every morning via a local scheduled job (`launchd` + `scripts/run_daily.sh`),
+not a hosted cloud agent — read `references/scheduled-runs.md` for the exact mechanism, its
+known OAuth-expiry failure mode, and what the unattended run should do differently at Stage 4/5/6.
 
 ---
 
