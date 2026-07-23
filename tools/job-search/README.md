@@ -113,35 +113,11 @@ Either way, the skill always confirms target companies with you before running a
    different Actor may have a different input/output schema, which would require updating the
    field mapping in `cmd_search_workday` in `job_tool.py`.
 
-## Optional: Excel export
-
-`scripts/export_xlsx.py` turns a search run's shortlist into a two-sheet `.xlsx` workbook (Public
-Companies / Private Companies, per Stage 4's standing public/private split), with a clickable
-"Apply →" hyperlink per row and a Connections column from Stage 4.5's warm-intro lookup. Unlike
-`job_tool.py`, this script needs `openpyxl`, a third-party package — kept in its own file so the
-core stdlib-only bookkeeping script never gains a hard dependency.
-
-One-time setup:
-```bash
-python3 -m venv ~/.claude/skills/job-search/.venv
-source ~/.claude/skills/job-search/.venv/bin/activate
-pip install openpyxl
-```
-
-Then run it (see its module docstring for the exact input JSON shape):
-```bash
-~/.claude/skills/job-search/.venv/bin/python3 ~/.claude/skills/job-search/scripts/export_xlsx.py --input payload.json
-```
-
-This is entirely optional — if the venv/`openpyxl` isn't set up, the script exits with setup
-instructions and the skill falls back to the markdown tables already shown in the conversation,
-same graceful-degradation contract as every other optional integration here.
-
 ## Scheduling a daily run
 
 To have this run automatically every morning instead of on request, set it up as a scheduled cloud
 agent via the `schedule` skill — the prompt it runs should ask for the full Stage 0–7 pipeline
-(search, score, two-table shortlist, connections enrichment, Excel export, auto-shortlist to the
+(search, score, two-table shortlist, connections enrichment, save-to-file, auto-shortlist to the
 tracker) exactly as SKILL.md's "Scheduled daily runs" section describes, since there's no one
 online to answer Stage 4's pursue-decision question in real time.
 
@@ -158,7 +134,10 @@ registry), then say:
 
 ## Output
 
-- A ranked shortlist table printed in the conversation.
+- A ranked shortlist (default top 20 per category — public and private companies, scored/capped
+  independently) printed in the conversation as two markdown tables.
+- The same shortlist saved to `~/Desktop/Job-Search/searches/<date>-job-search-results.md` every
+  run.
 - A running tracker at `~/Desktop/Job-Search/Tracker.md`, generated from `tracker.json` — edit
   through the script, not the file.
 - Tailored resumes via `resume-tailor` for any role the user chooses to pursue.

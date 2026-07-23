@@ -2,8 +2,7 @@
 
 Yoav runs this skill every morning via a **local scheduled job**, not a hosted cloud agent —
 hosted cloud routines (the `schedule` skill) run in Anthropic's cloud with no access to local
-files, so they can't reach `~/Desktop/Job-Search/`, the local `job_tool.py`/`export_xlsx.py`
-scripts, or the local `.venv`. Instead:
+files, so they can't reach `~/Desktop/Job-Search/` or the local `job_tool.py` script. Instead:
 
 - `~/Library/LaunchAgents/com.yoavsborovsky.jobsearch.daily.plist` — a `launchd` agent that fires
   `scripts/run_daily.sh` daily at 08:00.
@@ -22,12 +21,12 @@ errors, that's the first thing to check.
 
 The scheduled prompt should run the full Stage 0–7 pipeline exactly as an interactive request
 would (load profile, search, dedupe/score, present the two-table shortlist, connections
-enrichment, export to Excel) — it should NOT skip stages just because no human is watching in real
-time. Since there's no one to answer Stage 4's "want me to track these?" question synchronously,
-the scheduled run should default to **Stage 6 Persist as `Shortlisted`** for everything above the
-score threshold (equivalent to the user having said "add them all") rather than blocking on an
-answer that will never come, and should skip Stage 5's resume-tailor hand-off entirely (that step
-requires an explicit human decision on which role to pursue). Use whatever wrap-up/notification
-mechanism the scheduled run has to leave a clear one-message summary — new roles found, the Excel
-file's path, and any tracker rows that came back stale — so Yoav can catch up in one read without
-re-running anything.
+enrichment, save the shortlist to a markdown file) — it should NOT skip stages just because no
+human is watching in real time. Since there's no one to answer Stage 4's "want me to track these?"
+question synchronously, the scheduled run should default to **Stage 6 Persist as `Shortlisted`**
+for everything above the score threshold (equivalent to the user having said "add them all") rather
+than blocking on an answer that will never come, and should skip Stage 5's resume-tailor hand-off
+entirely (that step requires an explicit human decision on which role to pursue). Use whatever
+wrap-up/notification mechanism the scheduled run has to leave a clear one-message summary — new
+roles found, the saved file's path, and any tracker rows that came back stale — so Yoav can catch up
+in one read without re-running anything.

@@ -104,7 +104,8 @@ must-have, added industry): after the search, ask whether to save it as the new 
 `"Want me to update your saved preferences to include Berlin?"` — and call `profile set` with just
 the changed keys if they say yes. Don't overwrite fields they didn't mention.
 
-**How many results:** default top 10 after ranking, unless the user asks for more/fewer.
+**How many results:** default top 20 per category (public and private/non-public companies scored
+and capped independently — see Stage 3/4), unless the user asks for a different count.
 
 **Role discovery.** Run this when `roles` isn't set yet (first run and the user hasn't already
 named a role) or whenever the user explicitly asks for help figuring out what to search for
@@ -408,7 +409,10 @@ data.
 **Overall score** = (Role fit × 0.35) + (Requirements fit × 0.35) + (Constraint fit × 0.3).
 Exclude anything scoring under 5 overall — don't pad the list with weak matches.
 
-Sort descending by overall score. Cap at the requested count (default 10).
+Sort descending by overall score. **Don't cap here** — Stage 4 applies the requested count (default
+20) per category, after classifying each company as public or private. Capping the combined list
+here first would let one category crowd out the other (e.g. 10 public + 0 private if public matches
+happen to score higher this round).
 
 **Salary enrichment for the near-final shortlist.** If `salary_floor` is set and a posting in the
 top-scoring set doesn't disclose salary, run one `WebSearch` per such posting — capped at the top
@@ -431,6 +435,12 @@ Private/non-public companies** — instead of one combined ranked table. Classif
 general knowledge (ticker if known); mark genuinely uncertain cases "unclear" rather than guessing.
 Note recent status changes when known (e.g. a company taken private in an acquisition) rather than
 relying on an outdated assumption.
+
+**Cap each table independently.** After classifying, sort each category descending by overall score
+and cap it at the requested count (default 20 — see Stage 1) on its own — don't cap the combined
+list first and then split it. If a category has fewer than 20 qualifying (score ≥5) postings, show
+what's there rather than padding; note the shortfall in the summary line rather than treating it as
+an error.
 
 **Skills Fit column.** Alongside the overall `Fit` score (Stage 3's weighted formula), add a
 separate `Skills Fit` column scoring Requirements fit in isolation — how well the role's technical
@@ -530,31 +540,22 @@ date with no status change logged since.
 
 ---
 
-## Stage 7 — Export to Excel
+## Stage 7 — Save the shortlist to a file
 
-Standing preference: every search run also produces an Excel workbook of the Stage 4 shortlist
-(both tables — Public and Private companies as separate sheets), not just the in-conversation
-markdown tables. This uses `scripts/export_xlsx.py`, an optional script requiring `openpyxl` in a
-dedicated venv at `~/.claude/skills/job-search/.venv` (see README.md's "Optional: Excel export" for
-one-time setup).
+Standing preference: every search run also saves the Stage 4 shortlist as a standalone markdown
+file, not just the in-conversation tables — a self-contained record of the round.
 
-1. Build a JSON payload matching `export_xlsx.py`'s documented input shape: one sheet per table
-   (`"Public Companies"`, `"Private Companies"`), each row carrying `company`, `status` (ticker or
-   "Private"), `role`, `location`, `skills_fit` (Stage 4's Skills Fit column), `why` (one-line
-   rationale), `connections` (list of names from Stage 4.5, empty list if none), and `link`.
-2. Run it:
-   ```bash
-   ~/.claude/skills/job-search/.venv/bin/python3 ~/.claude/skills/job-search/scripts/export_xlsx.py --input <payload.json>
-   ```
-   Omit `--output` to default to `~/Desktop/Job-Search/searches/<date>-job-search-results.xlsx`.
-3. **If `openpyxl` isn't installed and the venv hasn't been set up yet:** the script exits 1 with
-   setup instructions on stderr. Don't block the rest of the run on this — report the shortlist
-   normally and note the export was skipped, with the one-time setup command, rather than failing
-   the whole search.
-4. In an interactive session, send the resulting file to the user (e.g. via the harness's
-   file-delivery mechanism) after presenting the Stage 4 tables. In a non-interactive/scheduled run
-   (see "Scheduled daily runs" below), the file simply lands on disk at that path — there's no chat
-   to attach it to, so mention the saved path in whatever summary output the scheduled run produces.
+1. Reuse the exact markdown you already built for the Stage 4 chat reply — the header summary line,
+   the Public and Private tables (each capped independently per Stage 4), the possibly-stale table,
+   and the empty-angles note. No reformatting or re-encoding into another shape; the file content is
+   the chat content.
+2. Write it with the `Write` tool to
+   `~/Desktop/Job-Search/searches/<date>-job-search-results.md` (create the `searches/` directory
+   first if it doesn't exist yet). Re-running a search the same day overwrites that day's file.
+3. In an interactive session, mention the saved path after presenting the Stage 4 tables. In a
+   non-interactive/scheduled run (see "Scheduled daily runs" below), the file simply lands on disk
+   at that path — there's no chat to attach it to, so mention the saved path in whatever summary
+   output the scheduled run produces.
 
 ---
 
