@@ -1,6 +1,6 @@
 ---
 name: resume-tailor
-description: Tailors Yoav's resume to a specific job posting and saves it as a markdown file. Use this skill whenever the user mentions a job, role, company, or application alongside words like "resume," "CV," "apply," "interview prep," or "customize." Even if they just say "I'm applying to X" or "help me prep for Y" — invoke this skill. It pulls from SysAid work documentation to produce a fully tailored, narrative-driven resume with every bullet following the X-Y-Z impact formula.
+description: Tailors Yoav's resume to a specific job posting and saves it as a markdown file. Use this skill whenever the user mentions a job, role, company, or application alongside words like "resume," "CV," "apply," "interview prep," or "customize." Even if they just say "I'm applying to X" or "help me prep for Y" — invoke this skill.
 ---
 
 # Resume Tailor
@@ -65,7 +65,9 @@ Apply these rules to every bullet point you write:
 ## Step 4: Baseline Merger
 
 Read the current resume PDF:
-`~/Documents/GitHub/private-website/src/assets/CV/cv.pdf`
+`~/Desktop/Work/cv/yoav-sborovsky-cv.pdf`
+
+If that file doesn't exist, don't fail silently — ask Yoav directly for Education, Military Service, Projects, and Volunteering & Extracurricular content for this run instead.
 
 Extract: Education, Military Service, Projects, Volunteering & Extracurricular.
 
