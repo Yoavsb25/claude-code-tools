@@ -151,30 +151,45 @@ No `--query` on any of these — that's what makes it a whole-board fetch instea
 search. Run all companies in parallel:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --limit 500
-python3 ~/.claude/skills/job-search/scripts/job_tool.py search workday-jobs --slug <slug> --company "<name>" --location-hint "United Kingdom" --limit 500
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search workday-jobs --slug <slug> --company "<name>" --location-hint "United Kingdom" --job-family-groups "Engineering,R&D,Research,Research & Development,Product,Product Management,Data,Data Science,Data & Analytics,AI,AI/ML,Machine Learning,Software Engineering,Hardware Engineering" --limit 500
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search comeet-jobs --slug <slug> --company "<name>" --limit 500
 ```
-`--location-hint` matters specifically for Workday: detail-fetching is capped at 150 postings
-per company regardless of `--limit`, so for a large board (NVIDIA: 2,000+ postings company-wide)
-the hint is what makes sure that budget is spent on UK-relevant postings instead of the first
-150 encountered. Always pass it for `workday-jobs` — it's harmless on small boards.
+`--job-family-groups` is `references/rnd-departments.md`'s Include list, verbatim, comma-joined —
+this filters Workday's own index to R&D-category postings server-side, before any detail fetch
+happens. `--location-hint` now resolves to an exact facet match (not the old fuzzy text guess),
+so it's both cheap and reliable — always pass both for `workday-jobs`, they're harmless on small
+boards and dramatically narrow large ones (a category+location-filtered query returns a handful
+to a few dozen results even for a 2,000-posting board, well under any detail-fetch budget
+concern).
 
 A company whose call returns a non-null `error` is skipped for this run, not treated as "zero
 postings" — note it in the Stage 4 summary and make sure it's **excluded** from the
 `--companies` list passed to Stage 3, so `catalogue_store.py` doesn't wrongly mark its previously
 open postings as closed just because this run couldn't reach it.
 
-### Stage 2 — Filter to London/remote-UK, Engineering/Product/Data
+### Stage 2 — Filter to London/remote-UK, R&D department (title as fallback only)
 
 For every posting from Stage 1:
 - **Location**: keep if it's London, or marked/tagged remote in a way that includes the UK
   (judge from `location`/`remote`/`tags` — same holistic judgment `job-search` already applies,
-  no separate script for this).
-- **R&D scope**: read `references/rnd-titles.md`. Keep if the title matches an include keyword
-  and isn't excluded by the exclude list. Where the posting has a `tags` list (Greenhouse/Lever
-  populate this from the board's own department/category field), treat a tag that's obviously
-  non-R&D (Sales, Marketing, HR, Finance, Legal, Customer Success) as a veto even if the title
-  alone would have matched — this is a real signal, not a guess, when the source provides it.
+  no separate script for this). For Workday postings already fetched with `--job-family-groups`,
+  this is still needed — the category filter doesn't replace the location judgment, since a
+  posting can list the UK as one of several eligible sites without the compact text saying so
+  plainly (see the multi-location note in `job_tool.py`'s own `fetch_workday_postings`
+  docstring).
+- **R&D scope — department first**: if the posting's `tags` has a usable value (not empty, not a
+  company-specific label that means nothing on its own — see `references/rnd-departments.md`'s
+  "Fallback trigger" section), match it against that file's Include/Exclude lists and stop there.
+  **Do not also check the title for these** — a department match is decisive on its own,
+  Workday's own categorization has been directly verified to catch cases (pre-sales-flavored
+  "Solutions Architect" titles) that title-matching alone got wrong.
+- **R&D scope — title fallback**: only when `tags` is empty or generic, fall through to
+  `references/rnd-titles.md`'s title-matching (unchanged from before this change).
+- **Workday postings specifically**: since Stage 1 already fetched with `--job-family-groups` set
+  to the Include list, every returned posting is *by construction* already in an Include
+  department — there's no `tags` data to double-check against (Workday postings still come back
+  with empty `tags`, see `job_tool.py`'s Workday integration), so treat a Workday posting from
+  this fetch as already department-matched; only the location judgment above still applies to it.
 
 Before building the filtered array to pass into Stage 3, normalize every posting's `company`
 field to the matching `target_companies` entry's `name` — not whatever `job_tool.py search`
