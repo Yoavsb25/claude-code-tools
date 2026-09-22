@@ -123,3 +123,115 @@ Excluded — no API found: K — [Company], ... (career page: <url> if found, fo
 ```
 End with: **"Run the catalogue now?"** if any companies are resolved and this wasn't triggered
 automatically from catalogue mode's Stage 0.
+
+---
+
+## Catalogue mode
+
+### Stage 0 — Load state
+
+```bash
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py profile show
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py list
+```
+Use only resolved `target_companies` entries (has `platform` + `slug`). If any are unresolved
+and setup mode hasn't been run yet, mention it in the closing summary and offer to run setup
+mode — but proceed with whatever's already resolved rather than blocking the whole run on it.
+
+### Stage 1 — Fetch every resolved company's full board
+
+No `--query` on any of these — that's what makes it a whole-board fetch instead of a keyword
+search. Run all companies in parallel:
+```bash
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --limit 500
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search workday-jobs --slug <slug> --company "<name>" --location-hint "United Kingdom" --limit 500
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search comeet-jobs --slug <slug> --company "<name>" --limit 500
+```
+`--location-hint` matters specifically for Workday: detail-fetching is capped at 150 postings
+per company regardless of `--limit`, so for a large board (NVIDIA: 2,000+ postings company-wide)
+the hint is what makes sure that budget is spent on UK-relevant postings instead of the first
+150 encountered. Always pass it for `workday-jobs` — it's harmless on small boards.
+
+A company whose call returns a non-null `error` is skipped for this run, not treated as "zero
+postings" — note it in the Stage 4 summary and make sure it's **excluded** from the
+`--companies` list passed to Stage 3, so `catalogue_store.py` doesn't wrongly mark its previously
+open postings as closed just because this run couldn't reach it.
+
+### Stage 2 — Filter to London/remote-UK, Engineering/Product/Data
+
+For every posting from Stage 1:
+- **Location**: keep if it's London, or marked/tagged remote in a way that includes the UK
+  (judge from `location`/`remote`/`tags` — same holistic judgment `job-search` already applies,
+  no separate script for this).
+- **R&D scope**: read `references/rnd-titles.md`. Keep if the title matches an include keyword
+  and isn't excluded by the exclude list. Where the posting has a `tags` list (Greenhouse/Lever
+  populate this from the board's own department/category field), treat a tag that's obviously
+  non-R&D (Sales, Marketing, HR, Finance, Legal, Customer Success) as a veto even if the title
+  alone would have matched — this is a real signal, not a guess, when the source provides it.
+
+### Stage 3 — Diff and persist
+
+```bash
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py diff-and-save '<JSON array of Stage 2's filtered postings>' --companies "<comma-separated names of companies actually queried successfully in Stage 1>"
+```
+Each posting object needs at least `company`, `title`, `location`, `url`. The script returns
+`{"new": [...], "closed": [...], "unchanged_count": N, "pruned_count": N}` and persists the
+merged `catalogue.json` — this is the only thing that writes that file.
+
+### Stage 4 — Present, grouped by company
+
+```bash
+python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py list
+```
+Build one table per company from this (now-updated) open list, flagging 🆕 next to any row whose
+`key` was in Stage 3's `new` output. Below the tables, a short "closed since last run" list from
+Stage 3's `closed` output, grouped by company.
+
+```
+## 🗂️ R&D Catalogue — [date]
+
+Checked N companies ([list]). Skipped: [unresolved companies, or "none"]. Errors: [companies
+whose fetch failed this run, or "none"].
+
+### Acme Corp
+| Role | Location | First seen | Link |
+|---|---|---|---|
+| 🆕 Staff Backend Engineer | London | 2026-09-22 | [Apply →](url) |
+| Platform Engineer | Remote UK | 2026-09-01 | [Apply →](url) |
+
+**Closed since last run:** Widgets Inc — Senior Data Engineer
+```
+No fit score, no salary column, no Skills Fit column — pure inventory.
+
+### Stage 5 — Save the snapshot
+
+Write the exact markdown from Stage 4 to
+`~/Desktop/Job-Search/rnd-catalogue/<date>-catalogue.md` (create the `rnd-catalogue/` directory
+first if needed). Re-running the same day overwrites that day's file, same convention as
+`job-search`'s `searches/` directory.
+
+### Stage 6 — Hand off, don't chain
+
+Close with: **"Want any of these scored or a resume tailored? Hand the ones you like to
+job-search or resume-tailor directly."** Never invoke either automatically — the user decides
+which rows are worth that next step.
+
+---
+
+## Key rules
+
+- **`catalogue_store.py` owns `catalogue.json`.** Never hand-edit it — same reasoning as
+  `job-search`'s tracker/profile files: state can't silently drift or lose rows across runs.
+- **`job_tool.py` owns all fetching.** This skill never adds its own HTTP code — every posting
+  comes from a `job_tool.py search` call, reused exactly as `job-search` calls it.
+- **`target_companies` is shared state.** Setup mode's `profile set` calls follow the same
+  splice-the-full-array discipline `job-search` documents — read fresh, splice, write back whole,
+  never patch with just the delta.
+- **No scraping fallback, ever.** If `discover-ats`/`discover-workday`/`discover-comeet`/
+  `jobs-index` all miss, the company is excluded and reported — this skill never falls through to
+  WebFetch/Playwright reading of a custom career site. That's `job-search`'s Stage 2b, deliberately
+  out of scope here.
+- **Pure inventory — no scoring, no tracker writes.** This skill never calls `tracker upsert` and
+  never computes a fit score. If the user wants either, point them at `job-search`.
+- **A company that errors this run is excluded from Stage 3's `--companies` list**, not treated
+  as having zero postings — otherwise its real open postings would get wrongly marked closed.
