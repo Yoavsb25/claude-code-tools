@@ -1,4 +1,4 @@
-# Search Fallbacks — ATS Auto-Detection, Workday, and JS-Rendered Career Pages
+# Search Fallbacks — ATS Auto-Detection, Workday, Comeet, jobs-index, and JS-Rendered Career Pages
 
 Conditional detail for Stage 2 of `job-search`'s SKILL.md. Only read this file when one of the
 trigger conditions below actually applies — SKILL.md tells you when to branch here; this file
@@ -20,15 +20,21 @@ company has nothing open in a given family:
 
 **The method**, since the result set for one named company is naturally bounded (unlike an
 open-ended market-wide search, where title-based querying is still necessary):
-1. **Known ATS (`search ats`):** omit `--query` entirely and pull the full board (raise `--limit`
-   as needed), then filter the results down to the profile's `locations` yourself.
-2. **No known ATS / large enterprise:** run `search linkedin --query "<Company Name>"` (company
-   name only, no role) `--location "<location>"`, which returns that company's actual open
-   postings at that location across whatever titles they use.
+1. **Known ATS (`search ats`), or a known Workday/Comeet tenant (`search workday-jobs`/`search
+   comeet-jobs`):** omit `--query` entirely and pull the full board (raise `--limit` as needed),
+   then filter the results down to the profile's `locations` yourself.
+2. **Unknown platform:** try `search discover-ats`, then `search discover-workday` and `search
+   discover-comeet` (all free), then `search jobs-index` (paid, confirm with the user first — see
+   "Broad ATS coverage via jobs-index" below) before falling back to `search linkedin --query
+   "<Company Name>"` (company name only, no role) `--location "<location>"`, which returns that
+   company's actual open postings at that location across whatever titles they use.
 3. **Either way, evaluate every remaining posting against the profile holistically** — title,
    scope, and description against `roles`/`skills`/`experience_summary` — rather than
    pre-filtering by whether the title matches one of the profile's role strings. A posting can be
-   an excellent fit under a title nobody would have thought to search for.
+   an excellent fit under a title nobody would have thought to search for. This is exactly the
+   pool Stage 3's "adjacent roles at a specifically-checked company" exception draws from — pull
+   the full board first, score everything, and let that exception catch the ones that don't hit
+   the main bar but are still worth surfacing because of *which* company they're at.
 
 This is slower per company than a single title query, but far more thorough — reserve it for named
 `target_companies` and large-enterprise baseline checks, not the open market-wide search across all
@@ -66,13 +72,13 @@ pattern — don't let this knowledge evaporate at the end of a session.
 
 | Company | Platform / pattern | What actually works | Notes |
 |---|---|---|---|
-| NVIDIA | Workday (`nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite`) | Use the Workday fallback chain below (Apify `workday-jobs-scraper` actor, or `search workday --url https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite`) | Confirmed Workday tenant — never try `search ats`/`discover-ats` for it. |
+| NVIDIA | Workday (`nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite` — note the `en-US` locale prefix isn't part of the site name; `detect_workday_tenant()` strips it) | `search discover-workday --url https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite --company "NVIDIA"` (or `search workday-jobs --slug nvidia/wd5/NVIDIAExternalCareerSite` once saved to `target_companies` — verified live: `detected_slug` comes back as `nvidia/wd5/NVIDIAExternalCareerSite`, 3 segments, no locale) | Confirmed Workday tenant — never try `search ats`/`discover-ats` for it. Free `discover-workday` replaces the old paid-Apify-first approach for this one. |
 | Salesforce | Custom site, but has a working filtered-listing URL | Construct and fetch `https://careers.salesforce.com/en/jobs/?search=<role keyword>&country=United+Kingdom&pagesize=20#results` directly (WebFetch or Playwright) — do not fetch the bare `careers.salesforce.com` homepage, it returns marketing content with no listings. | `discover-ats` returns nothing (not on any of the 6 supported platforms) — expected, don't retry it. |
 | Palo Alto Networks | Custom site (Phenom People platform) | Use the location-taxonomy URL directly, e.g. `https://jobs.paloaltonetworks.com/en/location/london-jobs/47263/2635167-6269131-2643743/4` (find the numeric taxonomy path via one WebSearch for `"Palo Alto Networks" London jobs`, then reuse it) — the listing page itself is large (100K+ chars of markdown when scraped), so prefer targeted extraction (grep/search within fetched content for role keywords) over reading it in full. | Bare-name LinkedIn search (`search linkedin --query "Palo Alto Networks"`) does work reasonably here per the "Checking a specific company" section above — this is the one exception among this table's companies. |
 | Google | Custom site, server-rendered | `https://www.google.com/about/careers/applications/jobs/results` returns real listings even via a plain fetch and supports `&page=N` for pagination — but no confirmed location/query-string filter param (untested: `&location=`). Prefer `search linkedin --query "Customer Engineer" --location "London"` instead (Google's own internal title for Solutions Engineering roles — see the synonym table above) since it reliably surfaces real London Google postings without needing the careers-site's facet UI. | Don't use "Software Engineer" as the query for Google via LinkedIn — the company itself doesn't reliably surface that way; London Google postings found this way have skewed heavily towards Customer Engineer / Cloud / TPM roles, not generalist SWE. |
 | Microsoft | Mixed — no confirmed keyless API, not a confirmed Workday tenant | `careers.microsoft.com` homepage is a JS shell with no listings from a plain fetch. `microsoft.ai/careers/` (Microsoft AI's own vertical career page) DOES render full listings via a plain fetch, including London roles — use that directly for AI/ML-flavored roles. For general Microsoft SWE roles, no verified fast path yet — fall back to Playwright (`browser_navigate` + `browser_snapshot`) on `careers.microsoft.com`. | Bare-name LinkedIn search for "Microsoft" returns noise (documented in "Checking a specific company" above) — don't rely on it here either. |
 | Amdocs | Unconfirmed — not Workday (checked, no `myworkdayjobs.com` tenant found), not on any of the 6 supported ATS platforms | No verified fast path yet. `jobs.amdocs.com/careers` — try Playwright first; if that's not configured in the install, fall back to WebSearch snippets and note the gap rather than guessing. | Bare-name LinkedIn search for "Amdocs" returns noise — don't rely on it. |
-| Unity | Confirmed **not** on any of the 6 supported ATS platforms (tested via `discover-ats` — a `smartrecruiters` slug match returned 0 results and is very likely an unrelated company's board given "unity" is a common slug word; don't trust it) | `unity.com/careers/positions` is a custom Next.js-built SPA with no confirmed keyless listing endpoint — use Playwright, or use `search linkedin --query "Unity Technologies" --location "London"` (company-name-only, distinctive enough to avoid the "short/common name" noise problem) which has reliably surfaced real Unity London postings (including engineering roles, not just sales/client-partner roles). | Don't use `discover-ats`'s low-confidence SmartRecruiters hit as a real match. |
+| Unity | Confirmed **not** on any of the 6 supported ATS platforms (tested via `discover-ats` — a `smartrecruiters` slug match returned 0 results and is very likely an unrelated company's board given "unity" is a common slug word; don't trust it) — **is** a confirmed Workday tenant, found via `discover-workday` | `search discover-workday --url https://unity.com/careers/positions --company "Unity Technologies"` (or `search workday-jobs --slug unitytech/wd1/Unity` once saved) — `unity.com/careers/positions` is a Next.js page but still links out to its `unitytech.wd1.myworkdayjobs.com` tenant in static HTML, so detection works without Playwright. Verified live: 126 total open postings company-wide. | Superseded: this row used to say "no confirmed keyless endpoint, use Playwright/LinkedIn" — that's no longer true now that `discover-workday` exists. Don't use `discover-ats`'s low-confidence SmartRecruiters hit as a real match. |
 
 ## ATS auto-detection
 
@@ -115,12 +121,22 @@ and returns whichever combination actually resolves.
 
 ## Workday-hosted companies
 
-**When this applies:** a WebSearch result surfaces a `myworkdayjobs.com` URL for a
-target/discovered company. Don't try `search ats` for it — `job_tool.py`'s keyless ATS endpoints
-don't cover Workday. This is the single most common outcome for large enterprises, so expect it
-often.
+**When this applies:** any target/discovered large enterprise, whether or not a `myworkdayjobs.com`
+URL has surfaced yet — Workday is the single most common ATS among large enterprises, so it's
+worth checking proactively rather than only reacting to a WebSearch hit that happens to mention it.
 
-**Three paths, in order:**
+**Try `search discover-workday` first, always** (see SKILL.md's "Workday-hosted companies
+specifically" in Stage 2a for the exact command and how to read `confidence`). It's free, keyless,
+and — because it fetches every posting's own detail page rather than trusting the compact search
+list's location text — it catches postings a naive scrape would miss: a role whose *primary*
+office is elsewhere but which also lists the target location as one of several hiring sites (found
+and fixed by cross-checking Unity's live board against unity.com/careers directly in a browser —
+a real gap, not a hypothetical one). Only fall through to the paths below when `discover-workday`
+returns
+`confidence: "none"` — meaning no Workday link was findable in that career page's static HTML at
+all (the URL guess may be wrong, or the real link only appears after JS execution).
+
+**Three fallback paths, in order, once `discover-workday` comes back empty:**
 
 1. **`mcp__apify__*` tools available in this session** (check the deferred-tools list —
    independent of any environment variable). Preferred path:
@@ -154,6 +170,91 @@ often.
 3. **Neither available, or the call errors.** Fall back to `WebFetch` on the public career-page
    listing directly — same optional-enrichment/graceful-degradation treatment as any other page in
    Stage 2b.
+
+## Comeet-hosted companies
+
+**When this applies:** any target/discovered company, checked alongside (not instead of)
+`discover-ats` and `discover-workday` — Comeet is a smaller-scale ATS than Workday but showed up
+for multiple companies in a single discovery sweep (LSports, WSC Sports were both confirmed
+live), so it's worth a routine check, not just a reactive one.
+
+**Try `search discover-comeet` as part of the same pass as `discover-workday`:**
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-comeet --url "<company careers-page URL>" --company "<Company Name>" --query "<role keyword>"
+```
+- Detection reads the career page's own HTML for an inline `COMEET.init({"token": ...,
+  "company-uid": ...})` widget-config call — both values are public (any site visitor can see them
+  via view-source; Comeet's own client-side JS uses them the same way), so treating them as a
+  public tenant identifier and saving them to `target_companies` is safe, same as Workday's
+  tenant/site.
+- Unlike Workday, a single successful call returns every posting's full detail already (location,
+  department, employment type, apply URL, last-updated timestamp) — no per-posting detail fetch or
+  pagination needed, so this is actually a *cheaper* structured source than Workday once detected.
+- `confidence: "high"`/`"low"` → save `platform: "comeet"` and the returned `detected_slug`
+  (`"<token>:<company_uid>"`) to `target_companies`; future rounds call `search comeet-jobs --slug
+  <that value>` directly, no re-discovery HTML fetch needed.
+- `confidence: "none"` → not Comeet-hosted, or the widget config is loaded by deferred/lazy-loaded
+  JS the static HTML fetch can't see (confirmed to happen — e.g. LSports' page uses a WordPress
+  lazy-load plugin that hides the config from a plain fetch even though the site is genuinely
+  Comeet-hosted). If you have independent reason to suspect a company is Comeet-hosted anyway
+  (e.g. `comeet` CSS classes or a `comeet.co`/`comeet.com` script reference show up in the raw
+  HTML even without the full config), that's a hint worth a Playwright follow-up rather than
+  giving up — a rendered page may expose the config a static fetch can't. **Caution:** matching
+  `comeet-` CSS class *names* alone is not proof of a real Comeet integration — one investigated
+  company (Aidoc) had Comeet-styled CSS classes left over in its markup but its actual job data
+  came from a Greenhouse API call embedded in the page's JS instead. Confirm the literal
+  `COMEET.init(` call (or a genuine `comeet.co`/`comeet.com` script `src`) before trusting the
+  platform guess — a CSS class name alone proves nothing about what's actually serving the data.
+- If `discover-comeet` can't find it (including the LSports-style lazy-load case above), try
+  `search jobs-index` next (below) before WebSearch/WebFetch/Playwright — its ATS list includes
+  `comeet` explicitly, so it can cover a Comeet-hosted company this script's own free detection
+  missed.
+
+## Broad ATS coverage via jobs-index (paid, covers what nothing else does)
+
+**When this applies:** a company comes back empty from `discover-ats`, `discover-workday`, *and*
+`discover-comeet` — i.e. every free structured-data path has been exhausted. Don't drop straight
+to WebSearch/Playwright from here; try this first.
+
+```bash
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search jobs-index --company "<Company Name>" --location "<City, Region, Country>" --limit 25
+```
+
+**What it is:** a pre-built, continuously-updated index (Apify Actor
+`fantastic-jobs/career-site-job-listing-api`) of 175k+ company career sites across 54 ATS
+platforms — including several this script will likely never get a dedicated free integration for
+(Oracle Cloud, SuccessFactors, iCIMS, Phenom People, ADP, Paycor, and more), plus every platform it
+already does (Workday, Comeet, Greenhouse, Lever, etc.). Verified live: a call against "Amazon" +
+"London, England, United Kingdom" returned 10 real, current London postings — a company that
+earlier discovery sweeps couldn't resolve any other way.
+
+**Cost — this is the one thing to get right before running it:**
+- **Paid, requires `APIFY_TOKEN`.** Confirm target companies with the user first, unless already
+  named explicitly — same rule as the `search workday` Apify fallback.
+- At Apify's FREE pricing tier: **~$0.012/job + a flat $0.01 per run.** `--limit` defaults to 25
+  (`JOBS_INDEX_DEFAULT_LIMIT` in `job_tool.py`), so a default call costs well under $1. Don't raise
+  `--limit` casually — it scales cost linearly.
+- **The Actor rejects `limit` below 10 with an HTTP 400** (verified directly). `job_tool.py`
+  clamps any smaller value up to 10 automatically, so this isn't something you need to handle
+  yourself, but don't be surprised if a very small `--limit` you asked for returns more rows than
+  requested.
+
+**Two gotchas verified directly, both silent-failure risks:**
+- **`--location` needs the exact `"City, Region/State, Country"` phrase format, English names, no
+  abbreviations** — e.g. `"London, England, United Kingdom"`, not `"London, UK"` or `"London,
+  England"`. A malformed location string doesn't error, it just silently returns zero rows. If a
+  location-filtered call comes back empty, double check the format before concluding the company
+  has nothing open there.
+- The actor-id-with-slash form (`fantastic-jobs/career-site-job-listing-api`, URL-encoded to
+  `fantastic-jobs%2Fcareer-site-job-listing-api` by `job_tool.py`) works fine against Apify's API —
+  confirmed directly, this is not a bug, don't "fix" it to the tilde form.
+
+**Usage pattern:** for a per-company check, omit `--query`/title filters and just pull everything
+(`organizationSearch`/`domainFilter` only) — same "pull the full board, filter yourself" approach
+as `search ats`. The AI-classified filters (`--work-arrangement`, `--ats`, and the underlying
+Actor's broader experience-level/taxonomy filters not yet exposed as CLI flags) are more useful for
+a market-wide scan than a single already-known company. If a call reveals which real ATS a company
+is on, add a row to the pattern table below so a future session can try that path for free first.
 
 ## JS-rendered career pages (Playwright fallback)
 

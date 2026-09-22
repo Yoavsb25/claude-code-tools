@@ -1,11 +1,11 @@
 {
   "name": "job-search",
-  "version": "1.11.0",
-  "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, kicks off resume-tailor, and surfaces warm-intro connections at target companies",
+  "version": "1.17.1",
+  "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, surfaces worth-exploring roles at target companies, and kicks off resume-tailor",
   "type": "tool",
   "category": "career",
   "complexity": "advanced",
-  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery", "workday", "apify", "linkedin-connections", "warm-intro", "network"],
+  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery", "workday", "comeet", "jobs-index", "apify", "linkedin-connections", "warm-intro", "network"],
   "install": {
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },
