@@ -961,32 +961,79 @@ class TestFetchWorkdayPostings(unittest.TestCase):
 
     @patch("job_tool.http_get_json")
     @patch("job_tool.http_post_json")
-    def test_location_hint_paginates_past_max_scanned_but_only_detail_fetches_matches(self, mock_post, mock_get):
-        # Simulates a large board (paginates well past max_scanned=25 during the cheap list stage)
-        # where only a couple of postings actually mention the hinted location -- the expensive
-        # detail-fetch stage should only run for those, not for the whole paginated list.
-        pages = []
-        for page_num in range(3):  # 3 pages x 20 = 60 postings paginated, only 2 relevant
-            postings = []
-            for i in range(job_tool.WORKDAY_PAGE_SIZE):
-                idx = page_num * job_tool.WORKDAY_PAGE_SIZE + i
-                if idx == 5:
-                    loc = "London, United Kingdom"
-                elif idx == 45:
-                    loc = "3 Locations"  # ambiguous multi-location -- should also be treated as a candidate
-                else:
-                    loc = "Mountain View, CA, USA"
-                postings.append({"title": f"J{idx}", "externalPath": f"/job/{idx}", "locationsText": loc, "postedOn": "Posted Today"})
-            pages.append({"total": 60, "jobPostings": postings})
-        mock_post.side_effect = [(p, None) for p in pages]
-        mock_get.return_value = ({"jobPostingInfo": {"title": "J", "location": "London, United Kingdom"}}, None)
+    def test_job_family_groups_resolved_and_applied_server_side(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),  # facets discovery call
+            ({"total": 1, "jobPostings": [{"title": "A", "externalPath": "/job/A", "locationsText": "X", "postedOn": "Posted Today"}]}, None),  # the real search
+        ]
+        mock_get.return_value = ({"jobPostingInfo": {"title": "A", "location": "X"}}, None)
 
         results, err = job_tool.fetch_workday_postings(
-            TENANT_INFO_FIXTURE, limit=25, max_scanned=25, location_hint="United Kingdom",
+            TENANT_INFO_FIXTURE, job_family_groups="Engineering,Research",
         )
         self.assertIsNone(err)
-        self.assertEqual(mock_post.call_count, 3)  # pagination ran past max_scanned=25 to see all 60
-        self.assertEqual(mock_get.call_count, 2)   # only the London match + the ambiguous "3 Locations" one
+        self.assertEqual(len(results), 1)
+        # second call is the real search -- assert it carried the resolved facet IDs
+        search_call_body = mock_post.call_args_list[1][0][1]
+        self.assertEqual(set(search_call_body["appliedFacets"]["jobFamilyGroup"]), {"cat-eng", "cat-research"})
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_location_hint_resolved_to_exact_facet_id_not_substring_matched(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
+            ({"total": 1, "jobPostings": [{"title": "A", "externalPath": "/job/A", "locationsText": "UK, Cambridge", "postedOn": "Posted Today"}]}, None),
+        ]
+        mock_get.return_value = ({"jobPostingInfo": {"title": "A", "location": "UK, Cambridge"}}, None)
+
+        results, err = job_tool.fetch_workday_postings(
+            TENANT_INFO_FIXTURE, location_hint="United Kingdom",
+        )
+        self.assertIsNone(err)
+        self.assertEqual(len(results), 1)
+        search_call_body = mock_post.call_args_list[1][0][1]
+        self.assertEqual(search_call_body["appliedFacets"]["locationHierarchy1"], ["loc-uk"])
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_both_filters_combined_in_one_applied_facets_dict(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
+            ({"total": 0, "jobPostings": []}, None),
+        ]
+        job_tool.fetch_workday_postings(
+            TENANT_INFO_FIXTURE, job_family_groups="Engineering", location_hint="United Kingdom",
+        )
+        search_call_body = mock_post.call_args_list[1][0][1]
+        self.assertEqual(search_call_body["appliedFacets"]["jobFamilyGroup"], ["cat-eng"])
+        self.assertEqual(search_call_body["appliedFacets"]["locationHierarchy1"], ["loc-uk"])
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_unmatched_location_hint_falls_back_to_no_location_filter(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
+            ({"total": 0, "jobPostings": []}, None),
+        ]
+        job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, location_hint="Atlantis")
+        search_call_body = mock_post.call_args_list[1][0][1]
+        self.assertNotIn("locationHierarchy1", search_call_body["appliedFacets"])
+
+    @patch("job_tool.http_post_json")
+    def test_facets_discovery_error_propagates(self, mock_post):
+        mock_post.return_value = (None, "HTTP 500 from acme")
+        results, err = job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, location_hint="United Kingdom")
+        self.assertEqual(results, [])
+        self.assertEqual(err, "HTTP 500 from acme")
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_no_hint_or_groups_skips_facets_discovery_entirely(self, mock_post, mock_get):
+        # Backward-compat: a plain call with neither filter must not spend the extra facets
+        # request at all -- same call count as before this feature existed.
+        mock_post.return_value = ({"total": 0, "jobPostings": []}, None)
+        job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE)
+        self.assertEqual(mock_post.call_count, 1)
 
     @patch("job_tool.http_get_json")
     @patch("job_tool.http_post_json")

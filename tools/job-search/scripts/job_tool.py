@@ -1308,7 +1308,8 @@ def fetch_workday_facets(api_base):
     return data.get("facets") or [], None
 
 
-def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDAY_MAX_JOBS_SCANNED, location_hint=None):
+def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDAY_MAX_JOBS_SCANNED,
+                            location_hint=None, job_family_groups=None):
     """Paginate a Workday CXS job-search endpoint, then fetch full detail for every posting found
     (bounded by max_scanned) and return them in posting() shape.
 
@@ -1319,31 +1320,55 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
     primary city with no hint it's multi-site at all. This gap was found and verified by hand by
     cross-checking Unity's live board against unity.com/careers directly in a browser.
 
-    `location_hint`, if given, changes HOW the max_scanned budget is spent rather than what gets
-    returned. Large enterprises can have boards far bigger than max_scanned (NVIDIA: 2,000 total
-    postings against a default cap of 150 -- verified live, only 7.5% would ever be examined).
-    Detail-fetching is the expensive part (one HTTP request per posting); pagination alone is
-    cheap (a handful of requests return the whole compact list, no detail fetch involved). So
-    when a location_hint is given, pagination runs against a much larger cap
-    (WORKDAY_PAGINATION_CAP) to see the company's *entire* board cheaply, then only postings whose
-    compact `locationsText` mentions the hint -- or looks like a multi-location posting ("N
-    Locations", ambiguous without a detail fetch) -- go on to the expensive detail-fetch stage,
-    still bounded by max_scanned there. This trades a small chance of missing an oddly-formatted
-    match for actually covering the whole board instead of an arbitrary early slice of it. Without
-    a location_hint, behavior is unchanged: pagination and detail-fetch share the same max_scanned
-    budget, exactly as before.
+    `location_hint` and `job_family_groups` are both applied server-side via Workday's own
+    `appliedFacets` filter, not by scanning and re-filtering client-side. Verified live against
+    NVIDIA: a posting's category is NOT present in either the compact list or the per-posting
+    detail JSON -- it exists only as a facet-level construct (facetParameter "jobFamilyGroup"),
+    discoverable via one lightweight `fetch_workday_facets` call, then applied as an exact ID
+    match via `find_facet_values`/`resolve_facet_ids`. This replaces an earlier, shipped version
+    of `location_hint` that did a fuzzy `hint in locationsText.lower()` substring check --
+    verified live to silently fail against real site labels like "UK, Cambridge" (which does not
+    contain the substring "united kingdom"). That client-side filtering step is removed entirely
+    in favor of this.
+
+    Combining both filters narrows the query at the source: a company the size of NVIDIA (2,000
+    postings company-wide) returns a handful to a few dozen results for a category+location
+    query, not 2,000 -- so `max_scanned` stops being a practical constraint for a targeted query
+    like this, even though it still exists as an outer safety cap for the case where only one
+    broad filter (or neither) is applied.
+
+    `job_family_groups`, if given, is a comma-separated string of category names (matched
+    case-insensitively against that tenant's actual facet descriptors, e.g. "Engineering,
+    Research"). A name with no matching facet for this tenant is silently skipped, not an error --
+    same contract `resolve_facet_ids` already documents.
 
     Returns (results, error). A company genuinely having zero current openings is not an error --
     it comes back as (empty results, None), same contract as every other `search` source."""
     api_base = tenant_info["api_base"]
     public_base = tenant_info["public_base"]
-    pagination_cap = WORKDAY_PAGINATION_CAP if location_hint else max_scanned
+
+    applied_facets = {}
+    if job_family_groups or location_hint:
+        facets, err = fetch_workday_facets(api_base)
+        if err:
+            return [], err
+        if job_family_groups:
+            names = job_family_groups.split(",")
+            ids = resolve_facet_ids(find_facet_values(facets, "jobFamilyGroup"), names)
+            if ids:
+                applied_facets["jobFamilyGroup"] = ids
+        if location_hint:
+            ids = resolve_facet_ids(find_facet_values(facets, "locationHierarchy1"), [location_hint])
+            if ids:
+                applied_facets["locationHierarchy1"] = ids
+
+    pagination_cap = WORKDAY_PAGINATION_CAP if applied_facets else max_scanned
 
     postings, offset, total = [], 0, None
     while total is None or (len(postings) < total and len(postings) < pagination_cap):
         data, err = http_post_json(
             f"{api_base}/jobs",
-            {"appliedFacets": {}, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
+            {"appliedFacets": applied_facets, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
         )
         if err:
             return [], err
@@ -1354,14 +1379,6 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
         postings.extend(page)
         offset += WORKDAY_PAGE_SIZE
     postings = postings[:pagination_cap]
-
-    if location_hint:
-        hint = location_hint.lower()
-        postings = [
-            p for p in postings
-            if hint in (p.get("locationsText") or "").lower()
-            or re.match(r"^\d+\s+location", (p.get("locationsText") or "").lower())
-        ]
     postings = postings[:max_scanned]
 
     def fetch_one(raw):
