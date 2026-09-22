@@ -610,7 +610,7 @@ class TestParseAtsPayload(unittest.TestCase):
         out = job_tool.parse_ats_payload("lever", "Acme", data)
         self.assertEqual(out[0]["title"], "Platform Engineer")
         self.assertEqual(out[0]["location"], "Berlin")
-        self.assertEqual(out[0]["tags"], ["Berlin"])
+        self.assertEqual(out[0]["tags"], [])
 
     def test_ashby(self):
         data = {"jobs": [{
@@ -654,6 +654,32 @@ class TestParseAtsPayload(unittest.TestCase):
         self.assertEqual(out[0]["location"], "Remote")
         self.assertEqual(out[0]["remote"], True)
         self.assertEqual(out[0]["tags"], ["Engineering"])
+
+    def test_lever_captures_team_as_department_tag_not_locations(self):
+        data = [{
+            "text": "Senior Backend Engineer",
+            "categories": {
+                "location": "London",
+                "allLocations": ["London", "Remote UK"],
+                "team": "Engineering",
+            },
+            "hostedUrl": "https://jobs.lever.co/spotify/abc123",
+            "createdAt": 1700000000000,
+            "descriptionPlain": "...",
+        }]
+        results = job_tool.parse_ats_payload("lever", "spotify", data)
+        self.assertEqual(results[0]["tags"], ["Engineering"])
+        self.assertEqual(results[0]["location"], "London")  # unaffected by this fix
+
+    def test_lever_missing_team_gives_empty_tags(self):
+        data = [{
+            "text": "Something",
+            "categories": {"location": "London", "allLocations": ["London"]},
+            "hostedUrl": "https://jobs.lever.co/spotify/def456",
+            "createdAt": 1700000000000,
+        }]
+        results = job_tool.parse_ats_payload("lever", "spotify", data)
+        self.assertEqual(results[0]["tags"], [])
 
 
 class TestCmdSearchDiscoverAts(unittest.TestCase):

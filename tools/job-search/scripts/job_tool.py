@@ -951,7 +951,8 @@ def parse_ats_payload(platform, company, data):
         return [
             posting(
                 "lever", j.get("text"), company, (j.get("categories") or {}).get("location"),
-                None, j.get("hostedUrl"), (j.get("categories") or {}).get("allLocations") or [],
+                None, j.get("hostedUrl"),
+                [(j.get("categories") or {}).get("team")] if (j.get("categories") or {}).get("team") else [],
                 None, j.get("createdAt"), j.get("descriptionPlain") or j.get("description"),
             )
             for j in data
