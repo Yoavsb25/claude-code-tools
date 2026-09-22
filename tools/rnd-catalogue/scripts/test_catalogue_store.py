@@ -107,6 +107,26 @@ class TestDiffAndSaveClosed(TempStateDirTestCase):
         listed = self._run_json(catalogue_store.cmd_list, make_args(company=None))
         self.assertEqual(listed, [])  # closed postings never show up in `list`
 
+    def test_posting_missing_for_queried_company_is_marked_closed_case_insensitive(self):
+        # Guards against the slug-vs-display-name mismatch: a posting stored under one casing
+        # (e.g. the watchlist's display name "Acme") must still be recognized as queried when
+        # --companies is passed with different casing (e.g. an ATS slug like "acme").
+        posting = {"company": "Acme", "title": "Staff Backend Engineer", "location": "London", "url": "https://acme.example/1"}
+        self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([posting]), companies="Acme"),
+        )
+
+        result = self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([]), companies="acme"),
+        )
+        self.assertEqual(len(result["closed"]), 1)
+        self.assertEqual(result["closed"][0]["link"], "https://acme.example/1")
+
+        listed = self._run_json(catalogue_store.cmd_list, make_args(company=None))
+        self.assertEqual(listed, [])  # closed postings never show up in `list`
+
     def test_posting_missing_for_unqueried_company_is_left_untouched(self):
         posting = {"company": "Acme", "title": "Staff Backend Engineer", "location": "London", "url": "https://acme.example/1"}
         self._run_json(

@@ -1,0 +1,22 @@
+{
+  "name": "rnd-catalogue",
+  "version": "1.0.0",
+  "description": "Inventories every open Engineering/Product/Data role at watchlisted companies (shared with job-search) in London/remote-UK, with new/closed diffing across runs",
+  "type": "tool",
+  "category": "career",
+  "complexity": "intermediate",
+  "tags": ["job-search", "career", "rnd", "engineering", "hiring", "catalogue", "watchlist", "ats", "python", "job-hunt"],
+  "install": {
+    "files": [
+      { "src": "SKILL.md", "dest": "~/.claude/skills/rnd-catalogue.md" },
+      { "src": "scripts/catalogue_store.py", "dest": "~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py" },
+      { "src": "references/rnd-titles.md", "dest": "~/.claude/skills/rnd-catalogue/references/rnd-titles.md" }
+    ]
+  },
+  "requirements": {
+    "platform": "any",
+    "mcp_servers": [],
+    "env_vars": [],
+    "python": ">=3.9"
+  }
+}

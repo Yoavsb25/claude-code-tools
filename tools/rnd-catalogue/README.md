@@ -37,8 +37,8 @@ its own and depends on `job-search` being installed alongside it
 
 ## Design spec
 
-See `~/Desktop/Job-Search/docs/superpowers/specs/2026-09-22-rnd-catalogue-design.md` for the full
-design rationale.
+See `docs/superpowers/specs/2026-09-22-rnd-catalogue-design.md` (repo root) for the full design
+rationale.
 
 ## Tests
 

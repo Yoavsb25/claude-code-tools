@@ -44,7 +44,7 @@ This skill has two modes. Which one runs is decided by what the user asked for:
 ### Stage 0 — Partition the watchlist
 
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py profile show
+python3 ~/.claude/skills/job-search/scripts/job_tool.py profile show
 ```
 
 Read `target_companies`. Partition into:
@@ -82,11 +82,11 @@ discovery ultimately misses — it saves the WebSearch on the next setup run.
 
 For each unresolved company, run all three in parallel:
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search discover-ats --company "<Company Name>"
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search discover-workday --url "<career-page URL from Stage 1>" --company "<Company Name>"
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search discover-comeet --url "<career-page URL from Stage 1>" --company "<Company Name>"
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-ats --company "<Company Name>"
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-workday --url "<career-page URL from Stage 1>" --company "<Company Name>"
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-comeet --url "<career-page URL from Stage 1>" --company "<Company Name>"
 ```
-Read `/Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/references/search-fallbacks.md` (in `job-search`'s directory —
+Read `~/.claude/skills/job-search/references/search-fallbacks.md` (in `job-search`'s directory —
 read it from there, don't copy it) for the `confidence` contract: `"high"` means trust it,
 `"low"` means a real board with zero current postings (not a miss), `"none"` means try the next
 source.
@@ -97,7 +97,7 @@ If all three of Stage 2 come back `confidence: "none"` for a company, **ask the 
 spending anything further**: `"[Company] isn't on any free source — want me to check the paid
 jobs-index for it? (see job-search's README for cost)"`. If yes:
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search jobs-index --company "<Company Name>" --limit 25
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search jobs-index --company "<Company Name>" --limit 25
 ```
 This is still a structured API, not scraping — it's `job-search`'s own paid fallback, reused
 here rather than reimplemented. If the user declines, or this also misses, the company is
@@ -110,7 +110,7 @@ For every company Stage 2 or 3 resolved, read the current `target_companies` fre
 write back the **full array** — `profile set` replaces `target_companies` wholesale, it does not
 merge:
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py profile set '{"target_companies": [ ...existing entries unchanged..., {"name": "<Company>", "platform": "<platform>", "slug": "<slug>", "careers_url": "<url>"} ]}'
+python3 ~/.claude/skills/job-search/scripts/job_tool.py profile set '{"target_companies": [ ...existing entries unchanged..., {"name": "<Company>", "platform": "<platform>", "slug": "<slug>", "careers_url": "<url>"} ]}'
 ```
 
 ### Stage 5 — Report coverage
@@ -131,21 +131,28 @@ automatically from catalogue mode's Stage 0.
 ### Stage 0 — Load state
 
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py profile show
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py list
+python3 ~/.claude/skills/job-search/scripts/job_tool.py profile show
+python3 ~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py list
 ```
 Use only resolved `target_companies` entries (has `platform` + `slug`). If any are unresolved
 and setup mode hasn't been run yet, mention it in the closing summary and offer to run setup
 mode — but proceed with whatever's already resolved rather than blocking the whole run on it.
+
+If the user's request names one specific watchlisted company (e.g. "what does NVIDIA have
+open"), this is still Catalogue mode, just scoped to that company: restrict Stage 1's fetch to
+just that company's `target_companies` entry, and in Stage 4 use
+`catalogue_store.py list --company "<name>"` instead of the bare `list` call, so the presented
+table only covers that one company. With no company named, proceed as below and sweep the whole
+watchlist.
 
 ### Stage 1 — Fetch every resolved company's full board
 
 No `--query` on any of these — that's what makes it a whole-board fetch instead of a keyword
 search. Run all companies in parallel:
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --limit 500
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search workday-jobs --slug <slug> --company "<name>" --location-hint "United Kingdom" --limit 500
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/job-search/scripts/job_tool.py search comeet-jobs --slug <slug> --company "<name>" --limit 500
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search ats --platform <platform> --company <slug> --limit 500
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search workday-jobs --slug <slug> --company "<name>" --location-hint "United Kingdom" --limit 500
+python3 ~/.claude/skills/job-search/scripts/job_tool.py search comeet-jobs --slug <slug> --company "<name>" --limit 500
 ```
 `--location-hint` matters specifically for Workday: detail-fetching is capped at 150 postings
 per company regardless of `--limit`, so for a large board (NVIDIA: 2,000+ postings company-wide)
@@ -169,10 +176,17 @@ For every posting from Stage 1:
   non-R&D (Sales, Marketing, HR, Finance, Legal, Customer Success) as a veto even if the title
   alone would have matched — this is a real signal, not a guess, when the source provides it.
 
+Before building the filtered array to pass into Stage 3, normalize every posting's `company`
+field to the matching `target_companies` entry's `name` — not whatever `job_tool.py search`
+returned. `search ats` in particular echoes back the ATS **slug** (e.g. `"monzo"`), not the
+display name (`"Monzo"`); since Stage 3's `--companies` list is built from `name`, leaving the
+slug in place means `catalogue_store.py` can never match that posting to a queried company, so it
+silently never gets marked closed.
+
 ### Stage 3 — Diff and persist
 
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py diff-and-save '<JSON array of Stage 2's filtered postings>' --companies "<comma-separated names of companies actually queried successfully in Stage 1>"
+python3 ~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py diff-and-save '<JSON array of Stage 2's filtered postings>' --companies "<comma-separated names of companies actually queried successfully in Stage 1>"
 ```
 Each posting object needs at least `company`, `title`, `location`, `url`. The script returns
 `{"new": [...], "closed": [...], "unchanged_count": N, "pruned_count": N}` and persists the
@@ -181,7 +195,7 @@ merged `catalogue.json` — this is the only thing that writes that file.
 ### Stage 4 — Present, grouped by company
 
 ```bash
-python3 /Users/yoavsborovsky/GitHub/claude-code-tools/.worktrees/rnd-catalogue/tools/rnd-catalogue/scripts/catalogue_store.py list
+python3 ~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py list
 ```
 Build one table per company from this (now-updated) open list, flagging 🆕 next to any row whose
 `key` was in Stage 3's `new` output. Below the tables, a short "closed since last run" list from

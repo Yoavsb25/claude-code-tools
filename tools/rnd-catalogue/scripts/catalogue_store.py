@@ -80,7 +80,7 @@ def posting_key(p):
 def cmd_diff_and_save(args):
     run_postings = read_json_arg(args.postings)
     queried_companies = (
-        {c.strip() for c in args.companies.split(",") if c.strip()} if args.companies else set()
+        {c.strip().lower() for c in args.companies.split(",") if c.strip()} if args.companies else set()
     )
 
     data = load_catalogue()
@@ -115,7 +115,7 @@ def cmd_diff_and_save(args):
     for key, record in stored.items():
         if key in seen_keys:
             continue
-        company = record.get("company")
+        company = (record.get("company") or "").strip().lower()
         if company not in queried_companies:
             continue  # this company wasn't (successfully) queried this run -- leave it alone
         if record.get("closed_date"):
