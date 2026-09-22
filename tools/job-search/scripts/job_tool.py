@@ -1021,6 +1021,47 @@ def fetch_ats_postings(platform, slug, query=None):
     return raw, None
 
 
+def find_facet_values(facets, facet_parameter):
+    """Recursively search a Workday /jobs response's `facets` tree for the entry whose
+    facetParameter matches, returning its `values` list (each {descriptor, id, count}).
+    Workday nests location-related facets under a `locationMainGroup` wrapper that has no
+    facetParameter match of its own -- locationHierarchy1/2 and `locations` live inside it --
+    while category/type facets (e.g. jobFamilyGroup) are top-level. This walks both shapes
+    uniformly. Returns [] if nothing matches."""
+    for f in facets or []:
+        if f.get("facetParameter") == facet_parameter:
+            return f.get("values") or []
+        nested = f.get("values") or []
+        if nested and isinstance(nested[0], dict) and "facetParameter" in nested[0]:
+            found = find_facet_values(nested, facet_parameter)
+            if found:
+                return found
+    return []
+
+
+def resolve_facet_ids(values, names):
+    """Match human-readable names (case-insensitive, whitespace-trimmed) against a facet's
+    `values` list (as returned by find_facet_values), returning the matched `id`s. A name with
+    no match is silently skipped -- a company simply not having a given category/location isn't
+    an error, same contract as every other `search` source in this script."""
+    wanted = {n.strip().lower() for n in names if n and n.strip()}
+    return [v["id"] for v in values if (v.get("descriptor") or "").strip().lower() in wanted]
+
+
+def fetch_workday_facets(api_base):
+    """One lightweight request to discover a Workday tenant's available facets (Job Category,
+    Locations, etc.) -- used to resolve human-readable category/location names to the opaque
+    per-tenant IDs Workday's appliedFacets filter requires. The facets list is present in the
+    response regardless of `limit`, so this asks for the smallest useful page (limit=1) rather
+    than a full board fetch. Returns (facets, error)."""
+    data, err = http_post_json(
+        f"{api_base}/jobs", {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
+    )
+    if err:
+        return None, err
+    return data.get("facets") or [], None
+
+
 def cmd_search_ats(args):
     results, err = fetch_ats_postings(args.platform, args.company, args.query)
     if err:

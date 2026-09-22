@@ -721,5 +721,108 @@ class TestCmdSearchDiscoverAts(unittest.TestCase):
         self.assertEqual(out["results"], [])
 
 
+WORKDAY_FACETS_FIXTURE = [
+    {
+        "facetParameter": "jobFamilyGroup",
+        "descriptor": "Job Category",
+        "values": [
+            {"descriptor": "Engineering", "id": "cat-eng", "count": 1756},
+            {"descriptor": "Research", "id": "cat-research", "count": 39},
+            {"descriptor": "Sales", "id": "cat-sales", "count": 330},
+        ],
+    },
+    {
+        "facetParameter": "timeType",
+        "descriptor": "Time Type",
+        "values": [{"descriptor": "Full time", "id": "tt-full", "count": 2678}],
+    },
+    {
+        "facetParameter": "locationMainGroup",
+        "values": [
+            {
+                "facetParameter": "locationHierarchy2",
+                "descriptor": "Location Type",
+                "values": [{"descriptor": "Office", "id": "loc-office", "count": 2530}],
+            },
+            {
+                "facetParameter": "locationHierarchy1",
+                "descriptor": "Locations",
+                "values": [
+                    {"descriptor": "United Kingdom", "id": "loc-uk", "count": 54},
+                    {"descriptor": "Germany", "id": "loc-de", "count": 56},
+                ],
+            },
+        ],
+    },
+]
+
+
+class TestFindFacetValues(unittest.TestCase):
+    def test_finds_top_level_facet(self):
+        values = job_tool.find_facet_values(WORKDAY_FACETS_FIXTURE, "jobFamilyGroup")
+        self.assertEqual([v["descriptor"] for v in values], ["Engineering", "Research", "Sales"])
+
+    def test_finds_facet_nested_under_locationMainGroup(self):
+        values = job_tool.find_facet_values(WORKDAY_FACETS_FIXTURE, "locationHierarchy1")
+        self.assertEqual([v["descriptor"] for v in values], ["United Kingdom", "Germany"])
+
+    def test_returns_empty_list_when_not_found(self):
+        self.assertEqual(job_tool.find_facet_values(WORKDAY_FACETS_FIXTURE, "nonexistent"), [])
+
+    def test_empty_facets_input(self):
+        self.assertEqual(job_tool.find_facet_values([], "jobFamilyGroup"), [])
+        self.assertEqual(job_tool.find_facet_values(None, "jobFamilyGroup"), [])
+
+
+class TestResolveFacetIds(unittest.TestCase):
+    def setUp(self):
+        self.values = job_tool.find_facet_values(WORKDAY_FACETS_FIXTURE, "jobFamilyGroup")
+
+    def test_matches_case_insensitively(self):
+        self.assertEqual(job_tool.resolve_facet_ids(self.values, ["engineering"]), ["cat-eng"])
+        self.assertEqual(job_tool.resolve_facet_ids(self.values, ["ENGINEERING"]), ["cat-eng"])
+
+    def test_matches_multiple_names(self):
+        ids = job_tool.resolve_facet_ids(self.values, ["Engineering", "Research"])
+        self.assertEqual(set(ids), {"cat-eng", "cat-research"})
+
+    def test_skips_unmatched_names_silently(self):
+        ids = job_tool.resolve_facet_ids(self.values, ["Engineering", "Nonexistent Category"])
+        self.assertEqual(ids, ["cat-eng"])
+
+    def test_no_names_matched_returns_empty_list(self):
+        self.assertEqual(job_tool.resolve_facet_ids(self.values, ["Nonexistent"]), [])
+
+    def test_handles_whitespace_around_names(self):
+        self.assertEqual(job_tool.resolve_facet_ids(self.values, ["  Engineering  "]), ["cat-eng"])
+
+
+class TestFetchWorkdayFacets(unittest.TestCase):
+    @patch("job_tool.http_post_json")
+    def test_requests_minimal_page_and_returns_facets(self, mock_post):
+        mock_post.return_value = ({"total": 2678, "jobPostings": [{"title": "X"}], "facets": WORKDAY_FACETS_FIXTURE}, None)
+        facets, err = job_tool.fetch_workday_facets("https://acme.wd1.myworkdaysite.com/wday/cxs/acme")
+        self.assertIsNone(err)
+        self.assertEqual(facets, WORKDAY_FACETS_FIXTURE)
+        call_args = mock_post.call_args
+        self.assertEqual(call_args[0][0], "https://acme.wd1.myworkdaysite.com/wday/cxs/acme/jobs")
+        self.assertEqual(call_args[0][1]["limit"], 1)
+        self.assertEqual(call_args[0][1]["appliedFacets"], {})
+
+    @patch("job_tool.http_post_json")
+    def test_error_propagates(self, mock_post):
+        mock_post.return_value = (None, "HTTP 500 from acme")
+        facets, err = job_tool.fetch_workday_facets("https://acme.wd1.myworkdaysite.com/wday/cxs/acme")
+        self.assertIsNone(facets)
+        self.assertEqual(err, "HTTP 500 from acme")
+
+    @patch("job_tool.http_post_json")
+    def test_missing_facets_key_gives_empty_list_not_error(self, mock_post):
+        mock_post.return_value = ({"total": 0, "jobPostings": []}, None)
+        facets, err = job_tool.fetch_workday_facets("https://acme.wd1.myworkdaysite.com/wday/cxs/acme")
+        self.assertIsNone(err)
+        self.assertEqual(facets, [])
+
+
 if __name__ == "__main__":
     unittest.main()
