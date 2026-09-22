@@ -171,11 +171,6 @@ COMEET_COMPANY_UID_RE = re.compile(r'"company-uid"\s*:\s*"([0-9A-Za-z.]+)"')
 COMEET_POSITIONS_URL = "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions?token={token}"
 WORKDAY_PAGE_SIZE = 20  # Workday's CXS search endpoint rejects larger page sizes with HTTP 400
 WORKDAY_MAX_JOBS_SCANNED = 150  # safety cap on per-posting detail fetches for one company
-# Safety cap on pagination alone when a --location-hint narrows the (expensive) detail-fetch
-# stage separately -- see fetch_workday_postings. Pagination is cheap (compact JSON, no detail
-# fetch), so this can afford to be much higher than WORKDAY_MAX_JOBS_SCANNED -- large enough to
-# cover NVIDIA's entire ~2,000-posting board (verified live) in one call.
-WORKDAY_PAGINATION_CAP = 3000
 WORKDAY_DETAIL_WORKERS = 8  # concurrency for the detail-fetch fan-out -- keep polite, not zero
 ATS_SLUG_SUFFIXES = {
     "inc", "llc", "ltd", "corp", "corporation", "co", "company",
@@ -1291,7 +1286,10 @@ def resolve_facet_ids(values, names):
     no match is silently skipped -- a company simply not having a given category/location isn't
     an error, same contract as every other `search` source in this script."""
     wanted = {n.strip().lower() for n in names if n and n.strip()}
-    return [v["id"] for v in values if (v.get("descriptor") or "").strip().lower() in wanted]
+    return [
+        v.get("id") for v in values
+        if (v.get("descriptor") or "").strip().lower() in wanted and v.get("id")
+    ]
 
 
 def fetch_workday_facets(api_base):
@@ -1362,10 +1360,8 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
             if ids:
                 applied_facets["locationHierarchy1"] = ids
 
-    pagination_cap = WORKDAY_PAGINATION_CAP if applied_facets else max_scanned
-
     postings, offset, total = [], 0, None
-    while total is None or (len(postings) < total and len(postings) < pagination_cap):
+    while total is None or (len(postings) < total and len(postings) < max_scanned):
         data, err = http_post_json(
             f"{api_base}/jobs",
             {"appliedFacets": applied_facets, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
@@ -1378,7 +1374,6 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
             break
         postings.extend(page)
         offset += WORKDAY_PAGE_SIZE
-    postings = postings[:pagination_cap]
     postings = postings[:max_scanned]
 
     def fetch_one(raw):

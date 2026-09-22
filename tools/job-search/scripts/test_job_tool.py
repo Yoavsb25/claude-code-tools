@@ -1053,6 +1053,46 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, limit=25, max_scanned=20)
         self.assertEqual(mock_post.call_count, 1)  # stopped after the first page since max_scanned=20 < page size
 
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_facet_applied_still_respects_max_scanned_cap_during_pagination(self, mock_post, mock_get):
+        # Regression test: pagination must stop at max_scanned even when a facet is applied --
+        # there is no longer a separate, larger pagination budget (WORKDAY_PAGINATION_CAP was
+        # retired as dead weight -- it only ever fed an older client-side filter that no longer
+        # exists). A large `total` here proves pagination doesn't run past max_scanned fetching
+        # pages that would just get discarded unread.
+        page = {
+            "total": 5000,
+            "jobPostings": [
+                {"title": f"J{i}", "externalPath": f"/job/{i}", "locationsText": "X", "postedOn": "Posted Today"}
+                for i in range(job_tool.WORKDAY_PAGE_SIZE)
+            ],
+        }
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
+        ] + [(page, None)] * 10  # far more pages available than should ever be fetched
+        mock_get.return_value = ({"jobPostingInfo": {"title": "J", "location": "X"}}, None)
+
+        results, err = job_tool.fetch_workday_postings(
+            TENANT_INFO_FIXTURE, job_family_groups="Engineering", max_scanned=25,
+        )
+        self.assertIsNone(err)
+        # 1 facets call + at most 2 pagination calls (offset 0 -> 20 postings, offset 20 -> 40
+        # >= 25, stop) -- nowhere close to the old 3000-item budget.
+        self.assertLessEqual(mock_post.call_count, 3)
+        self.assertLessEqual(mock_get.call_count, 25)
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_unmatched_job_family_groups_falls_back_to_no_category_filter(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
+            ({"total": 0, "jobPostings": []}, None),
+        ]
+        job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, job_family_groups="Nonexistent Category")
+        search_call_body = mock_post.call_args_list[1][0][1]
+        self.assertNotIn("jobFamilyGroup", search_call_body["appliedFacets"])
+
 
 class TestCmdSearchDiscoverWorkday(unittest.TestCase):
     def _run(self, url, company=None, query=None, limit=25, location_hint=None, job_family_groups=None):
