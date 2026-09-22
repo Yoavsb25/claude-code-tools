@@ -123,4 +123,3 @@ Excluded — no API found: K — [Company], ... (career page: <url> if found, fo
 ```
 End with: **"Run the catalogue now?"** if any companies are resolved and this wasn't triggered
 automatically from catalogue mode's Stage 0.
-```
