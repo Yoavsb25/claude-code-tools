@@ -21,3 +21,5 @@ node_modules/
 dist/
 
 .env
+# Superpowers isolated worktrees
+.worktrees/

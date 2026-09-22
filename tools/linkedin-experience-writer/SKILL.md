@@ -7,8 +7,6 @@ description: >
   experience section, work history, or professional accomplishments — even if they just say
   "help me update my LinkedIn", "write my experience bullets", "make this sound better for
   LinkedIn", or "turn my notes into LinkedIn bullets".
-  Generates 1-3 bullets per project covering genuinely distinct aspects, each with 2 alternative
-  phrasings so the user can pick the one that reads better.
 ---
 
 # LinkedIn Experience Writer

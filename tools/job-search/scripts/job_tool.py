@@ -18,7 +18,14 @@ Usage:
       [--platforms a,b,c] [--query X] [--limit 25]
   job_tool.py search linkedin --query "backend" --location "Remote" [--jobage 7] [--remote remote|hybrid|onsite] [--limit 25]
   job_tool.py search linkedin-detail --id <job-id|job-url>
+  job_tool.py search discover-workday --url <career-page or myworkdayjobs.com URL> [--company X] [--query Y] [--limit 25]
+  job_tool.py search workday-jobs --slug <tenant>/<wd_host>/<site> [--company X] [--query Y] [--limit 25]
   job_tool.py search workday --url <company myworkdayjobs.com URL> [--query X] [--location Y] [--limit 25]
+  job_tool.py search discover-comeet --url <career-page URL> [--company X] [--query Y] [--limit 25]
+  job_tool.py search comeet-jobs --slug <token>:<company_uid> [--company X] [--query Y] [--limit 25]
+  job_tool.py search jobs-index [--company X] [--domain Y] [--query Z] [--location "City, Region, Country"] \
+      [--ats workday,oraclecloud,comeet,...] [--work-arrangement "Remote OK"|"Remote Solely"|Hybrid|On-site] \
+      [--time-range 1h|24h|7d|6m] [--limit 25]
   job_tool.py network import --csv "<path to LinkedIn Connections.csv>"
   job_tool.py network list [--company "<name>"]
   job_tool.py network match [--company "<name>"]
@@ -43,14 +50,37 @@ The `search` group hits public, keyless JSON APIs directly (no scraping, no MCP)
 prints a JSON object with a "results" list — a fetch failure for one source (network policy,
 outage, unknown company slug) is reported as an "error" string with an empty "results" list,
 never a stack trace, so a caller can fall back to another source without the whole run failing.
-`search workday` is the one exception to "keyless" — it's an optional paid fallback via Apify
-for Workday-hosted career sites (see below), off by default until APIFY_TOKEN is set.
+`search discover-workday`/`search workday-jobs` are also keyless — they read a career page's own
+HTML to find its Workday tenant, then query Workday's own CXS JSON API directly. `search workday`
+(the paid Apify Actor) is a fallback for the rare case where a company's career page never links
+to its myworkdayjobs.com tenant anywhere in static HTML, so discover-workday can't find it either.
+`search jobs-index` is a second, broader paid source: a pre-built index of 175k+ company career
+sites across 54 ATS platforms (Workday, Comeet, Oracle Cloud, SuccessFactors, iCIMS, Phenom
+People, and others this script has no free/dedicated integration for and likely never will). Reach
+for it once a company matches none of the free discover-ats/discover-workday/discover-comeet paths
+— it very likely still covers them, since its platform list is much wider than the handful this
+script talks to directly. Both paid sources are off by default until APIFY_TOKEN is set, and both
+degrade like any other source (error + no results) rather than raising if it isn't.
+
+`search discover-comeet`/`search comeet-jobs` follow the identical pattern for Comeet-hosted
+career pages: read the career page's own HTML for its inline `COMEET.init({"token": ...,
+"company-uid": ...})` widget config (both values are public — visible to any site visitor via
+view-source, since Comeet's own client-side JS uses them the same way), then query Comeet's
+public positions API directly. Unlike Workday, Comeet's endpoint returns every posting's full
+detail (location, department, apply URL) in a single response — no per-posting detail fetch or
+pagination needed.
 
 `search discover-ats` is the one exception to "always error or results": since a company simply
 not being on any of the six supported ATS platforms is a normal outcome, not a failure, it never
 sets "error" — instead it reports a "confidence" of "high" (postings found), "low" (an endpoint
 resolved without error but returned zero postings — some platforms don't 404 on unknown slugs, so
 this is a guess, not a confirmed match), or "none" (nothing resolved on any platform/slug tried).
+`search discover-workday` and `search discover-comeet` both follow the same "confidence" contract
+for the same reason (not being hosted on that platform at all is a normal outcome, not a failure):
+"high" (a tenant/config was found and it has current postings), "low" (found, zero postings right
+now), "none" (no matching link/widget config anywhere in the career page's HTML — for Workday, try
+the paid `search workday` Actor or Playwright next; for Comeet, there's no equivalent paid
+fallback yet, go to WebSearch/WebFetch/Playwright per references/search-fallbacks.md).
 
 The `linkedin` and `linkedin-detail` sources hit LinkedIn's public jobs-guest endpoints directly
 (no auth, no API key). Automated access to these pages is against LinkedIn's Terms of Service —
@@ -73,6 +103,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -80,7 +111,16 @@ HTTP_TIMEOUT = 15
 USER_AGENT = "job-search-skill/1.2 (+https://github.com/Yoavsb25/claude-code-tools)"
 APIFY_API_BASE = "https://api.apify.com/v2"
 APIFY_DEFAULT_WORKDAY_ACTOR = "automation-lab/workday-jobs-scraper"
+APIFY_DEFAULT_JOBS_INDEX_ACTOR = "fantastic-jobs/career-site-job-listing-api"
 APIFY_TIMEOUT = 90  # actor runs are synchronous and can take much longer than a plain GET
+# Kept deliberately small: at Apify's FREE pricing tier this Actor is ~$0.012/job + a flat
+# $0.01 Actor-Start charge, so a --limit 25 call costs well under $1. Callers can raise --limit
+# explicitly for a deliberate deeper pull, but the default should never surprise anyone's bill.
+JOBS_INDEX_DEFAULT_LIMIT = 25
+# "6m" = Apify's backfill window (effectively "every currently active posting"), matching the
+# "pull the full board, filter yourself" philosophy the free discover-ats/workday/comeet paths
+# already use. Market-wide freshness scans (Stage 2b) should override this to "24h"/"7d" instead.
+JOBS_INDEX_DEFAULT_TIME_RANGE = "6m"
 REMOTIVE_URL = "https://remotive.com/api/remote-jobs"
 ARBEITNOW_URL = "https://www.arbeitnow.com/api/job-board-api"
 ATS_ENDPOINTS = {
@@ -102,10 +142,41 @@ LINKEDIN_BACKOFF_BASE_MS = 500
 LINKEDIN_BACKOFF_CAP_MS = 8000
 # Platforms ATS_ENDPOINTS deliberately does NOT support: Workday has no universal keyless GET
 # endpoint (tenant-specific wd{N} subdomain + variable site-name path, and the real job-data call
-# is a POST with a JSON body, not a GET like every platform below). It's still reachable via the
-# separate `search workday` command below (a paid Apify Actor, not a keyless API), with
-# WebSearch/WebFetch in SKILL.md as the free fallback when no APIFY_TOKEN is configured.
+# is a POST with a JSON body, not a GET like every platform below). It's reachable for free via
+# `search discover-workday`/`search workday-jobs` below (tenant auto-detected from a career page's
+# own HTML, then queried directly against Workday's own CXS JSON API — no scraping, no paid Actor).
+# `search workday` (the paid Apify Actor) remains as a fallback for the rare case where a company's
+# career page never links to its myworkdayjobs.com tenant in static HTML.
 ATS_PROBE_ORDER = ["greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable"]
+# Matches a Workday-hosted career site's own URL, e.g.
+# https://unitytech.wd1.myworkdayjobs.com/Unity/job/...
+# or   https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/...
+# Group 1 = tenant, group 2 = wd-host, group 3 = the first path segment, group 4 = the second path
+# segment if present. Some tenants (NVIDIA, confirmed by hand) nest the site under a locale prefix
+# like "en-US" -- the *locale* is NOT part of the CXS API path, only the site name after it is
+# (verified directly: /wday/cxs/nvidia/en-US/jobs 404s, /wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs
+# works). detect_workday_tenant() below resolves which of group 3 / group 4 is the real site name.
+WORKDAY_URL_RE = re.compile(
+    r"https?://([a-z0-9-]+)\.(wd\d+)\.myworkdayjobs\.com/([^/\"'?#\s]+)(?:/([^/\"'?#\s]+))?", re.I
+)
+WORKDAY_LOCALE_RE = re.compile(r"^[a-z]{2}-[a-z]{2}$", re.I)
+# Comeet-hosted career pages embed a small inline `COMEET.init({"token": "...", "company-uid":
+# "...", ...})` call to configure their JS widget -- both values are public (visible to any site
+# visitor via view-source, since the widget's own client-side JS uses them directly), so treating
+# them as a public tenant identifier (like Workday's tenant/site) rather than a secret is correct.
+# Verified directly: GET https://www.comeet.co/careers-api/2.0/company/{uid}/positions?token={token}
+# returns the company's full current posting list as a single JSON array, no auth/session needed.
+COMEET_TOKEN_RE = re.compile(r'"token"\s*:\s*"([0-9A-Za-z]{16,40})"')
+COMEET_COMPANY_UID_RE = re.compile(r'"company-uid"\s*:\s*"([0-9A-Za-z.]+)"')
+COMEET_POSITIONS_URL = "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions?token={token}"
+WORKDAY_PAGE_SIZE = 20  # Workday's CXS search endpoint rejects larger page sizes with HTTP 400
+WORKDAY_MAX_JOBS_SCANNED = 150  # safety cap on per-posting detail fetches for one company
+# Safety cap on pagination alone when a --location-hint narrows the (expensive) detail-fetch
+# stage separately -- see fetch_workday_postings. Pagination is cheap (compact JSON, no detail
+# fetch), so this can afford to be much higher than WORKDAY_MAX_JOBS_SCANNED -- large enough to
+# cover NVIDIA's entire ~2,000-posting board (verified live) in one call.
+WORKDAY_PAGINATION_CAP = 3000
+WORKDAY_DETAIL_WORKERS = 8  # concurrency for the detail-fetch fan-out -- keep polite, not zero
 ATS_SLUG_SUFFIXES = {
     "inc", "llc", "ltd", "corp", "corporation", "co", "company",
     "group", "technologies", "technology", "labs", "software", "systems",
@@ -121,7 +192,7 @@ INTERVIEW_FOLLOWUP_DAYS = 7
 
 TRACKER_COLUMNS = [
     ("company", "Company"), ("role", "Role"), ("status", "Status"),
-    ("fit", "Fit"), ("found_date", "Found"), ("applied_date", "Applied"),
+    ("fit", "Fit"), ("salary", "Salary"), ("found_date", "Found"), ("applied_date", "Applied"),
     ("followup_date", "Follow-up"), ("resume_path", "Resume"),
     ("link", "Link"), ("notes", "Notes"),
 ]
@@ -255,7 +326,7 @@ def cmd_tracker_upsert(args):
             sys.exit(1)
         row = {
             "id": data["next_id"], "company": patch["company"], "role": patch["role"],
-            "status": "Shortlisted", "fit": None, "found_date": today_str(),
+            "status": "Shortlisted", "fit": None, "salary": None, "found_date": today_str(),
             "applied_date": None, "followup_date": None, "resume_path": None,
             "link": None, "notes": None,
         }
@@ -1021,47 +1092,6 @@ def fetch_ats_postings(platform, slug, query=None):
     return raw, None
 
 
-def find_facet_values(facets, facet_parameter):
-    """Recursively search a Workday /jobs response's `facets` tree for the entry whose
-    facetParameter matches, returning its `values` list (each {descriptor, id, count}).
-    Workday nests location-related facets under a `locationMainGroup` wrapper that has no
-    facetParameter match of its own -- locationHierarchy1/2 and `locations` live inside it --
-    while category/type facets (e.g. jobFamilyGroup) are top-level. This walks both shapes
-    uniformly. Returns [] if nothing matches."""
-    for f in facets or []:
-        if f.get("facetParameter") == facet_parameter:
-            return f.get("values") or []
-        nested = f.get("values") or []
-        if nested and isinstance(nested[0], dict) and "facetParameter" in nested[0]:
-            found = find_facet_values(nested, facet_parameter)
-            if found:
-                return found
-    return []
-
-
-def resolve_facet_ids(values, names):
-    """Match human-readable names (case-insensitive, whitespace-trimmed) against a facet's
-    `values` list (as returned by find_facet_values), returning the matched `id`s. A name with
-    no match is silently skipped -- a company simply not having a given category/location isn't
-    an error, same contract as every other `search` source in this script."""
-    wanted = {n.strip().lower() for n in names if n and n.strip()}
-    return [v["id"] for v in values if (v.get("descriptor") or "").strip().lower() in wanted]
-
-
-def fetch_workday_facets(api_base):
-    """One lightweight request to discover a Workday tenant's available facets (Job Category,
-    Locations, etc.) -- used to resolve human-readable category/location names to the opaque
-    per-tenant IDs Workday's appliedFacets filter requires. The facets list is present in the
-    response regardless of `limit`, so this asks for the smallest useful page (limit=1) rather
-    than a full board fetch. Returns (facets, error)."""
-    data, err = http_post_json(
-        f"{api_base}/jobs", {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
-    )
-    if err:
-        return None, err
-    return data.get("facets") or [], None
-
-
 def cmd_search_ats(args):
     results, err = fetch_ats_postings(args.platform, args.company, args.query)
     if err:
@@ -1188,6 +1218,421 @@ def cmd_search_workday(args):
     print_search_result("workday", results, None)
 
 
+def http_get_html(url):
+    """Plain HTML GET for reading a career page's markup -- no retry/backoff (unlike
+    http_get_html_backoff, which is tuned specifically for LinkedIn's rate limiting). Same
+    (text, error) contract as http_get_json: never raises."""
+    req = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            return resp.read().decode("utf-8", errors="replace"), None
+    except urllib.error.HTTPError as e:
+        return None, f"HTTP {e.code} from {url}"
+    except urllib.error.URLError as e:
+        return None, f"network error reaching {url}: {e.reason}"
+    except Exception as e:
+        return None, f"unexpected error fetching {url}: {e}"
+
+
+def detect_workday_tenant(url_or_html):
+    """Find a Workday-hosted career site's tenant/wd-host/site from either a bare
+    myworkdayjobs.com URL or a page's raw HTML (its own career page will normally link out to it
+    even when the page itself is otherwise JS-rendered, since that outbound link is typically
+    part of the static markup/nav rather than client-fetched data). Returns a dict with `tenant`,
+    `wd_host`, `site`, `api_base` (the CXS search API root), and `public_base` (the public
+    browsing URL root -- what `.../job/<path>` external links are relative to), or None if no
+    Workday link is present at all."""
+    m = WORKDAY_URL_RE.search(url_or_html)
+    if not m:
+        return None
+    tenant, wd_host, first_segment, second_segment = m.group(1), m.group(2), m.group(3), m.group(4)
+    # A locale-prefixed tenant (e.g. NVIDIA's ".../en-US/NVIDIAExternalCareerSite/...") puts the
+    # real site name in the *second* segment, not the first -- see WORKDAY_URL_RE's comment.
+    if WORKDAY_LOCALE_RE.match(first_segment) and second_segment:
+        site = second_segment
+    else:
+        site = first_segment
+    return {
+        "tenant": tenant,
+        "wd_host": wd_host,
+        "site": site,
+        "api_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
+        "public_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/{site}",
+    }
+
+
+def is_remote_location(location_text):
+    return "remote" in (location_text or "").lower()
+
+
+def find_facet_values(facets, facet_parameter):
+    """Recursively search a Workday /jobs response's `facets` tree for the entry whose
+    facetParameter matches, returning its `values` list (each {descriptor, id, count}).
+    Workday nests location-related facets under a `locationMainGroup` wrapper that has no
+    facetParameter match of its own -- locationHierarchy1/2 and `locations` live inside it --
+    while category/type facets (e.g. jobFamilyGroup) are top-level. This walks both shapes
+    uniformly. Returns [] if nothing matches."""
+    for f in facets or []:
+        if f.get("facetParameter") == facet_parameter:
+            return f.get("values") or []
+        nested = f.get("values") or []
+        if nested and isinstance(nested[0], dict) and "facetParameter" in nested[0]:
+            found = find_facet_values(nested, facet_parameter)
+            if found:
+                return found
+    return []
+
+
+def resolve_facet_ids(values, names):
+    """Match human-readable names (case-insensitive, whitespace-trimmed) against a facet's
+    `values` list (as returned by find_facet_values), returning the matched `id`s. A name with
+    no match is silently skipped -- a company simply not having a given category/location isn't
+    an error, same contract as every other `search` source in this script."""
+    wanted = {n.strip().lower() for n in names if n and n.strip()}
+    return [v["id"] for v in values if (v.get("descriptor") or "").strip().lower() in wanted]
+
+
+def fetch_workday_facets(api_base):
+    """One lightweight request to discover a Workday tenant's available facets (Job Category,
+    Locations, etc.) -- used to resolve human-readable category/location names to the opaque
+    per-tenant IDs Workday's appliedFacets filter requires. The facets list is present in the
+    response regardless of `limit`, so this asks for the smallest useful page (limit=1) rather
+    than a full board fetch. Returns (facets, error)."""
+    data, err = http_post_json(
+        f"{api_base}/jobs", {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
+    )
+    if err:
+        return None, err
+    return data.get("facets") or [], None
+
+
+def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDAY_MAX_JOBS_SCANNED, location_hint=None):
+    """Paginate a Workday CXS job-search endpoint, then fetch full detail for every posting found
+    (bounded by max_scanned) and return them in posting() shape.
+
+    Fetching every detail matters, not just the compact search list: a posting's *primary* office
+    can be outside the target location (e.g. "Copenhagen, Denmark") while the target location is
+    still one of several `additionalLocations` a candidate can choose -- the compact list's
+    `locationsText` sometimes collapses this down to "N Locations" but sometimes just shows the
+    primary city with no hint it's multi-site at all. This gap was found and verified by hand by
+    cross-checking Unity's live board against unity.com/careers directly in a browser.
+
+    `location_hint`, if given, changes HOW the max_scanned budget is spent rather than what gets
+    returned. Large enterprises can have boards far bigger than max_scanned (NVIDIA: 2,000 total
+    postings against a default cap of 150 -- verified live, only 7.5% would ever be examined).
+    Detail-fetching is the expensive part (one HTTP request per posting); pagination alone is
+    cheap (a handful of requests return the whole compact list, no detail fetch involved). So
+    when a location_hint is given, pagination runs against a much larger cap
+    (WORKDAY_PAGINATION_CAP) to see the company's *entire* board cheaply, then only postings whose
+    compact `locationsText` mentions the hint -- or looks like a multi-location posting ("N
+    Locations", ambiguous without a detail fetch) -- go on to the expensive detail-fetch stage,
+    still bounded by max_scanned there. This trades a small chance of missing an oddly-formatted
+    match for actually covering the whole board instead of an arbitrary early slice of it. Without
+    a location_hint, behavior is unchanged: pagination and detail-fetch share the same max_scanned
+    budget, exactly as before.
+
+    Returns (results, error). A company genuinely having zero current openings is not an error --
+    it comes back as (empty results, None), same contract as every other `search` source."""
+    api_base = tenant_info["api_base"]
+    public_base = tenant_info["public_base"]
+    pagination_cap = WORKDAY_PAGINATION_CAP if location_hint else max_scanned
+
+    postings, offset, total = [], 0, None
+    while total is None or (len(postings) < total and len(postings) < pagination_cap):
+        data, err = http_post_json(
+            f"{api_base}/jobs",
+            {"appliedFacets": {}, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
+        )
+        if err:
+            return [], err
+        total = data.get("total", 0)
+        page = data.get("jobPostings", [])
+        if not page:  # safety valve: a page reporting nothing ends pagination even if `total` claims more
+            break
+        postings.extend(page)
+        offset += WORKDAY_PAGE_SIZE
+    postings = postings[:pagination_cap]
+
+    if location_hint:
+        hint = location_hint.lower()
+        postings = [
+            p for p in postings
+            if hint in (p.get("locationsText") or "").lower()
+            or re.match(r"^\d+\s+location", (p.get("locationsText") or "").lower())
+        ]
+    postings = postings[:max_scanned]
+
+    def fetch_one(raw):
+        detail, err = http_get_json(f"{api_base}{raw['externalPath']}")
+        return raw, detail, err
+
+    results, errors = [], []
+    with ThreadPoolExecutor(max_workers=WORKDAY_DETAIL_WORKERS) as pool:
+        futures = [pool.submit(fetch_one, raw) for raw in postings]
+        for future in as_completed(futures):
+            raw, detail, err = future.result()
+            if err:
+                errors.append(err)
+                continue
+            jp = (detail or {}).get("jobPostingInfo", {})
+            location = jp.get("location") or raw.get("locationsText") or ""
+            additional = jp.get("additionalLocations") or []
+            results.append(posting(
+                "workday",
+                jp.get("title") or raw.get("title"),
+                tenant_info.get("company"),
+                ", ".join([location, *additional]) if additional else location,
+                is_remote_location(location) or any(is_remote_location(loc) for loc in additional),
+                jp.get("externalUrl") or f"{public_base}{raw['externalPath']}",
+                [],
+                None,
+                jp.get("postedOn") or raw.get("postedOn"),
+                None,
+            ))
+
+    # A handful of per-posting detail fetches failing (rate limit, transient network blip) among
+    # many successes shouldn't sink the whole call -- only report it as a hard error when NOTHING
+    # came back, mirroring discover-ats's "guess, not a confirmed miss" treatment of ambiguity.
+    if not results and errors:
+        return [], f"{len(errors)} detail fetch(es) failed, e.g. {errors[0]}"
+    return results[:limit], None
+
+
+def cmd_search_discover_workday(args):
+    """Detect a company's Workday tenant from a career-page URL (or a myworkdayjobs.com URL
+    directly) and, if found, immediately fetch its full posting list -- the free, keyless
+    equivalent of `search discover-ats` for Workday-hosted companies. See the module docstring's
+    Workday section and references/search-fallbacks.md for when to reach for this."""
+    is_workday_url = bool(WORKDAY_URL_RE.search(args.url))
+    if is_workday_url:
+        html_or_err = (args.url, None)
+    else:
+        html_or_err = http_get_html(args.url)
+    html, fetch_err = html_or_err
+
+    if fetch_err:
+        print_search_result("discover-workday", [], fetch_err, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none",
+        })
+        return
+
+    tenant_info = detect_workday_tenant(html)
+    if tenant_info is None:
+        print_search_result("discover-workday", [], None, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none",
+        })
+        return
+
+    tenant_info["company"] = args.company
+    slug = f"{tenant_info['tenant']}/{tenant_info['wd_host']}/{tenant_info['site']}"
+    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    if err:
+        print_search_result("discover-workday", [], err, {
+            "company": args.company, "detected_platform": "workday", "detected_slug": slug,
+            "confidence": "low",
+        })
+        return
+
+    print_search_result("discover-workday", results, None, {
+        "company": args.company, "detected_platform": "workday", "detected_slug": slug,
+        "confidence": "high" if results else "low",
+    })
+
+
+def cmd_search_workday_jobs(args):
+    """Direct fetch for a Workday tenant already known (e.g. saved to target_companies by a prior
+    `discover-workday` call) -- skips the career-page HTML fetch and goes straight to the CXS API."""
+    try:
+        tenant, wd_host, site = args.slug.split("/")
+    except ValueError:
+        print_search_result("workday-jobs", [], f"--slug must be '<tenant>/<wd_host>/<site>', got: {args.slug!r}")
+        return
+
+    tenant_info = {
+        "tenant": tenant, "wd_host": wd_host, "site": site, "company": args.company,
+        "api_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
+        "public_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/{site}",
+    }
+    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    print_search_result("workday-jobs", results, err)
+
+
+def detect_comeet_config(html):
+    """Find a Comeet-hosted career page's public token + company-uid from its own HTML (the
+    inline `COMEET.init({...})` call every Comeet embed includes). Returns a dict with `token`
+    and `company_uid`, or None if neither is present. If a page happens to embed more than one
+    distinct token/company-uid pair (unusual), the first of each is used -- good enough for the
+    single-widget-per-page case this exists to handle; a page defying that gets a wrong-but-safe
+    "none" outcome from fetch_comeet_postings's own error handling downstream, never a crash."""
+    token_match = COMEET_TOKEN_RE.search(html)
+    uid_match = COMEET_COMPANY_UID_RE.search(html)
+    if not token_match or not uid_match:
+        return None
+    return {"token": token_match.group(1), "company_uid": uid_match.group(1)}
+
+
+def fetch_comeet_postings(token, company_uid, company=None, query=None, limit=25):
+    """Fetch a Comeet-hosted company's full current posting list in one request -- unlike
+    Workday, Comeet's positions endpoint already returns every field needed (location, department,
+    employment type, apply URL, last-updated timestamp) inline, so no per-posting detail fetch or
+    pagination loop is needed here. Returns (results, error): a company genuinely having zero
+    current openings is not an error, same contract as every other `search` source."""
+    url = COMEET_POSITIONS_URL.format(company_uid=urllib.parse.quote(company_uid, safe=""), token=token)
+    data, err = http_get_json(url)
+    if err:
+        return [], err
+    if not isinstance(data, list):
+        return [], f"unexpected response shape from {url}"
+
+    if query:
+        q = query.lower()
+        data = [p for p in data if q in (p.get("name") or "").lower()]
+
+    results = []
+    for p in data[:limit]:
+        loc = p.get("location") or {}
+        location_parts = [part for part in [loc.get("city"), loc.get("state"), loc.get("name")] if part]
+        results.append(posting(
+            "comeet",
+            p.get("name"),
+            company or p.get("company_name"),
+            ", ".join(dict.fromkeys(location_parts)) or None,  # dedupe city==name etc. while keeping order
+            bool(loc.get("is_remote")),
+            p.get("url_active_page") or p.get("url_comeet_hosted_page") or p.get("position_url"),
+            [p["department"]] if p.get("department") else [],
+            None,
+            p.get("time_updated"),
+            None,
+        ))
+    return results, None
+
+
+def cmd_search_discover_comeet(args):
+    """Detect a company's Comeet token/company-uid from a career-page URL and, if found,
+    immediately fetch its full posting list -- the free, keyless equivalent of
+    `search discover-ats`/`search discover-workday` for Comeet-hosted companies."""
+    html, fetch_err = http_get_html(args.url)
+    if fetch_err:
+        print_search_result("discover-comeet", [], fetch_err, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none",
+        })
+        return
+
+    config = detect_comeet_config(html)
+    if config is None:
+        print_search_result("discover-comeet", [], None, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none",
+        })
+        return
+
+    slug = f"{config['token']}:{config['company_uid']}"
+    results, err = fetch_comeet_postings(config["token"], config["company_uid"], args.company, args.query, args.limit)
+    if err:
+        print_search_result("discover-comeet", [], err, {
+            "company": args.company, "detected_platform": "comeet", "detected_slug": slug,
+            "confidence": "low",
+        })
+        return
+
+    print_search_result("discover-comeet", results, None, {
+        "company": args.company, "detected_platform": "comeet", "detected_slug": slug,
+        "confidence": "high" if results else "low",
+    })
+
+
+def cmd_search_comeet_jobs(args):
+    """Direct fetch for a Comeet token/company-uid already known (e.g. saved to target_companies
+    by a prior `discover-comeet` call) -- skips the career-page HTML fetch entirely."""
+    try:
+        token, company_uid = args.slug.split(":")
+    except ValueError:
+        print_search_result("comeet-jobs", [], f"--slug must be '<token>:<company_uid>', got: {args.slug!r}")
+        return
+
+    results, err = fetch_comeet_postings(token, company_uid, args.company, args.query, args.limit)
+    print_search_result("comeet-jobs", results, err)
+
+
+def _format_jobs_index_salary(item):
+    lo, hi, cur = item.get("ai_salary_min_value"), item.get("ai_salary_max_value"), item.get("ai_salary_currency")
+    if lo is None and hi is None:
+        return None
+    unit = item.get("ai_salary_unit_text") or ""
+    if lo is not None and hi is not None and lo != hi:
+        return f"{lo}-{hi} {cur or ''} {unit}".strip()
+    return f"{lo if lo is not None else hi} {cur or ''} {unit}".strip()
+
+
+def cmd_search_jobs_index(args):
+    """Optional paid source: queries a pre-built, continuously-updated index of 175k+ company
+    career sites across 54 ATS platforms (Workday, Comeet, Oracle Cloud, SuccessFactors, iCIMS,
+    Phenom People, and plenty more we don't have -- and likely never will have -- a dedicated
+    free integration for) via structured filters (organization/domain/title/location, AI-classified
+    experience level and work arrangement) instead of free-text role-title guessing. This is the
+    thing to reach for when a company matches none of the free discover-ats/discover-workday/
+    discover-comeet paths -- it very likely still covers them.
+
+    Requires APIFY_TOKEN -- with no token set, degrades like any other source (error + no
+    results), never raises. Confirm with the user before running, same as `search workday`: this
+    is a paid call, not a free keyless one. Kept cheap by default -- see JOBS_INDEX_DEFAULT_LIMIT
+    -- but every call still costs real money. See README.md for setup/cost."""
+    token = os.environ.get("APIFY_TOKEN")
+    if not token:
+        print_search_result(
+            "jobs-index", [],
+            "APIFY_TOKEN not set -- jobs-index search is an optional paid source, see README",
+        )
+        return
+
+    actor = os.environ.get("APIFY_JOBS_INDEX_ACTOR_ID", APIFY_DEFAULT_JOBS_INDEX_ACTOR)
+    run_url = f"{APIFY_API_BASE}/acts/{urllib.parse.quote(actor, safe='')}/run-sync-get-dataset-items"
+
+    # The Actor rejects `limit` below 10 with an HTTP 400 (verified directly) -- clamp rather than
+    # let a small --limit (e.g. someone being cost-conscious) turn into a confusing hard error.
+    limit = max(args.limit, 10)
+    payload = {"timeRange": args.time_range, "limit": limit}
+    if args.company:
+        payload["organizationSearch"] = [args.company]
+    if args.domain:
+        payload["domainFilter"] = [args.domain]
+    if args.query:
+        payload["titleSearch"] = [args.query]
+    if args.location:
+        payload["locationSearch"] = [args.location]
+    if args.ats:
+        payload["ats"] = [p.strip() for p in args.ats.split(",") if p.strip()]
+    if args.work_arrangement:
+        payload["aiWorkArrangementFilter"] = [args.work_arrangement]
+
+    items, err = http_post_json(run_url, payload, extra_headers={"Authorization": f"Bearer {token}"})
+    if err:
+        print_search_result("jobs-index", [], err)
+        return
+
+    results = [
+        posting(
+            "jobs-index",
+            item.get("title"),
+            item.get("organization"),
+            ", ".join(item.get("locations_derived") or []) or None,
+            (item.get("ai_work_arrangement") or "").lower().startswith("remote"),
+            item.get("url"),
+            [item["ai_taxonomies_a"][0]] if item.get("ai_taxonomies_a") else [],
+            _format_jobs_index_salary(item),
+            item.get("date_posted"),
+            item.get("description_text"),
+        )
+        for item in (items or [])
+    ]
+    print_search_result("jobs-index", results, None)
+
+
 def main():
     import argparse
 
@@ -1279,6 +1724,82 @@ def main():
     p_workday.add_argument("--location")
     p_workday.add_argument("--limit", type=int, default=25)
     p_workday.set_defaults(func=cmd_search_workday)
+
+    p_jobs_index = search_sub.add_parser("jobs-index")
+    p_jobs_index.add_argument("--company", help="Organization name to search for (exact-ish phrase match)")
+    p_jobs_index.add_argument("--domain", help="Company domain to search for (exact match, e.g. 'acme.com')")
+    p_jobs_index.add_argument("--query", help="Job title to search for")
+    p_jobs_index.add_argument(
+        "--location",
+        help="'City, State/Region, Country' format, e.g. 'London, England, United Kingdom' "
+             "(English names only, no abbreviations -- see README for the exact convention)",
+    )
+    p_jobs_index.add_argument("--ats", help="Comma-separated ATS platform filter, e.g. 'workday,oraclecloud,comeet'")
+    p_jobs_index.add_argument("--work-arrangement", dest="work_arrangement", choices=["On-site", "Hybrid", "Remote OK", "Remote Solely"])
+    p_jobs_index.add_argument(
+        "--time-range", dest="time_range", default=JOBS_INDEX_DEFAULT_TIME_RANGE,
+        choices=["1h", "24h", "7d", "6m"],
+        help="'6m' (default) = every currently active posting, for a per-company full-board pull. "
+             "Use '24h'/'7d' instead for a market-wide freshness scan.",
+    )
+    p_jobs_index.add_argument("--limit", type=int, default=JOBS_INDEX_DEFAULT_LIMIT)
+    p_jobs_index.set_defaults(func=cmd_search_jobs_index)
+
+    p_discover_workday = search_sub.add_parser("discover-workday")
+    p_discover_workday.add_argument(
+        "--url", required=True,
+        help="A company's career-page URL (its HTML will be scanned for a myworkdayjobs.com link), "
+             "or a myworkdayjobs.com URL directly if already known",
+    )
+    p_discover_workday.add_argument("--company", help="Company name, echoed back in the output for bookkeeping")
+    p_discover_workday.add_argument("--query")
+    p_discover_workday.add_argument(
+        "--location-hint", dest="location_hint",
+        help="Text to pre-filter the compact posting list on (e.g. 'United Kingdom') before the "
+             "expensive per-posting detail fetch, so a large board (NVIDIA: 2,000+ postings) can "
+             "be scanned in full instead of only its first --limit-worth. Omit for the default "
+             "behavior (pagination and detail-fetch share the same small budget -- fine for "
+             "boards under a couple hundred postings).",
+    )
+    p_discover_workday.add_argument("--limit", type=int, default=25)
+    p_discover_workday.set_defaults(func=cmd_search_discover_workday)
+
+    p_workday_jobs = search_sub.add_parser("workday-jobs")
+    p_workday_jobs.add_argument(
+        "--slug", required=True,
+        help="'<tenant>/<wd_host>/<site>' as returned by a prior discover-workday call's detected_slug "
+             "(e.g. 'unitytech/wd1/Unity') -- skips the career-page fetch and goes straight to the API",
+    )
+    p_workday_jobs.add_argument("--company", help="Company name, echoed back in the output for bookkeeping")
+    p_workday_jobs.add_argument("--query")
+    p_workday_jobs.add_argument(
+        "--location-hint", dest="location_hint",
+        help="See 'search discover-workday --help' -- same pre-filter, for when the board is large.",
+    )
+    p_workday_jobs.add_argument("--limit", type=int, default=25)
+    p_workday_jobs.set_defaults(func=cmd_search_workday_jobs)
+
+    p_discover_comeet = search_sub.add_parser("discover-comeet")
+    p_discover_comeet.add_argument(
+        "--url", required=True,
+        help="A company's career-page URL -- its HTML will be scanned for an inline COMEET.init(...) "
+             "call to extract the public token + company-uid",
+    )
+    p_discover_comeet.add_argument("--company", help="Company name, echoed back in the output for bookkeeping")
+    p_discover_comeet.add_argument("--query")
+    p_discover_comeet.add_argument("--limit", type=int, default=25)
+    p_discover_comeet.set_defaults(func=cmd_search_discover_comeet)
+
+    p_comeet_jobs = search_sub.add_parser("comeet-jobs")
+    p_comeet_jobs.add_argument(
+        "--slug", required=True,
+        help="'<token>:<company_uid>' as returned by a prior discover-comeet call's detected_slug "
+             "-- skips the career-page fetch and goes straight to the API",
+    )
+    p_comeet_jobs.add_argument("--company", help="Company name, echoed back in the output for bookkeeping")
+    p_comeet_jobs.add_argument("--query")
+    p_comeet_jobs.add_argument("--limit", type=int, default=25)
+    p_comeet_jobs.set_defaults(func=cmd_search_comeet_jobs)
 
     args = parser.parse_args()
     args.func(args)
