@@ -171,11 +171,6 @@ COMEET_COMPANY_UID_RE = re.compile(r'"company-uid"\s*:\s*"([0-9A-Za-z.]+)"')
 COMEET_POSITIONS_URL = "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions?token={token}"
 WORKDAY_PAGE_SIZE = 20  # Workday's CXS search endpoint rejects larger page sizes with HTTP 400
 WORKDAY_MAX_JOBS_SCANNED = 150  # safety cap on per-posting detail fetches for one company
-# Safety cap on pagination alone when a --location-hint narrows the (expensive) detail-fetch
-# stage separately -- see fetch_workday_postings. Pagination is cheap (compact JSON, no detail
-# fetch), so this can afford to be much higher than WORKDAY_MAX_JOBS_SCANNED -- large enough to
-# cover NVIDIA's entire ~2,000-posting board (verified live) in one call.
-WORKDAY_PAGINATION_CAP = 3000
 WORKDAY_DETAIL_WORKERS = 8  # concurrency for the detail-fetch fan-out -- keep polite, not zero
 ATS_SLUG_SUFFIXES = {
     "inc", "llc", "ltd", "corp", "corporation", "co", "company",
@@ -1022,7 +1017,8 @@ def parse_ats_payload(platform, company, data):
         return [
             posting(
                 "lever", j.get("text"), company, (j.get("categories") or {}).get("location"),
-                None, j.get("hostedUrl"), (j.get("categories") or {}).get("allLocations") or [],
+                None, j.get("hostedUrl"),
+                [(j.get("categories") or {}).get("team")] if (j.get("categories") or {}).get("team") else [],
                 None, j.get("createdAt"), j.get("descriptionPlain") or j.get("description"),
             )
             for j in data
@@ -1266,7 +1262,52 @@ def is_remote_location(location_text):
     return "remote" in (location_text or "").lower()
 
 
-def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDAY_MAX_JOBS_SCANNED, location_hint=None):
+def find_facet_values(facets, facet_parameter):
+    """Recursively search a Workday /jobs response's `facets` tree for the entry whose
+    facetParameter matches, returning its `values` list (each {descriptor, id, count}).
+    Workday nests location-related facets under a `locationMainGroup` wrapper that has no
+    facetParameter match of its own -- locationHierarchy1/2 and `locations` live inside it --
+    while category/type facets (e.g. jobFamilyGroup) are top-level. This walks both shapes
+    uniformly. Returns [] if nothing matches."""
+    for f in facets or []:
+        if f.get("facetParameter") == facet_parameter:
+            return f.get("values") or []
+        nested = f.get("values") or []
+        if nested and isinstance(nested[0], dict) and "facetParameter" in nested[0]:
+            found = find_facet_values(nested, facet_parameter)
+            if found:
+                return found
+    return []
+
+
+def resolve_facet_ids(values, names):
+    """Match human-readable names (case-insensitive, whitespace-trimmed) against a facet's
+    `values` list (as returned by find_facet_values), returning the matched `id`s. A name with
+    no match is silently skipped -- a company simply not having a given category/location isn't
+    an error, same contract as every other `search` source in this script."""
+    wanted = {n.strip().lower() for n in names if n and n.strip()}
+    return [
+        v.get("id") for v in values
+        if (v.get("descriptor") or "").strip().lower() in wanted and v.get("id")
+    ]
+
+
+def fetch_workday_facets(api_base):
+    """One lightweight request to discover a Workday tenant's available facets (Job Category,
+    Locations, etc.) -- used to resolve human-readable category/location names to the opaque
+    per-tenant IDs Workday's appliedFacets filter requires. The facets list is present in the
+    response regardless of `limit`, so this asks for the smallest useful page (limit=1) rather
+    than a full board fetch. Returns (facets, error)."""
+    data, err = http_post_json(
+        f"{api_base}/jobs", {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
+    )
+    if err:
+        return None, err
+    return data.get("facets") or [], None
+
+
+def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDAY_MAX_JOBS_SCANNED,
+                            location_hint=None, job_family_groups=None):
     """Paginate a Workday CXS job-search endpoint, then fetch full detail for every posting found
     (bounded by max_scanned) and return them in posting() shape.
 
@@ -1277,31 +1318,53 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
     primary city with no hint it's multi-site at all. This gap was found and verified by hand by
     cross-checking Unity's live board against unity.com/careers directly in a browser.
 
-    `location_hint`, if given, changes HOW the max_scanned budget is spent rather than what gets
-    returned. Large enterprises can have boards far bigger than max_scanned (NVIDIA: 2,000 total
-    postings against a default cap of 150 -- verified live, only 7.5% would ever be examined).
-    Detail-fetching is the expensive part (one HTTP request per posting); pagination alone is
-    cheap (a handful of requests return the whole compact list, no detail fetch involved). So
-    when a location_hint is given, pagination runs against a much larger cap
-    (WORKDAY_PAGINATION_CAP) to see the company's *entire* board cheaply, then only postings whose
-    compact `locationsText` mentions the hint -- or looks like a multi-location posting ("N
-    Locations", ambiguous without a detail fetch) -- go on to the expensive detail-fetch stage,
-    still bounded by max_scanned there. This trades a small chance of missing an oddly-formatted
-    match for actually covering the whole board instead of an arbitrary early slice of it. Without
-    a location_hint, behavior is unchanged: pagination and detail-fetch share the same max_scanned
-    budget, exactly as before.
+    `location_hint` and `job_family_groups` are both applied server-side via Workday's own
+    `appliedFacets` filter, not by scanning and re-filtering client-side. Verified live against
+    NVIDIA: a posting's category is NOT present in either the compact list or the per-posting
+    detail JSON -- it exists only as a facet-level construct (facetParameter "jobFamilyGroup"),
+    discoverable via one lightweight `fetch_workday_facets` call, then applied as an exact ID
+    match via `find_facet_values`/`resolve_facet_ids`. This replaces an earlier, shipped version
+    of `location_hint` that did a fuzzy `hint in locationsText.lower()` substring check --
+    verified live to silently fail against real site labels like "UK, Cambridge" (which does not
+    contain the substring "united kingdom"). That client-side filtering step is removed entirely
+    in favor of this.
+
+    Combining both filters narrows the query at the source: a company the size of NVIDIA (2,000
+    postings company-wide) returns a handful to a few dozen results for a category+location
+    query, not 2,000 -- so `max_scanned` stops being a practical constraint for a targeted query
+    like this, even though it still exists as an outer safety cap for the case where only one
+    broad filter (or neither) is applied.
+
+    `job_family_groups`, if given, is a comma-separated string of category names (matched
+    case-insensitively against that tenant's actual facet descriptors, e.g. "Engineering,
+    Research"). A name with no matching facet for this tenant is silently skipped, not an error --
+    same contract `resolve_facet_ids` already documents.
 
     Returns (results, error). A company genuinely having zero current openings is not an error --
     it comes back as (empty results, None), same contract as every other `search` source."""
     api_base = tenant_info["api_base"]
     public_base = tenant_info["public_base"]
-    pagination_cap = WORKDAY_PAGINATION_CAP if location_hint else max_scanned
+
+    applied_facets = {}
+    if job_family_groups or location_hint:
+        facets, err = fetch_workday_facets(api_base)
+        if err:
+            return [], err
+        if job_family_groups:
+            names = job_family_groups.split(",")
+            ids = resolve_facet_ids(find_facet_values(facets, "jobFamilyGroup"), names)
+            if ids:
+                applied_facets["jobFamilyGroup"] = ids
+        if location_hint:
+            ids = resolve_facet_ids(find_facet_values(facets, "locationHierarchy1"), [location_hint])
+            if ids:
+                applied_facets["locationHierarchy1"] = ids
 
     postings, offset, total = [], 0, None
-    while total is None or (len(postings) < total and len(postings) < pagination_cap):
+    while total is None or (len(postings) < total and len(postings) < max_scanned):
         data, err = http_post_json(
             f"{api_base}/jobs",
-            {"appliedFacets": {}, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
+            {"appliedFacets": applied_facets, "limit": WORKDAY_PAGE_SIZE, "offset": offset, "searchText": query or ""},
         )
         if err:
             return [], err
@@ -1311,15 +1374,6 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
             break
         postings.extend(page)
         offset += WORKDAY_PAGE_SIZE
-    postings = postings[:pagination_cap]
-
-    if location_hint:
-        hint = location_hint.lower()
-        postings = [
-            p for p in postings
-            if hint in (p.get("locationsText") or "").lower()
-            or re.match(r"^\d+\s+location", (p.get("locationsText") or "").lower())
-        ]
     postings = postings[:max_scanned]
 
     def fetch_one(raw):
@@ -1387,7 +1441,10 @@ def cmd_search_discover_workday(args):
 
     tenant_info["company"] = args.company
     slug = f"{tenant_info['tenant']}/{tenant_info['wd_host']}/{tenant_info['site']}"
-    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    results, err = fetch_workday_postings(
+        tenant_info, args.query, args.limit,
+        location_hint=args.location_hint, job_family_groups=args.job_family_groups,
+    )
     if err:
         print_search_result("discover-workday", [], err, {
             "company": args.company, "detected_platform": "workday", "detected_slug": slug,
@@ -1415,7 +1472,10 @@ def cmd_search_workday_jobs(args):
         "api_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
         "public_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/{site}",
     }
-    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    results, err = fetch_workday_postings(
+        tenant_info, args.query, args.limit,
+        location_hint=args.location_hint, job_family_groups=args.job_family_groups,
+    )
     print_search_result("workday-jobs", results, err)
 
 
@@ -1713,11 +1773,16 @@ def main():
     p_discover_workday.add_argument("--query")
     p_discover_workday.add_argument(
         "--location-hint", dest="location_hint",
-        help="Text to pre-filter the compact posting list on (e.g. 'United Kingdom') before the "
-             "expensive per-posting detail fetch, so a large board (NVIDIA: 2,000+ postings) can "
-             "be scanned in full instead of only its first --limit-worth. Omit for the default "
-             "behavior (pagination and detail-fetch share the same small budget -- fine for "
-             "boards under a couple hundred postings).",
+        help="Location name to filter to server-side via Workday's own location facet (exact "
+             "match against that tenant's facet descriptors, e.g. 'United Kingdom'). A name with "
+             "no matching facet for this tenant is silently skipped, not an error.",
+    )
+    p_discover_workday.add_argument(
+        "--job-family-groups", dest="job_family_groups",
+        help="Comma-separated category names to filter to server-side via Workday's Job Category "
+             "facet (e.g. 'Engineering,Research'), matched case-insensitively against that "
+             "tenant's actual facet descriptors. A name with no match for this tenant is silently "
+             "skipped, not an error.",
     )
     p_discover_workday.add_argument("--limit", type=int, default=25)
     p_discover_workday.set_defaults(func=cmd_search_discover_workday)
@@ -1732,7 +1797,16 @@ def main():
     p_workday_jobs.add_argument("--query")
     p_workday_jobs.add_argument(
         "--location-hint", dest="location_hint",
-        help="See 'search discover-workday --help' -- same pre-filter, for when the board is large.",
+        help="Location name to filter to server-side via Workday's own location facet (exact "
+             "match against that tenant's facet descriptors, e.g. 'United Kingdom'). A name with "
+             "no matching facet for this tenant is silently skipped, not an error.",
+    )
+    p_workday_jobs.add_argument(
+        "--job-family-groups", dest="job_family_groups",
+        help="Comma-separated category names to filter to server-side via Workday's Job Category "
+             "facet (e.g. 'Engineering,Research'), matched case-insensitively against that "
+             "tenant's actual facet descriptors. A name with no match for this tenant is silently "
+             "skipped, not an error.",
     )
     p_workday_jobs.add_argument("--limit", type=int, default=25)
     p_workday_jobs.set_defaults(func=cmd_search_workday_jobs)

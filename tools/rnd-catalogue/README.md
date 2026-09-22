@@ -13,8 +13,9 @@ writes. For scored, trackable results, use `job-search` directly.
    `jobs-index`), and saves the result back to the shared `target_companies` list.
 2. **Catalogue mode** (the recurring run) — fetches every resolved company's *entire* current
    board (no keyword filter), keeps only London/remote-UK postings in Engineering, Product, or
-   Data (see `references/rnd-titles.md`), diffs against the last run's snapshot, and presents one
-   table per company with new postings flagged and closed ones noted.
+   Data (department-matched via `references/rnd-departments.md`, with `references/rnd-titles.md`
+   as a title-matching fallback when department data isn't usable), diffs against the last run's
+   snapshot, and presents one table per company with new postings flagged and closed ones noted.
 
 ## Bookkeeping script
 

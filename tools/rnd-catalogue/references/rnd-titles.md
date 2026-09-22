@@ -1,9 +1,9 @@
 # R&D title taxonomy — Engineering / Product / Data
 
-Used by catalogue mode's Stage 2 (see `../SKILL.md`) to decide whether a posting counts as
-"R&D" for the inventory. Match against the posting's **title** first; where a `tags`/department
-field is available (Greenhouse and Lever both expose one), use it as a corroborating veto, not
-the primary signal — see "Department-tag veto" below.
+Used as a **fallback only** by Catalogue mode's Stage 2 (see `../SKILL.md`) — department data
+(`references/rnd-departments.md`) is the primary R&D filter now. This file only applies when a
+posting's `tags` is empty or a generic, company-specific label that carries no meaning on its
+own; see `rnd-departments.md`'s "Fallback trigger" section for exactly when that is.
 
 ## Include — title contains any of
 
@@ -36,12 +36,11 @@ platform/tools role, not customer-facing support), Field Engineer (construction/
 sense), Recruiting/Talent, Marketing, Business Development, Account Manager/Executive, Finance,
 Legal, HR/People, Office/Facilities.
 
-## Department-tag veto (when available)
+## Department-tag veto
 
-If the posting's `tags` list includes any of: Sales, Marketing, Business Development, Customer
-Success, Finance, Legal, People/HR, G&A — exclude it regardless of title match. Greenhouse/Lever
-populate `tags` from the board's own department field; treat it as more reliable than the title
-alone when present.
+Superseded by `references/rnd-departments.md`, which is now the primary filter whenever a
+posting's `tags` has a usable value — this file only runs at all when `tags` is empty/generic
+(see the note above), so there's nothing left here to veto against.
 
 ## Ambiguous — use judgment, don't auto-exclude
 
