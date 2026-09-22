@@ -190,6 +190,15 @@ For every posting from Stage 1:
   department — there's no `tags` data to double-check against (Workday postings still come back
   with empty `tags`, see `job_tool.py`'s Workday integration), so treat a Workday posting from
   this fetch as already department-matched; only the location judgment above still applies to it.
+  **One caveat**: `--job-family-groups` degrades silently if none of the Include list's names
+  match that tenant's actual category facet (a real possibility — Workday descriptors vary, e.g.
+  a tenant might use "Engineering & Technology" instead of "Engineering") — in that case Workday
+  returns its *entire* unfiltered board, not an empty one, and every posting in it would be
+  wrongly treated as department-matched by the rule above. If a Workday company's fetch returns
+  an implausibly large or obviously non-R&D-heavy set of postings (e.g. mostly Sales/Retail
+  titles), treat that as a signal the facet didn't resolve for this tenant and fall back to
+  `references/rnd-titles.md`'s title-matching for that company instead of trusting the
+  department-matched assumption.
 
 Before building the filtered array to pass into Stage 3, normalize every posting's `company`
 field to the matching `target_companies` entry's `name` — not whatever `job_tool.py search`

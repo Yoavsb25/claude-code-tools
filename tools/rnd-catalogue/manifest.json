@@ -10,7 +10,8 @@
     "files": [
       { "src": "SKILL.md", "dest": "~/.claude/skills/rnd-catalogue.md" },
       { "src": "scripts/catalogue_store.py", "dest": "~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py" },
-      { "src": "references/rnd-titles.md", "dest": "~/.claude/skills/rnd-catalogue/references/rnd-titles.md" }
+      { "src": "references/rnd-titles.md", "dest": "~/.claude/skills/rnd-catalogue/references/rnd-titles.md" },
+      { "src": "references/rnd-departments.md", "dest": "~/.claude/skills/rnd-catalogue/references/rnd-departments.md" }
     ]
   },
   "requirements": {
