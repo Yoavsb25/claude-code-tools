@@ -1446,7 +1446,10 @@ def cmd_search_discover_workday(args):
 
     tenant_info["company"] = args.company
     slug = f"{tenant_info['tenant']}/{tenant_info['wd_host']}/{tenant_info['site']}"
-    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    results, err = fetch_workday_postings(
+        tenant_info, args.query, args.limit,
+        location_hint=args.location_hint, job_family_groups=args.job_family_groups,
+    )
     if err:
         print_search_result("discover-workday", [], err, {
             "company": args.company, "detected_platform": "workday", "detected_slug": slug,
@@ -1474,7 +1477,10 @@ def cmd_search_workday_jobs(args):
         "api_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
         "public_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/{site}",
     }
-    results, err = fetch_workday_postings(tenant_info, args.query, args.limit, location_hint=args.location_hint)
+    results, err = fetch_workday_postings(
+        tenant_info, args.query, args.limit,
+        location_hint=args.location_hint, job_family_groups=args.job_family_groups,
+    )
     print_search_result("workday-jobs", results, err)
 
 
@@ -1772,11 +1778,16 @@ def main():
     p_discover_workday.add_argument("--query")
     p_discover_workday.add_argument(
         "--location-hint", dest="location_hint",
-        help="Text to pre-filter the compact posting list on (e.g. 'United Kingdom') before the "
-             "expensive per-posting detail fetch, so a large board (NVIDIA: 2,000+ postings) can "
-             "be scanned in full instead of only its first --limit-worth. Omit for the default "
-             "behavior (pagination and detail-fetch share the same small budget -- fine for "
-             "boards under a couple hundred postings).",
+        help="Location name to filter to server-side via Workday's own location facet (exact "
+             "match against that tenant's facet descriptors, e.g. 'United Kingdom'). A name with "
+             "no matching facet for this tenant is silently skipped, not an error.",
+    )
+    p_discover_workday.add_argument(
+        "--job-family-groups", dest="job_family_groups",
+        help="Comma-separated category names to filter to server-side via Workday's Job Category "
+             "facet (e.g. 'Engineering,Research'), matched case-insensitively against that "
+             "tenant's actual facet descriptors. A name with no match for this tenant is silently "
+             "skipped, not an error.",
     )
     p_discover_workday.add_argument("--limit", type=int, default=25)
     p_discover_workday.set_defaults(func=cmd_search_discover_workday)
@@ -1791,7 +1802,16 @@ def main():
     p_workday_jobs.add_argument("--query")
     p_workday_jobs.add_argument(
         "--location-hint", dest="location_hint",
-        help="See 'search discover-workday --help' -- same pre-filter, for when the board is large.",
+        help="Location name to filter to server-side via Workday's own location facet (exact "
+             "match against that tenant's facet descriptors, e.g. 'United Kingdom'). A name with "
+             "no matching facet for this tenant is silently skipped, not an error.",
+    )
+    p_workday_jobs.add_argument(
+        "--job-family-groups", dest="job_family_groups",
+        help="Comma-separated category names to filter to server-side via Workday's Job Category "
+             "facet (e.g. 'Engineering,Research'), matched case-insensitively against that "
+             "tenant's actual facet descriptors. A name with no match for this tenant is silently "
+             "skipped, not an error.",
     )
     p_workday_jobs.add_argument("--limit", type=int, default=25)
     p_workday_jobs.set_defaults(func=cmd_search_workday_jobs)

@@ -1055,8 +1055,11 @@ class TestFetchWorkdayPostings(unittest.TestCase):
 
 
 class TestCmdSearchDiscoverWorkday(unittest.TestCase):
-    def _run(self, url, company=None, query=None, limit=25, location_hint=None):
-        args = argparse.Namespace(url=url, company=company, query=query, limit=limit, location_hint=location_hint)
+    def _run(self, url, company=None, query=None, limit=25, location_hint=None, job_family_groups=None):
+        args = argparse.Namespace(
+            url=url, company=company, query=query, limit=limit,
+            location_hint=location_hint, job_family_groups=job_family_groups,
+        )
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             job_tool.cmd_search_discover_workday(args)
@@ -1100,10 +1103,27 @@ class TestCmdSearchDiscoverWorkday(unittest.TestCase):
         self.assertEqual(out["confidence"], "none")
         self.assertEqual(out["error"], "HTTP 404 from acme.com")
 
+    @patch("job_tool.http_post_json")
+    @patch("job_tool.http_get_html")
+    def test_job_family_groups_flag_is_passed_through(self, mock_html, mock_post):
+        mock_html.return_value = (
+            '<html><a href="https://acme.wd1.myworkdayjobs.com/Acme">Careers</a></html>', None,
+        )
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": []}, None),
+            ({"total": 0, "jobPostings": []}, None),
+        ]
+        self._run("https://acme.com/careers", company="Acme Corp", job_family_groups="Engineering")
+        # facets-discovery call happened -- proves job_family_groups reached fetch_workday_postings
+        self.assertEqual(mock_post.call_count, 2)
+
 
 class TestCmdSearchWorkdayJobs(unittest.TestCase):
-    def _run(self, slug, company=None, query=None, limit=25, location_hint=None):
-        args = argparse.Namespace(slug=slug, company=company, query=query, limit=limit, location_hint=location_hint)
+    def _run(self, slug, company=None, query=None, limit=25, location_hint=None, job_family_groups=None):
+        args = argparse.Namespace(
+            slug=slug, company=company, query=query, limit=limit,
+            location_hint=location_hint, job_family_groups=job_family_groups,
+        )
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             job_tool.cmd_search_workday_jobs(args)
@@ -1131,6 +1151,16 @@ class TestCmdSearchWorkdayJobs(unittest.TestCase):
         self.assertIsNone(out["error"])
         self.assertEqual(len(out["results"]), 1)
         self.assertEqual(out["results"][0]["company"], "Acme Corp")
+
+    @patch("job_tool.http_get_json")
+    @patch("job_tool.http_post_json")
+    def test_job_family_groups_flag_is_passed_through(self, mock_post, mock_get):
+        mock_post.side_effect = [
+            ({"total": 0, "jobPostings": [], "facets": []}, None),
+            ({"total": 0, "jobPostings": []}, None),
+        ]
+        self._run("acme/wd1/Acme", company="Acme Corp", job_family_groups="Engineering")
+        self.assertEqual(mock_post.call_count, 2)
 
 
 COMEET_INIT_HTML = """
