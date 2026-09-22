@@ -223,7 +223,12 @@ python3 ~/.claude/skills/rnd-catalogue/scripts/catalogue_store.py list
 ```
 Build one table per company from this (now-updated) open list, flagging 🆕 next to any row whose
 `key` was in Stage 3's `new` output. Below the tables, a short "closed since last run" list from
-Stage 3's `closed` output, grouped by company.
+Stage 3's `closed` output, grouped by company — but split out any entry with `possibly_stale:
+true` into its own "flagged — verify before treating as closed" line instead of the plain closed
+list. That flag means the posting was first recorded and marked closed on the very same run,
+which is the signature of this run's fetch having different coverage than whatever it's being
+diffed against (e.g. a missing `--location-hint` on a large Workday board), not a real closure —
+see `catalogue_store.py`'s `diff-and-save` for how it's set.
 
 ```
 ## 🗂️ R&D Catalogue — [date]
