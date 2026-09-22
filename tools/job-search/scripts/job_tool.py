@@ -1031,13 +1031,21 @@ def cmd_search_ats(args):
 def candidate_slugs(name, slug_hint=None):
     """Generate a small, ordered, deduped list of plausible ATS slugs for a company name —
     concatenated/hyphenated forms, with and without common legal suffixes stripped. Capped at 4
-    to bound the number of probe requests discover-ats makes."""
+    to bound the number of probe requests discover-ats makes.
+
+    A name containing a literal "." also gets one more candidate: the name lowercased with
+    whitespace stripped but internal punctuation kept (so "Monday.com" -> "monday.com"). Some
+    companies -- monday.com's Ashby board is a confirmed live example -- use their bare domain
+    as the ATS slug verbatim, which the alphanumeric-only guesses below can never produce."""
     words = re.findall(r"[a-z0-9]+", name.lower())
     trimmed = [w for w in words if w not in ATS_SLUG_SUFFIXES] or words
 
     candidates = []
     if slug_hint:
         candidates.append(slug_hint.strip().lower())
+    if "." in name:
+        dotted = re.sub(r"[^a-z0-9.-]", "", re.sub(r"\s+", "", name.lower()))
+        candidates.append(dotted)
     if trimmed:
         candidates.append("".join(trimmed))
         candidates.append("-".join(trimmed))

@@ -40,6 +40,32 @@ class TestCleanText(unittest.TestCase):
         self.assertIsNone(job_tool.clean_text(None))
 
 
+class TestCandidateSlugs(unittest.TestCase):
+    def test_dotted_domain_name_yields_literal_dotted_candidate(self):
+        # monday.com's real Ashby slug is the literal domain "monday.com" -- confirmed live via
+        # jobs-index (jobs.ashbyhq.com/monday.com/...), which the plain alphanumeric-only guesses
+        # (mondaycom, monday-com, monday) can never produce.
+        self.assertIn("monday.com", job_tool.candidate_slugs("Monday.com"))
+
+    def test_dotted_candidate_ordered_before_generic_guesses(self):
+        slugs = job_tool.candidate_slugs("Monday.com")
+        self.assertEqual(slugs[0], "monday.com")
+
+    def test_dotted_candidate_still_capped_at_four(self):
+        slugs = job_tool.candidate_slugs("Monday.com")
+        self.assertLessEqual(len(slugs), 4)
+        self.assertEqual(slugs, ["monday.com", "mondaycom", "monday-com", "monday"])
+
+    def test_no_dot_in_name_has_no_dotted_candidate(self):
+        slugs = job_tool.candidate_slugs("Acme Corp")
+        self.assertNotIn(".", "".join(slugs))
+
+    def test_slug_hint_still_takes_priority_over_dotted_candidate(self):
+        slugs = job_tool.candidate_slugs("Monday.com", slug_hint="mondaydotcom")
+        self.assertEqual(slugs[0], "mondaydotcom")
+        self.assertIn("monday.com", slugs)
+
+
 class TestJobageToTpr(unittest.TestCase):
     def test_valid_days(self):
         self.assertEqual(job_tool.jobage_to_tpr(7), "r604800")
