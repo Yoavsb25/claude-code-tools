@@ -127,6 +127,40 @@ class TestDiffAndSaveClosed(TempStateDirTestCase):
         listed = self._run_json(catalogue_store.cmd_list, make_args(company=None))
         self.assertEqual(listed, [])  # closed postings never show up in `list`
 
+    def test_posting_first_seen_and_closed_same_day_is_flagged_possibly_stale(self):
+        # A posting first recorded by this run's diff, and already absent from the very next
+        # run's fetch, opened and closed within one calendar day -- that's the signature of two
+        # runs having inconsistent fetch coverage, not a real closure.
+        posting = {"company": "Acme", "title": "Staff Backend Engineer", "location": "London", "url": "https://acme.example/1"}
+        self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([posting]), companies="Acme"),
+        )
+        result = self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([]), companies="Acme"),
+        )
+        self.assertEqual(len(result["closed"]), 1)
+        self.assertTrue(result["closed"][0]["possibly_stale"])
+
+    def test_posting_closed_after_multiple_days_open_is_not_flagged_stale(self):
+        posting = {"company": "Acme", "title": "Staff Backend Engineer", "location": "London", "url": "https://acme.example/1"}
+        self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([posting]), companies="Acme"),
+        )
+        data = catalogue_store.load_catalogue()
+        key = catalogue_store.posting_key(posting)
+        data["postings"][key]["first_seen"] = (date.today() - timedelta(days=5)).isoformat()
+        catalogue_store.save_catalogue(data)
+
+        result = self._run_json(
+            catalogue_store.cmd_diff_and_save,
+            make_args(postings=json.dumps([]), companies="Acme"),
+        )
+        self.assertEqual(len(result["closed"]), 1)
+        self.assertFalse(result["closed"][0]["possibly_stale"])
+
     def test_posting_missing_for_unqueried_company_is_left_untouched(self):
         posting = {"company": "Acme", "title": "Staff Backend Engineer", "location": "London", "url": "https://acme.example/1"}
         self._run_json(

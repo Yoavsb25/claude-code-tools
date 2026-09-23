@@ -121,6 +121,12 @@ def cmd_diff_and_save(args):
         if record.get("closed_date"):
             continue  # already marked closed
         record["closed_date"] = today
+        # A posting whose first_seen is today closing on the same run's today is not a real
+        # same-day open-and-close -- it's the signature of this run's fetch having different
+        # coverage than the run it's being diffed against (e.g. a missing --location-hint, or a
+        # large board sampled differently), producing a set of postings that don't overlap with
+        # the prior snapshot at all. Flag it rather than reporting it as an ordinary closure.
+        record["possibly_stale"] = record.get("first_seen") == today
         closed_out.append({**record, "key": key})
 
     cutoff = date.today() - timedelta(days=CLOSED_PRUNE_DAYS)
