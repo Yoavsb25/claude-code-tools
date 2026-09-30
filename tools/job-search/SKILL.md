@@ -26,7 +26,7 @@ files it manages.** The script is the only thing that writes them; you read its 
 to make changes. This keeps years of accumulated tracker rows from silently drifting or getting
 dropped when the file is regenerated turn after turn.
 
-State lives in `~/Desktop/Job-Search/` (`profile.json`, `tracker.json`, and the generated
+State lives in `~/job-search-data/` (`profile.json`, `tracker.json`, and the generated
 `Tracker.md`). Run every command as:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py <group> <action> [args]
@@ -643,7 +643,7 @@ show that section and say plainly that nothing hit the main bar this round.
 
 ## Stage 4.5 — Connections enrichment
 
-If `~/Desktop/Job-Search/connections.json` exists and has at least one imported connection (check
+If `~/job-search-data/connections.json` exists and has at least one imported connection (check
 via `network companies` — skip this stage entirely if it reports zero connections, rather than
 running a match against an empty file every time): for each **unique** company in the shortlist,
 run
@@ -714,11 +714,19 @@ file, not just the in-conversation tables — a self-contained record of the rou
 
 ---
 
-## Scheduled daily runs
+## Job Radar (daily, browsable)
 
-Yoav runs this skill every morning via a local scheduled job (`launchd` + `scripts/run_daily.sh`),
-not a hosted cloud agent — read `references/scheduled-runs.md` for the exact mechanism, its
-known OAuth-expiry failure mode, and what the unattended run should do differently at Stage 4/5/6.
+Every morning `scripts/radar.py refresh` (launchd, plain Python, no LLM) collects every London /
+UK-remote posting from the `companies.json` watchlist plus a LinkedIn sweep into
+`~/job-search-data/radar.json`, with years required (pulled from the JD text, with the evidence
+sentence), level, role family and salary. `radar.py status` prints a summary; coverage per company
+is in `coverage.json`. Yoav browses it with `radar.py serve` (local page at http://127.0.0.1:8765,
+refreshes in the background if data is over 12h old); its ☆ Save adds a Shortlisted tracker row and
+Hide choices live in `radar_state.json`. See `references/scheduled-runs.md`.
+
+When Yoav asks "what's new" or wants a shortlist, start from `radar.json` (filter: not closed,
+`years_min` ≤ 3 or unknown, role_family not Non-tech) instead of re-fetching every source. Never
+apply, send messages, or add tracker rows without him choosing the role.
 
 ---
 
