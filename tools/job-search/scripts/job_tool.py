@@ -31,7 +31,7 @@ Usage:
   job_tool.py network match [--company "<name>"]
   job_tool.py network companies
 
-State lives in ~/Desktop/Job-Search/ by default (override with JOB_SEARCH_DIR env var):
+State lives in ~/job-search-data/ by default (override with JOB_SEARCH_DIR env var):
   profile.json          - target role/location/industry/seniority/preferences
   tracker.json          - application rows (source of truth)
   Tracker.md            - rendered markdown view of tracker.json
@@ -108,6 +108,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 HTTP_TIMEOUT = 15
+# posting() truncates descriptions to keep `search` output readable. radar.py sets this to None
+# (no truncation) because "N+ years" requirements often sit near the end of a JD.
+DESCRIPTION_MAX = 1500
+# radar.py also sets this: keep line/bullet boundaries (and decode Greenhouse's entity-escaped
+# HTML) so requirement sentences stay separable instead of collapsing into one run-on line.
+DESCRIPTION_KEEP_LINES = False
 USER_AGENT = "job-search-skill/1.2 (+https://github.com/Yoavsb25/claude-code-tools)"
 APIFY_API_BASE = "https://api.apify.com/v2"
 APIFY_DEFAULT_WORKDAY_ACTOR = "automation-lab/workday-jobs-scraper"
@@ -168,7 +174,7 @@ WORKDAY_LOCALE_RE = re.compile(r"^[a-z]{2}-[a-z]{2}$", re.I)
 # returns the company's full current posting list as a single JSON array, no auth/session needed.
 COMEET_TOKEN_RE = re.compile(r'"token"\s*:\s*"([0-9A-Za-z]{16,40})"')
 COMEET_COMPANY_UID_RE = re.compile(r'"company-uid"\s*:\s*"([0-9A-Za-z.]+)"')
-COMEET_POSITIONS_URL = "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions?token={token}"
+COMEET_POSITIONS_URL = "https://www.comeet.co/careers-api/2.0/company/{company_uid}/positions?token={token}&details=true"
 WORKDAY_PAGE_SIZE = 20  # Workday's CXS search endpoint rejects larger page sizes with HTTP 400
 WORKDAY_MAX_JOBS_SCANNED = 150  # safety cap on per-posting detail fetches for one company
 WORKDAY_DETAIL_WORKERS = 8  # concurrency for the detail-fetch fan-out -- keep polite, not zero
@@ -194,7 +200,7 @@ TRACKER_COLUMNS = [
 
 
 def state_dir():
-    d = Path(os.environ.get("JOB_SEARCH_DIR", "~/Desktop/Job-Search")).expanduser()
+    d = Path(os.environ.get("JOB_SEARCH_DIR", "~/job-search-data")).expanduser()
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -298,7 +304,16 @@ def compute_stale_reason(row):
 
 
 def cmd_tracker_upsert(args):
-    patch = read_json_arg(args.row)
+    row, err = upsert_tracker_row(read_json_arg(args.row))
+    if err:
+        print(f"error: {err}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(row, indent=2))
+
+
+def upsert_tracker_row(patch):
+    """Insert or update one tracker row (matched by id, else company + role). Returns
+    (row, error). Shared by `tracker upsert` and the Radar page's Save button."""
     data = load_rows()
     rows = data["rows"]
 
@@ -317,8 +332,7 @@ def cmd_tracker_upsert(args):
 
     if match is None:
         if not patch.get("company") or not patch.get("role"):
-            print("error: new rows require both 'company' and 'role'", file=sys.stderr)
-            sys.exit(1)
+            return None, "new rows require both 'company' and 'role'"
         row = {
             "id": data["next_id"], "company": patch["company"], "role": patch["role"],
             "status": "Shortlisted", "fit": None, "salary": None, "found_date": today_str(),
@@ -342,7 +356,7 @@ def cmd_tracker_upsert(args):
             row["followup_date"] = next_followup(row["status"], row.get("applied_date"), row.get("followup_date"))
 
     save_rows(data)
-    print(json.dumps(row, indent=2))
+    return row, None
 
 
 def cmd_tracker_list(args):
@@ -932,8 +946,19 @@ def posting(source, title, company, location, remote, url, tags, salary, posted_
     return {
         "source": source, "title": title, "company": company, "location": location,
         "remote": remote, "url": url, "tags": tags or [], "salary": salary,
-        "posted_date": posted_date, "description": strip_html(description)[:1500] if description else None,
+        "posted_date": posted_date,
+        "description": description_text(description)[:DESCRIPTION_MAX] if description else None,
     }
+
+
+def description_text(html):
+    if not DESCRIPTION_KEEP_LINES:
+        return strip_html(html)
+    text = decode_html_entities(decode_html_entities(html))  # some ATSs double-escape
+    text = LINKEDIN_BR_RE.sub("\n", text)
+    text = LINKEDIN_BLOCK_CLOSE_RE.sub("\n", text)
+    text = decode_html_entities(_strip_tags_keep_newlines(text))
+    return re.sub(r"\n{2,}", "\n", text)
 
 
 def print_search_result(source, results, error, extra=None):
@@ -1007,7 +1032,7 @@ def parse_ats_payload(platform, company, data):
     if platform == "greenhouse":
         return [
             posting(
-                "greenhouse", j.get("title"), company, (j.get("location") or {}).get("name"),
+                "greenhouse", j.get("title"), company, greenhouse_location(j),
                 None, j.get("absolute_url"), [d.get("name") for d in j.get("departments", [])],
                 None, j.get("updated_at"), j.get("content"),
             )
@@ -1061,15 +1086,36 @@ def parse_ats_payload(platform, company, data):
     # workable
     return [
         posting(
-            "workable", j.get("title"), company,
-            (j.get("location") or {}).get("location_str")
-            or ", ".join(filter(None, [(j.get("location") or {}).get("city"), (j.get("location") or {}).get("country")])),
-            j.get("telecommute"), j.get("url") or j.get("shortlink"),
+            "workable", j.get("title"), company, workable_location(j),
+            j.get("telecommute") or str(j.get("telecommuting")).lower() == "true",
+            j.get("url") or j.get("shortlink"),
             [j.get("department")] if j.get("department") else [],
             None, j.get("published_on"), j.get("description"),
         )
         for j in data.get("jobs", [])
     ]
+
+
+def greenhouse_location(job):
+    """Greenhouse's `location.name` is free text; some boards (Cloudflare) put the work style
+    there ("Hybrid") and the real city only in `offices`. Join both so London isn't lost."""
+    names = [(job.get("location") or {}).get("name")]
+    names += [office.get("location") or office.get("name") for office in job.get("offices") or []]
+    return "; ".join(dict.fromkeys(n for n in names if n)) or None
+
+
+def workable_location(job):
+    """Workable's widget API puts city/country at the top level plus a `locations` list for
+    multi-site roles; older payloads nest them under `location`. Join every site so a London
+    secondary location isn't lost."""
+    nested = job.get("location") or {}
+    if nested.get("location_str"):
+        return nested["location_str"]
+    sites = [job] + [loc for loc in job.get("locations") or [] if isinstance(loc, dict)]
+    if nested:
+        sites.insert(0, nested)
+    names = [", ".join(filter(None, [site.get("city"), site.get("country")])) for site in sites]
+    return "; ".join(dict.fromkeys(n for n in names if n)) or None
 
 
 def fetch_ats_postings(platform, slug, query=None):
@@ -1134,7 +1180,27 @@ def cmd_search_discover_ats(args):
         [p.strip() for p in args.platforms.split(",") if p.strip() in ATS_ENDPOINTS]
         if args.platforms else ATS_PROBE_ORDER
     )
-    slugs = candidate_slugs(args.company, args.slug_hint)
+    chosen, confidence, attempts = discover_ats(args.company, args.slug_hint, platforms, args.query)
+    if chosen is None:
+        print_search_result("discover-ats", [], None, {
+            "company": args.company, "detected_platform": None, "detected_slug": None,
+            "confidence": "none", "candidates_tried": attempts,
+        })
+        return
+
+    platform, slug, results = chosen
+    print_search_result("discover-ats", results[: args.limit], None, {
+        "company": args.company, "detected_platform": platform, "detected_slug": slug,
+        "confidence": confidence, "candidates_tried": attempts,
+    })
+
+
+def discover_ats(company, slug_hint=None, platforms=None, query=None):
+    """Probe candidate slugs across ATS platforms. Returns ((platform, slug, results) or None,
+    confidence "high"/"low"/"none", attempts). High = a board with postings; low = a valid
+    board with zero postings (could be a different, empty company using that slug)."""
+    platforms = platforms or ATS_PROBE_ORDER
+    slugs = candidate_slugs(company, slug_hint)
 
     attempts = []
     best = None      # (platform, slug, results) — non-empty results, high confidence
@@ -1142,7 +1208,7 @@ def cmd_search_discover_ats(args):
 
     for slug in slugs:
         for platform in platforms:
-            results, err = fetch_ats_postings(platform, slug, args.query)
+            results, err = fetch_ats_postings(platform, slug, query)
             attempts.append({
                 "platform": platform, "slug": slug, "error": err,
                 "results_count": None if err else len(results),
@@ -1158,18 +1224,8 @@ def cmd_search_discover_ats(args):
             break
 
     chosen = best or fallback
-    if chosen is None:
-        print_search_result("discover-ats", [], None, {
-            "company": args.company, "detected_platform": None, "detected_slug": None,
-            "confidence": "none", "candidates_tried": attempts,
-        })
-        return
-
-    platform, slug, results = chosen
-    print_search_result("discover-ats", results[: args.limit], None, {
-        "company": args.company, "detected_platform": platform, "detected_slug": slug,
-        "confidence": "high" if best else "low", "candidates_tried": attempts,
-    })
+    confidence = "high" if best else ("low" if fallback else "none")
+    return chosen, confidence, attempts
 
 
 def cmd_search_workday(args):
@@ -1401,7 +1457,7 @@ def fetch_workday_postings(tenant_info, query=None, limit=25, max_scanned=WORKDA
                 [],
                 None,
                 jp.get("postedOn") or raw.get("postedOn"),
-                None,
+                jp.get("jobDescription"),
             ))
 
     # A handful of per-posting detail fetches failing (rate limit, transient network blip) among
@@ -1524,7 +1580,7 @@ def fetch_comeet_postings(token, company_uid, company=None, query=None, limit=25
             [p["department"]] if p.get("department") else [],
             None,
             p.get("time_updated"),
-            None,
+            " ".join(d.get("value") or "" for d in p.get("details") or []) or None,
         ))
     return results, None
 

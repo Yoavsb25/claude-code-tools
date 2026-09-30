@@ -364,7 +364,7 @@ class TestSaveJson(unittest.TestCase):
 
 class TempStateDirTestCase(unittest.TestCase):
     """Isolates job_tool's file-backed commands (profile/tracker/network) from the real
-    ~/Desktop/Job-Search directory by pointing state_dir() at a temp directory for the test."""
+    ~/job-search-data directory by pointing state_dir() at a temp directory for the test."""
 
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
@@ -1463,3 +1463,28 @@ class TestCmdSearchJobsIndex(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWorkableLocation(unittest.TestCase):
+    def test_top_level_city_and_extra_sites(self):
+        job = {"city": "Manchester", "country": "United Kingdom",
+               "locations": [{"city": "Manchester", "country": "United Kingdom"},
+                             {"city": "London", "country": "United Kingdom"}]}
+        self.assertEqual(job_tool.workable_location(job),
+                         "Manchester, United Kingdom; London, United Kingdom")
+
+    def test_nested_location_str(self):
+        self.assertEqual(job_tool.workable_location({"location": {"location_str": "London, UK"}}), "London, UK")
+
+    def test_nothing(self):
+        self.assertIsNone(job_tool.workable_location({}))
+
+
+class TestGreenhouseLocation(unittest.TestCase):
+    def test_joins_location_and_offices(self):
+        job = {"location": {"name": "Hybrid"},
+               "offices": [{"name": "London", "location": "London, United Kingdom"}, {"name": "Lisbon"}]}
+        self.assertEqual(job_tool.greenhouse_location(job), "Hybrid; London, United Kingdom; Lisbon")
+
+    def test_plain_location_only(self):
+        self.assertEqual(job_tool.greenhouse_location({"location": {"name": "London"}}), "London")

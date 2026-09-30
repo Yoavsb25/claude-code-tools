@@ -1,32 +1,23 @@
-# Scheduled daily runs
+# Scheduled runs: Job Radar
 
-Yoav runs this skill every morning via a **local scheduled job**, not a hosted cloud agent —
-hosted cloud routines (the `schedule` skill) run in Anthropic's cloud with no access to local
-files, so they can't reach `~/Desktop/Job-Search/` or the local `job_tool.py` script. Instead:
+Since 2026-09-29 the daily run is the **Job Radar refresh**, not an unattended Claude session.
 
-- `~/Library/LaunchAgents/com.yoavsborovsky.jobsearch.daily.plist` — a `launchd` agent that fires
-  `scripts/run_daily.sh` daily at 08:00.
-- `scripts/run_daily.sh` invokes the local `claude` CLI directly (`claude -p "<prompt>"
-  --dangerously-skip-permissions --model claude-sonnet-5 --add-dir ~/Desktop/Job-Search --add-dir
-  ~/.claude/skills/job-search`), logging to `~/Desktop/Job-Search/logs/daily-run-<date>.log`.
+- `~/Library/LaunchAgents/com.yoavsborovsky.jobradar.plist` runs
+  `/opt/homebrew/bin/python3 scripts/radar.py refresh` at 07:00 (launchd runs a missed slot on
+  wake if the Mac was asleep). Log: `~/job-search-data/logs/radar.log`.
+- It is plain Python (stdlib + `job_tool.py` fetchers): no LLM, no `claude` CLI, so there is no
+  OAuth session to expire. State lives in `~/job-search-data/`, outside `~/Desktop`, because
+  macOS TCC blocks launchd jobs from reading the Desktop (this broke every run in Sept 2026).
+- Output: `radar.json` (every London / UK-remote posting from the `companies.json` watchlist plus
+  a LinkedIn sweep, enriched with years required, level, role family, salary) and
+  `coverage.json` (per-company fetch result, LinkedIn stats, discovered companies).
 
-**Known failure mode:** this setup authenticates via the CLI's own local OAuth login session.
-`launchd` runs it non-interactively, so if that session expires, there's no browser/TTY available
-to refresh it — the run fails with `Failed to authenticate: OAuth session expired and could not be
-refreshed` and stays broken until Yoav manually runs `claude login` again interactively. There is
-currently no automatic recovery from this — if the daily logs go quiet or start showing auth
-errors, that's the first thing to check.
+The Radar never applies, messages, or writes to the tracker on its own; Yoav browses and saves.
 
-## What the scheduled run should do
+## Retired: the unattended Claude pipeline
 
-The scheduled prompt should run the full Stage 0–7 pipeline exactly as an interactive request
-would (load profile, search, dedupe/score, present the two-table shortlist, connections
-enrichment, save the shortlist to a markdown file) — it should NOT skip stages just because no
-human is watching in real time. Since there's no one to answer Stage 4's "want me to track these?"
-question synchronously, the scheduled run should default to **Stage 6 Persist as `Shortlisted`**
-for everything above the score threshold (equivalent to the user having said "add them all") rather
-than blocking on an answer that will never come, and should skip Stage 5's resume-tailor hand-off
-entirely (that step requires an explicit human decision on which role to pursue). Use whatever
-wrap-up/notification mechanism the scheduled run has to leave a clear one-message summary — new
-roles found, the saved file's path, and any tracker rows that came back stale — so Yoav can catch up
-in one read without re-running anything.
+`scripts/run_daily.sh` + `com.yoavsborovsky.jobsearch.daily.plist` (plist backed up at
+`~/job-search-data/retired-com.yoavsborovsky.jobsearch.daily.plist`) ran the full Stage 0–7
+pipeline via `claude -p`. It was retired because it failed on OAuth expiry and TCC, and because a
+30-row LLM shortlist hid the other ~4,000 fetched postings. Full LLM scoring is still available
+interactively through this skill.
