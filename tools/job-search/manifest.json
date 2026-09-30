@@ -1,25 +1,86 @@
 {
   "name": "job-search",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, surfaces worth-exploring roles at target companies, and kicks off resume-tailor",
   "type": "tool",
   "category": "career",
   "complexity": "advanced",
-  "tags": ["job-search", "career", "linkedin", "resume", "tracker", "applications", "job-hunt", "python", "greenhouse", "lever", "ashby", "smartrecruiters", "recruitee", "workable", "career-pages", "ats-discovery", "workday", "comeet", "jobs-index", "apify", "linkedin-connections", "warm-intro", "network"],
+  "tags": [
+    "job-search",
+    "career",
+    "linkedin",
+    "resume",
+    "tracker",
+    "applications",
+    "job-hunt",
+    "python",
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "recruitee",
+    "workable",
+    "career-pages",
+    "ats-discovery",
+    "workday",
+    "comeet",
+    "jobs-index",
+    "apify",
+    "linkedin-connections",
+    "warm-intro",
+    "network",
+    "job-radar",
+    "launchd"
+  ],
   "install": {
     "files": [
-      { "src": "SKILL.md", "dest": "~/.claude/skills/job-search.md" },
-      { "src": "scripts/job_tool.py", "dest": "~/.claude/skills/job-search/scripts/job_tool.py" },
-      { "src": "references/search-fallbacks.md", "dest": "~/.claude/skills/job-search/references/search-fallbacks.md" },
-      { "src": "references/network-warm-intros.md", "dest": "~/.claude/skills/job-search/references/network-warm-intros.md" },
-      { "src": "references/scheduled-runs.md", "dest": "~/.claude/skills/job-search/references/scheduled-runs.md" },
-      { "src": "scripts/test_job_tool.py", "dest": "~/.claude/skills/job-search/scripts/test_job_tool.py" }
+      {
+        "src": "SKILL.md",
+        "dest": "~/.claude/skills/job-search.md"
+      },
+      {
+        "src": "scripts/job_tool.py",
+        "dest": "~/.claude/skills/job-search/scripts/job_tool.py"
+      },
+      {
+        "src": "scripts/radar.py",
+        "dest": "~/.claude/skills/job-search/scripts/radar.py"
+      },
+      {
+        "src": "scripts/radar.html",
+        "dest": "~/.claude/skills/job-search/scripts/radar.html"
+      },
+      {
+        "src": "references/search-fallbacks.md",
+        "dest": "~/.claude/skills/job-search/references/search-fallbacks.md"
+      },
+      {
+        "src": "references/network-warm-intros.md",
+        "dest": "~/.claude/skills/job-search/references/network-warm-intros.md"
+      },
+      {
+        "src": "references/scheduled-runs.md",
+        "dest": "~/.claude/skills/job-search/references/scheduled-runs.md"
+      },
+      {
+        "src": "scripts/test_job_tool.py",
+        "dest": "~/.claude/skills/job-search/scripts/test_job_tool.py"
+      },
+      {
+        "src": "scripts/test_radar.py",
+        "dest": "~/.claude/skills/job-search/scripts/test_radar.py"
+      }
     ]
   },
   "requirements": {
     "platform": "any",
-    "mcp_servers": ["apify (optional)", "playwright (optional)"],
-    "env_vars": ["APIFY_TOKEN (optional)"],
+    "mcp_servers": [
+      "apify (optional)",
+      "playwright (optional)"
+    ],
+    "env_vars": [
+      "APIFY_TOKEN (optional)"
+    ],
     "python": ">=3.9"
   }
 }
