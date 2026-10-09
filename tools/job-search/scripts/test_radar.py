@@ -462,7 +462,8 @@ class TestPageServer(unittest.TestCase):
                                          data=json.dumps({"key": "acme|platform engineer", "reason": "pay"}).encode(),
                                          headers={"Content-Type": "application/json"})
             self.assertEqual(json.load(urllib.request.urlopen(req))["reason"], "pay")
-            bad = urllib.request.Request(base + "/api/save", method="POST", data=b'{"key": "nope"}')
+            bad = urllib.request.Request(base + "/api/save", method="POST", data=b'{"key": "nope"}',
+                                         headers={"Content-Type": "application/json"})
             with self.assertRaises(urllib.error.HTTPError) as ctx:
                 urllib.request.urlopen(bad)
             self.assertEqual(ctx.exception.code, 400)
@@ -511,3 +512,39 @@ class TestDaily(unittest.TestCase):
             radar.cmd_daily(self.args)
         log = subprocess.run(["git", "-C", self.tmp.name, "log", "--oneline"], capture_output=True, text=True)
         self.assertIn("daily run", log.stdout)
+
+
+class TestRequestGuards(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+        radar.job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        server = radar.ThreadingHTTPServer(("127.0.0.1", 0), radar.make_handler(radar.Runner(lambda: None), radar.Runner(lambda: None)))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def status(self, req):
+        try:
+            return urllib.request.urlopen(req).status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    def test_cross_site_and_non_json_posts_are_refused(self):
+        body = json.dumps({"id": 1, "status": "Rejected"}).encode()
+        evil = urllib.request.Request(self.base + "/api/tracker", method="POST", data=body,
+                                      headers={"Content-Type": "application/json", "Origin": "https://evil.example"})
+        plain = urllib.request.Request(self.base + "/api/tracker", method="POST", data=body,
+                                       headers={"Content-Type": "text/plain"})
+        rebound = urllib.request.Request(self.base + "/api/cockpit", headers={"Host": "evil.example"})
+        self.assertEqual((self.status(evil), self.status(plain), self.status(rebound)), (403, 415, 403))
+        self.assertEqual(radar.job_tool.load_rows()["rows"][0]["status"], "Applied")
+        same = urllib.request.Request(self.base + "/api/tracker", method="POST", data=body,
+                                      headers={"Content-Type": "application/json", "Origin": self.base})
+        self.assertEqual(self.status(same), 200)

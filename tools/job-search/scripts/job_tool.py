@@ -322,7 +322,8 @@ def cmd_tracker_upsert(args):
 def validate_tracker_patch(patch):
     for key, allowed in (("status", STATUS_ORDER), ("channel", CHANNELS),
                          ("positioning", POSITIONINGS), ("tier", TIERS)):
-        if patch.get(key) is not None and patch[key] not in allowed:
+        value = patch.get(key)
+        if value is not None and (isinstance(value, bool) or value not in allowed):
             return f"invalid {key} {patch[key]!r}; expected one of {list(allowed)}"
     return None
 
@@ -382,6 +383,8 @@ def upsert_tracker_row(patch, source="manual", event=None, when=None):
             row["applied_date"] = today_str()
         if "followup_date" not in patch:
             row["followup_date"] = next_followup(row["status"], row.get("applied_date"), row.get("followup_date"))
+        if patch["status"] == "Shortlisted" and old_status not in (None, "Shortlisted") and "applied_date" not in patch:
+            row["applied_date"] = row["followup_date"] = None  # back to "not applied yet"
         if patch["status"] != old_status:
             events.append({"date": when or today_str(), "type": "status", "from": old_status,
                            "to": patch["status"], "source": source})
@@ -402,6 +405,8 @@ def undo_last_status(row_id):
     if last is None or last.get("source") not in ("inbox", "auto") or last.get("from") is None:
         return None, "last status change was not automatic; nothing to undo"
     row["status"] = last["from"]
+    if row["status"] == "Shortlisted":
+        row["applied_date"] = row["followup_date"] = None
     row["events"].append({"date": today_str(), "type": "status", "from": last["to"],
                           "to": last["from"], "source": "undo"})
     save_rows(data)

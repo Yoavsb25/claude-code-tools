@@ -28,6 +28,7 @@ import imaplib
 import re
 import subprocess
 import sys
+import threading
 from datetime import date, datetime, timedelta, timezone
 
 import job_tool
@@ -273,6 +274,24 @@ def load_state():
     return state
 
 
+# Guards inbox_state.json read-modify-write between the sync thread and page clicks in the same
+# server process: each writer re-reads the file under the lock instead of saving a stale copy.
+_STATE_LOCK = threading.RLock()
+
+
+def _merge_save(actions=(), review=(), meta=None):
+    """Add new actions/review items (skipping ones already known or ignored) and sync bookkeeping
+    to the state on disk, keeping whatever the page changed meanwhile."""
+    with _STATE_LOCK:
+        disk = load_state()
+        seen = {i["msg_id"] for i in disk["actions"] + disk["review"]} | set(disk["ignored"])
+        disk["actions"] += [a for a in actions if a["msg_id"] not in seen]
+        disk["review"] += [i for i in review if i["msg_id"] not in seen]
+        disk.update(meta or {})
+        job_tool.save_json(state_path(), disk)
+        return disk
+
+
 def _known_msg_ids(rows, state):
     known = {e.get("msg_id") for r in rows for e in r.get("events") or []}
     known |= {i["msg_id"] for i in state["review"] + state["actions"]} | set(state["ignored"])
@@ -377,8 +396,7 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
                 summary["actions"].append(action)
             if not dry_run:
                 if action:
-                    state["actions"].append(action)
-                    job_tool.save_json(state_path(), state)
+                    _merge_save(actions=[action])
                 apply_to_row(decision["row_id"], msg, kind, decision["status"])
                 rows = job_tool.load_rows()["rows"]
         elif decision["type"] == "review":
@@ -390,8 +408,7 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
     if uids:
         state["last_uid"] = max(state["last_uid"], uids[-1])
     state["last_sync"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    state["review"] += summary["review"]
-    job_tool.save_json(state_path(), state)
+    state = _merge_save(review=summary["review"], meta={k: state[k] for k in ("uidvalidity", "last_uid", "last_sync")})
     # A reply that only matched weakly is still a reply: don't ghost a row while it waits in review.
     pending = {rid for item in state["review"] for rid in item["candidates"]}
     summary["ghosted"] = [r["id"] for r in job_tool.mark_ghosted(today, skip_ids=pending)]
@@ -400,6 +417,11 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
 
 def resolve(msg_id, row_id=None):
     """Settle a review item: attach it to tracker row `row_id`, or drop it when row_id is None."""
+    with _STATE_LOCK:
+        return _resolve(msg_id, row_id)
+
+
+def _resolve(msg_id, row_id):
     state = load_state()
     item = next((i for i in state["review"] if i["msg_id"] == msg_id), None)
     if item is None:
@@ -423,6 +445,11 @@ def resolve(msg_id, row_id=None):
 
 
 def mark_done(msg_id):
+    with _STATE_LOCK:
+        return _mark_done(msg_id)
+
+
+def _mark_done(msg_id):
     state = load_state()
     item = next((a for a in state["actions"] if a["msg_id"] == msg_id), None)
     if item is None:

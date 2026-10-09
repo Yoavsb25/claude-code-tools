@@ -727,6 +727,9 @@ def sync_inbox_from_page():
     snapshot_state("inbox sync from the page")
 
 
+LOCAL_HOSTS = ("127.0.0.1", "localhost")
+
+
 def make_handler(runner, inbox_runner=None):
     inbox_runner = inbox_runner or Runner(sync_inbox_from_page)
     actions = {
@@ -757,7 +760,23 @@ def make_handler(runner, inbox_runner=None):
             self.end_headers()
             self.wfile.write(data)
 
+        def _refuse_foreign(self, post=False):
+            """The API is for the page on this machine only: refuse other Host names (DNS
+            rebinding), cross-site Origins, and non-JSON POSTs (which a website could send
+            without a CORS preflight). Returns True when the request was refused."""
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
+            origin = self.headers.get("Origin")
+            if host not in LOCAL_HOSTS or (origin and urllib.parse.urlsplit(origin).hostname not in LOCAL_HOSTS):
+                self._send(403, {"error": "forbidden"})
+                return True
+            if post and (self.headers.get("Content-Type") or "").split(";")[0].strip() != "application/json":
+                self._send(415, {"error": "send application/json"})
+                return True
+            return False
+
         def do_GET(self):
+            if self._refuse_foreign():
+                return
             if self.path in ("/", "/index.html"):
                 self._send(200, PAGE_PATH.read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/api/data":
@@ -780,6 +799,8 @@ def make_handler(runner, inbox_runner=None):
                 self._send(404, {"error": "not found"})
 
         def do_POST(self):
+            if self._refuse_foreign(post=True):
+                return
             action = actions.get(self.path)
             if action is None:
                 self._send(404, {"error": "not found"})

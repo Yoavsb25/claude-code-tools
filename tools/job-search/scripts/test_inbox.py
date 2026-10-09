@@ -518,3 +518,39 @@ class TestBodyText(unittest.TestCase):
 
     def test_plain_body_entities_decoded(self):
         self.assertIn("we’re", inbox.parse_message(1, make_raw("Hi", "a@b.com", "we&rsquo;re here"))["body"])
+
+
+class TestConcurrentStateEdits(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        job_tool.save_json(inbox.state_path(), {
+            "uidvalidity": 1, "last_uid": 0, "last_sync": None, "ignored": [],
+            "actions": [{"msg_id": "<old>", "row_id": 1, "done": False, "subject": "s", "sender": "x",
+                         "date": "2026-10-01", "kind": "reply"}],
+            "review": [{"msg_id": "<rv>", "candidates": [], "subject": "s", "sender": "x",
+                        "date": "2026-10-01", "kind": "confirmation"}]})
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def test_page_edits_during_sync_survive(self):
+        box = FakeIMAP({5: make_raw("Acme - next steps", "Sam at Acme <sam@acme.com>",
+                                    "Could you share your availability?", msg_id="<i@x>")})
+        real_apply = inbox.apply_to_row
+
+        def apply_while_user_clicks(*a, **k):
+            result = real_apply(*a, **k)
+            inbox.mark_done("<old>")
+            inbox.resolve("<rv>")
+            return result
+
+        with patch("inbox.apply_to_row", side_effect=apply_while_user_clicks):
+            inbox.sync(box, today=TODAY)
+        state = inbox.load_state()
+        self.assertEqual({a["msg_id"]: a["done"] for a in state["actions"]}, {"<old>": True, "<i@x>": False})
+        self.assertEqual(state["review"], [])
+        self.assertIn("<rv>", state["ignored"])

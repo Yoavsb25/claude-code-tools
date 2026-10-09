@@ -24,7 +24,7 @@ EDITABLE = ("status", "tier", "channel", "positioning", "notes", "followup_date"
 # ---- per-row facts ------------------------------------------------------------
 
 def applied(row):
-    return bool(row.get("applied_date")) or row.get("status") != "Shortlisted"
+    return bool(row.get("applied_date")) or row.get("status") not in ("Shortlisted", "Withdrawn")
 
 
 def _status_events(row):
@@ -71,6 +71,13 @@ def breakdown(rows, key):
     return dict(sorted(groups.items(), key=lambda kv: -kv[1]["applied"]))
 
 
+def _first_conversation_date(row):
+    """When this employer first engaged; undo events don't count as engagement."""
+    dates = [e["date"] for e in _status_events(row)
+             if e.get("to") in CONVERSATION_STATUSES and e.get("source") != "undo" and e.get("date")]
+    return min(dates) if dates else None
+
+
 def weekly_kpis(rows, proof, today):
     start = today - timedelta(days=today.weekday())
     end = start + timedelta(days=6)
@@ -82,8 +89,7 @@ def weekly_kpis(rows, proof, today):
     return {
         "week_start": start.isoformat(),
         "applications": sum(1 for row in rows if in_week(row.get("applied_date"))),
-        "conversations": sum(1 for row in rows for e in _status_events(row)
-                             if e.get("to") in CONVERSATION_STATUSES and in_week(e.get("date"))),
+        "conversations": sum(1 for row in rows if in_week(_first_conversation_date(row))),
         "proof": sum(1 for p in proof if in_week(p.get("date"))),
         "targets": WEEKLY_TARGETS,
     }
@@ -174,7 +180,7 @@ def today_view(rows, state, today):
 def update_row(body):
     """The only tracker edit the page can make: whitelisted fields on an existing row."""
     row_id = body.get("id")
-    if not any(row["id"] == row_id for row in job_tool.load_rows()["rows"]):
+    if type(row_id) is not int or not any(row["id"] == row_id for row in job_tool.load_rows()["rows"]):
         return None, f"no tracker row {row_id}"
     patch = {k: v for k, v in body.items() if k != "id"}
     bad = [k for k in patch if k not in EDITABLE]
@@ -182,6 +188,11 @@ def update_row(body):
         return None, f"can't edit {', '.join(bad)} from the page"
     if "status" in patch and not patch["status"]:
         return None, "status can't be empty"
+    followup = patch.get("followup_date")
+    if followup is not None and not (isinstance(followup, str) and job_tool.parse_date(followup)):
+        return None, "followup_date must be a YYYY-MM-DD date"
+    if patch.get("notes") is not None and not isinstance(patch["notes"], str):
+        return None, "notes must be text"
     return job_tool.upsert_tracker_row(dict(patch, id=row_id))
 
 

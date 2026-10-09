@@ -141,3 +141,48 @@ class TestCockpitState(unittest.TestCase):
         self.assertEqual(b["contacts"][1][0]["name"], "Dana Levi")
         self.assertIn("Ghosted", b["options"]["statuses"])
         self.assertEqual(b["options"]["tiers"], [1, 2])
+
+
+class TestCockpitReviewFixes(TestCockpitState):
+    """Regressions for the cockpit whole-branch review."""
+
+    # 1 — value types
+    def test_update_row_rejects_bad_value_types(self):
+        for body, msg in [({"id": 1, "followup_date": 5}, "followup_date"),
+                          ({"id": 1, "followup_date": "next week"}, "followup_date"),
+                          ({"id": 1, "notes": ["x"]}, "notes"),
+                          ({"id": 1, "tier": True}, "invalid tier"),
+                          ({"id": True, "tier": 1}, "no tracker row")]:
+            with self.subTest(body=body):
+                row, err = cockpit.update_row(body)
+                self.assertIsNone(row)
+                self.assertIn(msg, err)
+        self.assertIsNone(cockpit.update_row({"id": 1, "followup_date": "2026-10-20", "notes": "ok"})[1])
+        cockpit.build(TODAY)  # tracker still readable
+
+    # 4 — back to Shortlisted forgets the application
+    def test_back_to_shortlisted_clears_applied_date(self):
+        job_tool.upsert_tracker_row({"company": "New", "role": "SWE"})
+        job_tool.upsert_tracker_row({"company": "New", "role": "SWE", "status": "Applied"}, source="inbox")
+        row, _ = job_tool.undo_last_status(2)
+        self.assertEqual((row["status"], row["applied_date"], row["followup_date"]), ("Shortlisted", None, None))
+        cockpit.update_row({"id": 1, "status": "Shortlisted"})
+        self.assertIsNone(job_tool.load_rows()["rows"][0]["applied_date"])
+
+
+class TestInsightsReviewFixes(unittest.TestCase):
+    # 5 — withdrawn without applying
+    def test_withdrawn_without_applying_is_not_applied(self):
+        self.assertFalse(cockpit.applied(r(1, "A", "Withdrawn")))
+        self.assertTrue(cockpit.applied(r(1, "A", "Withdrawn", "2026-10-01")))
+        self.assertTrue(cockpit.applied(r(1, "A", "Rejected")))
+
+    # 6 — distinct employers, undo ignored
+    def test_weekly_conversations_count_rows_not_events(self):
+        rows = [r(1, "A", "Interviewing", "2026-10-01", events=[
+                    {"date": "2026-10-06", "type": "status", "from": "Applied", "to": "Responded", "source": "inbox"},
+                    {"date": "2026-10-07", "type": "status", "from": "Responded", "to": "Phone Screen", "source": "manual"},
+                    {"date": "2026-10-08", "type": "status", "from": "Phone Screen", "to": "Interviewing", "source": "manual"}]),
+                r(2, "B", "Responded", "2026-10-01", events=[
+                    {"date": "2026-10-08", "type": "status", "from": "Rejected", "to": "Responded", "source": "undo"}])]
+        self.assertEqual(cockpit.weekly_kpis(rows, [], TODAY)["conversations"], 1)
