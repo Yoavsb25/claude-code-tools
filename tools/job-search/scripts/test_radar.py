@@ -65,8 +65,9 @@ class TestExtractYears(unittest.TestCase):
 
 class TestDescriptionText(unittest.TestCase):
     def test_keeps_bullets_separate_and_decodes_escaped_html(self):
+        from jobsearch.fetchconfig import RADAR
         html = "&lt;ul&gt;&lt;li&gt;3+ years of Python&lt;/li&gt;&lt;li&gt;Founded 10 years ago&lt;/li&gt;&lt;/ul&gt;"
-        text = radar.job_tool.description_text(html)
+        text = radar.job_tool.description_text(html, config=RADAR)
         self.assertEqual(text.splitlines(), ["3+ years of Python", "Founded 10 years ago"])
         self.assertEqual(radar.extract_years(text)[0], 3)
 

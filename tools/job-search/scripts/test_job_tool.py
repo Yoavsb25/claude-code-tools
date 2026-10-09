@@ -226,7 +226,7 @@ class TestParseLinkedinDetail(unittest.TestCase):
 
 
 class TestHttpGetHtmlBackoff(unittest.TestCase):
-    @patch("job_tool.urllib.request.urlopen")
+    @patch("jobsearch.http.urllib.request.urlopen")
     def test_success_returns_html(self, mock_urlopen):
         mock_resp = MagicMock()
         mock_resp.read.return_value = b"<html>ok</html>"
@@ -238,15 +238,15 @@ class TestHttpGetHtmlBackoff(unittest.TestCase):
         self.assertIsNone(err)
         mock_urlopen.assert_called_once()
 
-    @patch("job_tool.urllib.request.urlopen")
+    @patch("jobsearch.http.urllib.request.urlopen")
     def test_404_returns_empty_string_no_error(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError("url", 404, "Not Found", None, None)
         html, err = job_tool.http_get_html_backoff("https://example.com/detail/999")
         self.assertEqual(html, "")
         self.assertIsNone(err)
 
-    @patch("job_tool.time.sleep")
-    @patch("job_tool.urllib.request.urlopen")
+    @patch("jobsearch.http.time.sleep")
+    @patch("jobsearch.http.urllib.request.urlopen")
     def test_retries_on_429_then_succeeds(self, mock_urlopen, mock_sleep):
         ok_resp = MagicMock()
         ok_resp.read.return_value = b"<html>recovered</html>"
@@ -261,8 +261,8 @@ class TestHttpGetHtmlBackoff(unittest.TestCase):
         self.assertEqual(mock_urlopen.call_count, 2)
         mock_sleep.assert_called_once()
 
-    @patch("job_tool.time.sleep")
-    @patch("job_tool.urllib.request.urlopen")
+    @patch("jobsearch.http.time.sleep")
+    @patch("jobsearch.http.urllib.request.urlopen")
     def test_gives_up_after_max_retries(self, mock_urlopen, mock_sleep):
         mock_urlopen.side_effect = urllib.error.HTTPError("url", 500, "Server Error", None, None)
         html, err = job_tool.http_get_html_backoff("https://example.com/search")
@@ -283,7 +283,7 @@ class TestCmdSearchLinkedin(unittest.TestCase):
             job_tool.cmd_search_linkedin(args)
         return json.loads(buf.getvalue())
 
-    @patch("job_tool.http_get_html_backoff")
+    @patch("jobsearch.sources.linkedin.http_get_html_backoff")
     def test_maps_cards_into_posting_shape(self, mock_fetch):
         mock_fetch.return_value = (LINKEDIN_SEARCH_HTML_FIXTURE, None)
         out = self._run()
@@ -298,14 +298,14 @@ class TestCmdSearchLinkedin(unittest.TestCase):
         self.assertIn("keywords=backend", called_url)
         self.assertIn("location=Remote", called_url)
 
-    @patch("job_tool.http_get_html_backoff")
+    @patch("jobsearch.sources.linkedin.http_get_html_backoff")
     def test_error_returns_empty_results(self, mock_fetch):
         mock_fetch.return_value = (None, "HTTP 500 from linkedin")
         out = self._run()
         self.assertEqual(out["results"], [])
         self.assertEqual(out["error"], "HTTP 500 from linkedin")
 
-    @patch("job_tool.http_get_html_backoff")
+    @patch("jobsearch.sources.linkedin.http_get_html_backoff")
     def test_jobage_and_remote_flags_mapped(self, mock_fetch):
         mock_fetch.return_value = ("", None)
         self._run(jobage=7, remote="remote")
@@ -327,14 +327,14 @@ class TestCmdSearchLinkedinDetail(unittest.TestCase):
         self.assertIsNone(out["result"])
         self.assertIn("could not parse a job id", out["error"])
 
-    @patch("job_tool.http_get_html_backoff")
+    @patch("jobsearch.sources.linkedin.http_get_html_backoff")
     def test_not_found_returns_error(self, mock_fetch):
         mock_fetch.return_value = ("", None)
         out = self._run("4426311357")
         self.assertIsNone(out["result"])
         self.assertEqual(out["error"], "job not found")
 
-    @patch("job_tool.http_get_html_backoff")
+    @patch("jobsearch.sources.linkedin.http_get_html_backoff")
     def test_parses_detail_on_success(self, mock_fetch):
         mock_fetch.return_value = (LINKEDIN_DETAIL_HTML_FIXTURE, None)
         out = self._run("https://www.linkedin.com/jobs/view/staff-backend-engineer-at-acme-4426311357")
@@ -365,18 +365,16 @@ class TestSaveJson(unittest.TestCase):
 
 
 class TempStateDirTestCase(unittest.TestCase):
-    """Isolates job_tool's file-backed commands (profile/tracker/network) from the real
-    ~/job-search-data directory by pointing state_dir() at a temp directory for the test."""
+    """Isolates file-backed commands (profile/tracker/network) from the real
+    ~/job-search-data directory via JOB_SEARCH_DIR (read by jobsearch.store.state_dir)."""
 
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
-        self._state_patcher = patch.object(
-            job_tool, "state_dir", return_value=Path(self._tmpdir.name)
-        )
-        self._state_patcher.start()
+        self._env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self._tmpdir.name})
+        self._env.start()
 
     def tearDown(self):
-        self._state_patcher.stop()
+        self._env.stop()
         self._tmpdir.cleanup()
 
     def _run_json(self, func, args):
@@ -699,9 +697,9 @@ class TestCmdSearchDiscoverAts(unittest.TestCase):
             job_tool.cmd_search_discover_ats(args)
         return json.loads(buf.getvalue())
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.ats.http_get_json")
     def test_high_confidence_when_postings_found(self, mock_get):
-        def fake_get(url):
+        def fake_get(url, config=None, **kwargs):
             if "boards-api.greenhouse.io" in url:
                 return {"jobs": [{"title": "Backend Engineer", "absolute_url": "https://x", "departments": []}]}, None
             return None, "HTTP 404"
@@ -712,7 +710,7 @@ class TestCmdSearchDiscoverAts(unittest.TestCase):
         self.assertEqual(out["detected_platform"], "greenhouse")
         self.assertEqual(len(out["results"]), 1)
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.ats.http_get_json")
     def test_low_confidence_when_board_resolves_with_zero_postings(self, mock_get):
         mock_get.return_value = ({"jobs": []}, None)
 
@@ -720,7 +718,7 @@ class TestCmdSearchDiscoverAts(unittest.TestCase):
         self.assertEqual(out["confidence"], "low")
         self.assertEqual(out["detected_platform"], "greenhouse")
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.ats.http_get_json")
     def test_none_confidence_when_nothing_resolves(self, mock_get):
         mock_get.return_value = (None, "HTTP 404")
 
@@ -864,7 +862,7 @@ class TestResolveFacetIds(unittest.TestCase):
 
 
 class TestFetchWorkdayFacets(unittest.TestCase):
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_requests_minimal_page_and_returns_facets(self, mock_post):
         mock_post.return_value = ({"total": 2678, "jobPostings": [{"title": "X"}], "facets": WORKDAY_FACETS_FIXTURE}, None)
         facets, err = job_tool.fetch_workday_facets(TENANT_INFO_FIXTURE["api_base"])
@@ -875,14 +873,14 @@ class TestFetchWorkdayFacets(unittest.TestCase):
         self.assertEqual(call_args[0][1]["limit"], 1)
         self.assertEqual(call_args[0][1]["appliedFacets"], {})
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_error_propagates(self, mock_post):
         mock_post.return_value = (None, "HTTP 500 from acme")
         facets, err = job_tool.fetch_workday_facets(TENANT_INFO_FIXTURE["api_base"])
         self.assertIsNone(facets)
         self.assertEqual(err, "HTTP 500 from acme")
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_missing_facets_key_gives_empty_list_not_error(self, mock_post):
         mock_post.return_value = ({"total": 0, "jobPostings": []}, None)
         facets, err = job_tool.fetch_workday_facets(TENANT_INFO_FIXTURE["api_base"])
@@ -892,8 +890,8 @@ class TestFetchWorkdayFacets(unittest.TestCase):
 
 
 class TestFetchWorkdayPostings(unittest.TestCase):
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_paginates_then_fetches_detail_for_every_posting(self, mock_post, mock_get):
         # Two pages of one posting each, since WORKDAY_PAGE_SIZE is fixed at 20 and this test
         # only needs to prove the offset loop runs until it reaches `total`.
@@ -918,22 +916,22 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         self.assertEqual(by_title["A"]["source"], "workday")
         self.assertEqual(by_title["A"]["company"], "Acme Corp")
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_search_error_propagates_without_detail_fetch(self, mock_post):
         mock_post.return_value = (None, "HTTP 500 from acme")
         results, err = job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE)
         self.assertEqual(results, [])
         self.assertEqual(err, "HTTP 500 from acme")
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_zero_postings_is_not_an_error(self, mock_post):
         mock_post.return_value = ({"total": 0, "jobPostings": []}, None)
         results, err = job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE)
         self.assertEqual(results, [])
         self.assertIsNone(err)
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_all_detail_fetches_failing_is_reported_as_error(self, mock_post, mock_get):
         mock_post.return_value = (
             {"total": 1, "jobPostings": [{"title": "A", "externalPath": "/job/A", "locationsText": "X", "postedOn": "Posted Today"}]},
@@ -944,8 +942,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         self.assertEqual(results, [])
         self.assertIn("detail fetch", err)
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_respects_max_scanned_cap(self, mock_post, mock_get):
         page = {
             "total": 100,
@@ -961,8 +959,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         self.assertIsNone(err)
         self.assertLessEqual(mock_get.call_count, 25)
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_job_family_groups_resolved_and_applied_server_side(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),  # facets discovery call
@@ -979,8 +977,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         search_call_body = mock_post.call_args_list[1][0][1]
         self.assertEqual(set(search_call_body["appliedFacets"]["jobFamilyGroup"]), {"cat-eng", "cat-research"})
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_location_hint_resolved_to_exact_facet_id_not_substring_matched(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
@@ -996,8 +994,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         search_call_body = mock_post.call_args_list[1][0][1]
         self.assertEqual(search_call_body["appliedFacets"]["locationHierarchy1"], ["loc-uk"])
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_both_filters_combined_in_one_applied_facets_dict(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
@@ -1010,8 +1008,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         self.assertEqual(search_call_body["appliedFacets"]["jobFamilyGroup"], ["cat-eng"])
         self.assertEqual(search_call_body["appliedFacets"]["locationHierarchy1"], ["loc-uk"])
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_unmatched_location_hint_falls_back_to_no_location_filter(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
@@ -1021,15 +1019,15 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         search_call_body = mock_post.call_args_list[1][0][1]
         self.assertNotIn("locationHierarchy1", search_call_body["appliedFacets"])
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_facets_discovery_error_propagates(self, mock_post):
         mock_post.return_value = (None, "HTTP 500 from acme")
         results, err = job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, location_hint="United Kingdom")
         self.assertEqual(results, [])
         self.assertEqual(err, "HTTP 500 from acme")
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_no_hint_or_groups_skips_facets_discovery_entirely(self, mock_post, mock_get):
         # Backward-compat: a plain call with neither filter must not spend the extra facets
         # request at all -- same call count as before this feature existed.
@@ -1037,8 +1035,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE)
         self.assertEqual(mock_post.call_count, 1)
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_no_location_hint_keeps_pagination_and_detail_fetch_on_the_same_small_budget(self, mock_post, mock_get):
         # Without a hint, behavior must be unchanged from before this feature existed: pagination
         # stops at max_scanned just like the detail-fetch stage does.
@@ -1055,8 +1053,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         job_tool.fetch_workday_postings(TENANT_INFO_FIXTURE, limit=25, max_scanned=20)
         self.assertEqual(mock_post.call_count, 1)  # stopped after the first page since max_scanned=20 < page size
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_facet_applied_still_respects_max_scanned_cap_during_pagination(self, mock_post, mock_get):
         # Regression test: pagination must stop at max_scanned even when a facet is applied --
         # there is no longer a separate, larger pagination budget (WORKDAY_PAGINATION_CAP was
@@ -1084,8 +1082,8 @@ class TestFetchWorkdayPostings(unittest.TestCase):
         self.assertLessEqual(mock_post.call_count, 3)
         self.assertLessEqual(mock_get.call_count, 25)
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_unmatched_job_family_groups_falls_back_to_no_category_filter(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": WORKDAY_FACETS_FIXTURE}, None),
@@ -1107,8 +1105,8 @@ class TestCmdSearchDiscoverWorkday(unittest.TestCase):
             job_tool.cmd_search_discover_workday(args)
         return json.loads(buf.getvalue())
 
-    @patch("job_tool.http_post_json")
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.workday.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_html")
     def test_detects_tenant_from_career_page_html_and_fetches_postings(self, mock_html, mock_post):
         mock_html.return_value = (
             '<html><a href="https://acme.wd1.myworkdayjobs.com/Acme">Careers</a></html>', None,
@@ -1123,13 +1121,13 @@ class TestCmdSearchDiscoverWorkday(unittest.TestCase):
         mock_html.assert_called_once_with("https://acme.com/careers")
 
     def test_url_that_is_already_a_workday_link_skips_html_fetch(self):
-        with patch("job_tool.http_get_html") as mock_html, patch("job_tool.http_post_json") as mock_post:
+        with patch("jobsearch.sources.workday.http_get_html") as mock_html, patch("jobsearch.sources.workday.http_post_json") as mock_post:
             mock_post.return_value = ({"total": 0, "jobPostings": []}, None)
             out = self._run("https://acme.wd1.myworkdayjobs.com/Acme/job/some-role_JOBREQ-1", company="Acme Corp")
             mock_html.assert_not_called()
             self.assertEqual(out["detected_slug"], "acme/wd1/Acme")
 
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.workday.http_get_html")
     def test_no_workday_link_in_html_gives_none_confidence_not_error(self, mock_html):
         mock_html.return_value = ("<html>plain marketing content, no ATS link</html>", None)
         out = self._run("https://acme.com/careers", company="Acme Corp")
@@ -1138,15 +1136,15 @@ class TestCmdSearchDiscoverWorkday(unittest.TestCase):
         self.assertIsNone(out["error"])
         self.assertEqual(out["results"], [])
 
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.workday.http_get_html")
     def test_career_page_fetch_failure_is_reported_as_error(self, mock_html):
         mock_html.return_value = (None, "HTTP 404 from acme.com")
         out = self._run("https://acme.com/careers", company="Acme Corp")
         self.assertEqual(out["confidence"], "none")
         self.assertEqual(out["error"], "HTTP 404 from acme.com")
 
-    @patch("job_tool.http_post_json")
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.workday.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_html")
     def test_job_family_groups_flag_is_passed_through(self, mock_html, mock_post):
         mock_html.return_value = (
             '<html><a href="https://acme.wd1.myworkdayjobs.com/Acme">Careers</a></html>', None,
@@ -1172,14 +1170,14 @@ class TestCmdSearchWorkdayJobs(unittest.TestCase):
         return json.loads(buf.getvalue())
 
     def test_malformed_slug_errors_without_network_call(self):
-        with patch("job_tool.http_post_json") as mock_post:
+        with patch("jobsearch.sources.workday.http_post_json") as mock_post:
             out = self._run("not-a-valid-slug")
             mock_post.assert_not_called()
             self.assertIn("--slug must be", out["error"])
             self.assertEqual(out["results"], [])
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_valid_slug_fetches_directly_without_html_lookup(self, mock_post, mock_get):
         mock_post.return_value = (
             {"total": 1, "jobPostings": [{"title": "A", "externalPath": "/job/A", "locationsText": "London, United Kingdom", "postedOn": "Posted Today"}]},
@@ -1187,15 +1185,15 @@ class TestCmdSearchWorkdayJobs(unittest.TestCase):
         )
         mock_get.return_value = ({"jobPostingInfo": {"title": "A", "location": "London, United Kingdom"}}, None)
 
-        with patch("job_tool.http_get_html") as mock_html:
+        with patch("jobsearch.sources.workday.http_get_html") as mock_html:
             out = self._run("acme/wd1/Acme", company="Acme Corp")
             mock_html.assert_not_called()
         self.assertIsNone(out["error"])
         self.assertEqual(len(out["results"]), 1)
         self.assertEqual(out["results"][0]["company"], "Acme Corp")
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.workday.http_get_json")
+    @patch("jobsearch.sources.workday.http_post_json")
     def test_job_family_groups_flag_is_passed_through(self, mock_post, mock_get):
         mock_post.side_effect = [
             ({"total": 0, "jobPostings": [], "facets": []}, None),
@@ -1243,7 +1241,7 @@ class TestDetectComeetConfig(unittest.TestCase):
 
 
 class TestFetchComeetPostings(unittest.TestCase):
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_maps_postings_into_posting_shape(self, mock_get):
         mock_get.return_value = (COMEET_POSITIONS_FIXTURE, None)
         results, err = job_tool.fetch_comeet_postings("TOKEN123", "93.007")
@@ -1263,25 +1261,25 @@ class TestFetchComeetPostings(unittest.TestCase):
         self.assertIn("token=TOKEN123", called_url)
 
     def test_explicit_company_overrides_api_company_name(self):
-        with patch("job_tool.http_get_json", return_value=(COMEET_POSITIONS_FIXTURE, None)):
+        with patch("jobsearch.sources.comeet.http_get_json", return_value=(COMEET_POSITIONS_FIXTURE, None)):
             results, _ = job_tool.fetch_comeet_postings("T", "U", company="Acme Sandbox")
         self.assertEqual(results[0]["company"], "Acme Sandbox")
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_error_propagates(self, mock_get):
         mock_get.return_value = (None, "HTTP 500 from comeet")
         results, err = job_tool.fetch_comeet_postings("T", "U")
         self.assertEqual(results, [])
         self.assertEqual(err, "HTTP 500 from comeet")
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_zero_postings_is_not_an_error(self, mock_get):
         mock_get.return_value = ([], None)
         results, err = job_tool.fetch_comeet_postings("T", "U")
         self.assertEqual(results, [])
         self.assertIsNone(err)
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_query_filters_by_title(self, mock_get):
         mock_get.return_value = (COMEET_POSITIONS_FIXTURE, None)
         results, _ = job_tool.fetch_comeet_postings("T", "U", query="solution")
@@ -1289,7 +1287,7 @@ class TestFetchComeetPostings(unittest.TestCase):
         results, _ = job_tool.fetch_comeet_postings("T", "U", query="nonexistent role")
         self.assertEqual(results, [])
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_unexpected_response_shape_is_an_error_not_a_crash(self, mock_get):
         mock_get.return_value = ({"not": "a list"}, None)
         results, err = job_tool.fetch_comeet_postings("T", "U")
@@ -1305,8 +1303,8 @@ class TestCmdSearchDiscoverComeet(unittest.TestCase):
             job_tool.cmd_search_discover_comeet(args)
         return json.loads(buf.getvalue())
 
-    @patch("job_tool.http_get_json")
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.comeet.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_html")
     def test_detects_config_and_fetches_postings(self, mock_html, mock_get):
         mock_html.return_value = (COMEET_INIT_HTML, None)
         mock_get.return_value = (COMEET_POSITIONS_FIXTURE, None)
@@ -1318,7 +1316,7 @@ class TestCmdSearchDiscoverComeet(unittest.TestCase):
         self.assertIsNone(out["error"])
         self.assertEqual(len(out["results"]), 1)
 
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.comeet.http_get_html")
     def test_no_comeet_widget_gives_none_confidence_not_error(self, mock_html):
         mock_html.return_value = ("<html>plain marketing content</html>", None)
         out = self._run("https://acme.com/careers", company="Acme Corp")
@@ -1327,7 +1325,7 @@ class TestCmdSearchDiscoverComeet(unittest.TestCase):
         self.assertIsNone(out["error"])
         self.assertEqual(out["results"], [])
 
-    @patch("job_tool.http_get_html")
+    @patch("jobsearch.sources.comeet.http_get_html")
     def test_career_page_fetch_failure_is_reported_as_error(self, mock_html):
         mock_html.return_value = (None, "HTTP 404 from acme.com")
         out = self._run("https://acme.com/careers", company="Acme Corp")
@@ -1344,16 +1342,16 @@ class TestCmdSearchComeetJobs(unittest.TestCase):
         return json.loads(buf.getvalue())
 
     def test_malformed_slug_errors_without_network_call(self):
-        with patch("job_tool.http_get_json") as mock_get:
+        with patch("jobsearch.sources.comeet.http_get_json") as mock_get:
             out = self._run("not-a-valid-slug")
             mock_get.assert_not_called()
         self.assertIn("--slug must be", out["error"])
         self.assertEqual(out["results"], [])
 
-    @patch("job_tool.http_get_json")
+    @patch("jobsearch.sources.comeet.http_get_json")
     def test_valid_slug_fetches_directly_without_html_lookup(self, mock_get):
         mock_get.return_value = (COMEET_POSITIONS_FIXTURE, None)
-        with patch("job_tool.http_get_html") as mock_html:
+        with patch("jobsearch.sources.comeet.http_get_html") as mock_html:
             out = self._run("TOKEN123:93.007", company="Acme Corp")
             mock_html.assert_not_called()
         self.assertIsNone(out["error"])
@@ -1388,13 +1386,13 @@ class TestCmdSearchJobsIndex(unittest.TestCase):
         return json.loads(buf.getvalue())
 
     def test_no_token_errors_without_network_call(self):
-        with patch.dict("os.environ", {}, clear=True), patch("job_tool.http_post_json") as mock_post:
+        with patch.dict("os.environ", {}, clear=True), patch("jobsearch.sources.boards.http_post_json") as mock_post:
             out = self._run()
             mock_post.assert_not_called()
         self.assertIn("APIFY_TOKEN not set", out["error"])
         self.assertEqual(out["results"], [])
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.boards.http_post_json")
     def test_builds_payload_from_all_filters_and_maps_results(self, mock_post):
         mock_post.return_value = (
             [{
@@ -1436,7 +1434,7 @@ class TestCmdSearchJobsIndex(unittest.TestCase):
         self.assertEqual(result["tags"], ["Technology"])
         self.assertEqual(result["salary"], "80000-100000 GBP per year")
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.boards.http_post_json")
     def test_apify_error_propagates(self, mock_post):
         mock_post.return_value = (None, "HTTP 401 from apify.com")
         with patch.dict("os.environ", {"APIFY_TOKEN": "secret"}, clear=True):
@@ -1444,7 +1442,7 @@ class TestCmdSearchJobsIndex(unittest.TestCase):
         self.assertEqual(out["results"], [])
         self.assertEqual(out["error"], "HTTP 401 from apify.com")
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.boards.http_post_json")
     def test_no_filters_still_sends_time_range_and_limit_only(self, mock_post):
         mock_post.return_value = ([], None)
         with patch.dict("os.environ", {"APIFY_TOKEN": "secret"}, clear=True):
@@ -1452,7 +1450,7 @@ class TestCmdSearchJobsIndex(unittest.TestCase):
         payload = mock_post.call_args[0][1]
         self.assertEqual(payload, {"timeRange": "6m", "limit": 25})
 
-    @patch("job_tool.http_post_json")
+    @patch("jobsearch.sources.boards.http_post_json")
     def test_limit_below_actor_minimum_is_clamped_to_10(self, mock_post):
         # Verified directly against the live Actor: it 400s on limit < 10. A caller passing a
         # smaller --limit (e.g. trying to be cost-conscious) must not hit that raw error.

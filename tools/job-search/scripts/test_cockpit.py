@@ -4,7 +4,7 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-import cockpit
+from jobsearch import cockpit
 import job_tool
 
 TODAY = date(2026, 10, 9)  # Friday; the week started Monday 2026-10-05

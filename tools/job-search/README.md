@@ -5,6 +5,25 @@ Runs the end-to-end job hunt: finds current openings matching a personalized pro
 bookkeeping script, and hands off to `resume-tailor` (and `github-project-picker`) for any role
 worth pursuing.
 
+## Code layout
+
+CLI entry points stay at the top of `scripts/` (`job_tool.py`, `radar.py`, `inbox.py`). Logic
+lives in the `scripts/jobsearch/` package:
+
+| Module | Purpose |
+|---|---|
+| `store.py` | State directory, JSON load/save, dates |
+| `text.py` | HTML cleanup, company-name normalization, `posting()` |
+| `fetchconfig.py` | Timeout / description options for board fetches |
+| `http.py` | `http_get_json` / HTML helpers |
+| `tracker.py` / `profile.py` / `network.py` | Application tracker, preferences, LinkedIn connections |
+| `sources/` | ATS, Workday, Comeet, LinkedIn, Remotive/Arbeitnow/Apify |
+| `radar_enrich.py` / `radar_merge.py` | Years/level/skills tagging and radar.json merge |
+| `inbox_mail.py` | Email classify/match (IMAP stays in `inbox.py`) |
+| `cockpit.py` | Today / Pipeline / Insights views for the Radar page |
+
+`job_tool.py` re-exports package names so existing callers and tests keep working.
+
 ## How it works
 
 1. **Load state** — reads the stored personalization profile and the current tracker via
