@@ -115,6 +115,11 @@
       <input type="search" id="q" placeholder="Search title, company, text…" aria-label="Search">
     </div>
     <div class="group">
+      <h3>Skills fit: ≥ <span id="fitVal"></span></h3>
+      <input type="range" id="minFit" min="0" max="100" step="10" aria-label="Minimum skills fit">
+      <label class="check"><input type="checkbox" id="includeUnscored"> Include roles that can't be scored</label>
+    </div>
+    <div class="group">
       <h3>Years required: ≤ <span id="yearsVal"></span></h3>
       <input type="range" id="maxYears" min="0" max="10" step="1" aria-label="Maximum years required">
       <label class="check"><input type="checkbox" id="includeUnknown"> Include roles that don't say</label>
@@ -124,6 +129,7 @@
       <label class="check"><input type="checkbox" id="newOnly"> New since last visit</label>
       <label class="check"><input type="checkbox" id="showClosed"> Include closed postings</label>
       <label class="check"><input type="checkbox" id="hideRecruiters"> Hide recruitment agencies</label>
+      <label class="check"><input type="checkbox" id="hideOtherLanguage"> Hide roles needing another language</label>
     </div>
     <div class="group">
       <h3>Role family</h3>
@@ -148,6 +154,7 @@
     <div class="group">
       <h3>Sort</h3>
       <select class="field" id="sort">
+        <option value="fit">Best fit first</option>
         <option value="new">Newest first</option>
         <option value="years">Fewest years first</option>
         <option value="company">Company A–Z</option>
@@ -159,14 +166,16 @@
 </main>
 
 <script>
-const FAMILIES = ["AI/FDE", "Platform/DevEx", "SWE", "Solutions", "TPM/Program", "Data/ML", "QA/Automation", "Security/IT", "Product", "Other", "Non-tech"];
+const FAMILIES = ["AI/FDE", "DevEx/Tools", "Infra/DevOps", "SWE", "Solutions", "TPM/Program", "Data/ML", "QA/Automation", "Mobile", "Security/IT", "Product", "Other", "Non-tech"];
 const LEVELS = ["intern", "entry", "junior", "mid", "mid/senior", "unknown", "senior", "staff+", "manager"];
 const HIDE_REASONS = ["too senior", "wrong work", "pay", "company", "other"];
 const DEFAULTS = {
   q: "", maxYears: 3, includeUnknown: true, newOnly: false, showClosed: false, hideRecruiters: true,
-  families: FAMILIES.filter(f => f !== "Non-tech"),
-  levels: LEVELS.filter(l => !["senior", "staff+", "manager"].includes(l)),
-  sources: null, minSalary: 0, salaryOnly: false, sort: "new",
+  hideOtherLanguage: true, minFit: 60, includeUnscored: false,
+  // The role families in profile.json; the rest are one click away.
+  families: ["AI/FDE", "DevEx/Tools", "SWE", "Solutions", "TPM/Program", "QA/Automation"],
+  levels: LEVELS.filter(l => !["intern", "senior", "staff+", "manager"].includes(l)),
+  sources: null, minSalary: 0, salaryOnly: false, sort: "fit",
 };
 const PAGE_SIZE = 120;
 
@@ -175,11 +184,11 @@ const openKeys = new Set();
 let filters = loadFilters();
 
 function loadFilters() {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem("radar-filters") || "{}") }; }
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem("radar-filters-v3") || "{}") }; }
   catch { return { ...DEFAULTS }; }
 }
 function storeFilters() {
-  try { localStorage.setItem("radar-filters", JSON.stringify(filters)); } catch {}
+  try { localStorage.setItem("radar-filters-v3", JSON.stringify(filters)); } catch {}
 }
 
 function el(tag, attrs = {}, ...children) {
@@ -259,12 +268,16 @@ function chipGroup(id, values, key) {
 
 function renderFilters() {
   document.getElementById("q").value = filters.q;
+  document.getElementById("minFit").value = filters.minFit;
+  document.getElementById("fitVal").textContent = filters.minFit;
+  document.getElementById("includeUnscored").checked = filters.includeUnscored;
   document.getElementById("maxYears").value = filters.maxYears;
   document.getElementById("yearsVal").textContent = filters.maxYears >= 10 ? "any" : filters.maxYears;
   document.getElementById("includeUnknown").checked = filters.includeUnknown;
   document.getElementById("newOnly").checked = filters.newOnly;
   document.getElementById("showClosed").checked = filters.showClosed;
   document.getElementById("hideRecruiters").checked = filters.hideRecruiters;
+  document.getElementById("hideOtherLanguage").checked = filters.hideOtherLanguage;
   document.getElementById("minSalary").value = filters.minSalary;
   document.getElementById("salaryOnly").checked = filters.salaryOnly;
   document.getElementById("sort").value = filters.sort;
@@ -285,6 +298,10 @@ function matches(p) {
   if (!f.showClosed && p.closed) return false;
   if (f.newOnly && !isNew(p)) return false;
   if (f.hideRecruiters && (p.flags || []).includes("recruiter")) return false;
+  if (f.hideOtherLanguage && (p.flags || []).includes("other_language")) return false;
+  if (p.fit === null || p.fit === undefined) {
+    if (!f.includeUnscored) return false;
+  } else if (p.fit < f.minFit) return false;
   if (p.years_min === null || p.years_min === undefined) {
     if (!f.includeUnknown) return false;
   } else if (f.maxYears < 10 && p.years_min > f.maxYears) return false;
@@ -302,6 +319,7 @@ function matches(p) {
 
 function sortPostings(list) {
   const by = {
+    fit: (a, b) => (b.fit ?? -1) - (a.fit ?? -1) || (b.first_seen || "").localeCompare(a.first_seen || ""),
     new: (a, b) => (b.first_seen || "").localeCompare(a.first_seen || "") || (a.years_min ?? 99) - (b.years_min ?? 99),
     years: (a, b) => (a.years_min ?? 99) - (b.years_min ?? 99) || (b.first_seen || "").localeCompare(a.first_seen || ""),
     company: (a, b) => (a.company || "").localeCompare(b.company || "") || a.title.localeCompare(b.title),
@@ -313,6 +331,21 @@ function yearsBadge(p) {
   if (p.years_min === null || p.years_min === undefined) return el("span", { class: "badge" }, "? yrs");
   const cls = p.years_min <= 2 ? "good" : p.years_min <= 3 ? "warn" : "bad";
   return el("span", { class: `badge ${cls}` }, `${p.years_min}+ yrs`);
+}
+
+function fitBadge(p) {
+  if (p.fit === null || p.fit === undefined) return el("span", { class: "badge" }, "fit ?");
+  const cls = p.fit >= 70 ? "good" : p.fit >= 50 ? "warn" : "bad";
+  return el("span", { class: `badge ${cls}` }, p.fit_blocker ? `needs ${p.fit_blocker}` : `fit ${p.fit}`);
+}
+
+function skillsLine(p) {
+  if (p.fit === null || p.fit === undefined) {
+    return el("div", { class: "evidence" }, el("b", {}, "Skills fit"),
+      p.description ? "The job ad doesn't name any technologies." : "No job ad text fetched yet, so it can't be scored.");
+  }
+  return el("div", { class: "evidence" }, el("b", {}, `Skills fit ${p.fit}`),
+    [...(p.fit_have || []).map(s => `✓ ${s}`), ...(p.fit_missing || []).map(s => `✗ ${s}`)].join("  ·  "));
 }
 
 function card(p) {
@@ -336,6 +369,7 @@ function card(p) {
 
   const badges = el("div", { class: "badges" },
     isNew(p) && el("span", { class: "badge new" }, "NEW"),
+    fitBadge(p),
     yearsBadge(p),
     el("span", { class: "badge" }, p.role_family),
     p.level !== "unknown" && el("span", { class: "badge" }, p.level),
@@ -343,6 +377,7 @@ function card(p) {
     el("span", { class: "badge" }, (p.sources || [p.source]).join(" + ")),
     p.flags && p.flags.includes("deal_breaker") && el("span", { class: "badge bad" }, "gambling?"),
     p.flags && p.flags.includes("recruiter") && el("span", { class: "badge warn" }, "agency"),
+    p.flags && p.flags.includes("other_language") && el("span", { class: "badge warn" }, "other language"),
     p.closed && el("span", { class: "badge bad" }, "closed"),
     el("span", { class: "badge" }, `seen ${p.first_seen}`),
   );
@@ -355,6 +390,7 @@ function card(p) {
   }, el("div", {}, el("div", { class: "title" }, p.title), el("div", { class: "sub" }, `${p.company} · ${p.location || "—"}`), badges), actions));
 
   const detail = el("div", { class: "detail" },
+    skillsLine(p),
     p.years_evidence
       ? el("div", { class: "evidence" }, el("b", {}, `Why "${p.years_min}+ yrs"`), p.years_evidence)
       : el("div", { class: "evidence" }, el("b", {}, "Years"), p.description ? "The job ad doesn't state a number of years." : "No job ad text fetched yet (LinkedIn details are capped per day)."),
@@ -399,7 +435,7 @@ function render() {
   content.replaceChildren(
     ...notices,
     el("div", { class: "summary" }, el("div", {}, ...heading)),
-    list.length ? listEl : el("div", { class: "empty" }, tab === "roles" ? "Nothing matches. Try loosening the years slider or level filters." : "Nothing here yet."),
+    list.length ? listEl : el("div", { class: "empty" }, tab === "roles" ? "Nothing matches. Try lowering the skills fit or years sliders." : "Nothing here yet."),
     list.length > shown && el("button", { class: "btn more", type: "button", onclick: () => { shown += PAGE_SIZE; render(); } }, `Show ${Math.min(PAGE_SIZE, list.length - shown)} more`),
   );
 }
@@ -504,7 +540,8 @@ document.getElementById("q").addEventListener("input", e => {
   qTimer = setTimeout(() => { filters.q = e.target.value.trim(); changed(); }, 150);
 });
 document.getElementById("maxYears").addEventListener("input", e => { filters.maxYears = Number(e.target.value); changed(); });
-for (const id of ["includeUnknown", "newOnly", "showClosed", "salaryOnly", "hideRecruiters"]) {
+document.getElementById("minFit").addEventListener("input", e => { filters.minFit = Number(e.target.value); changed(); });
+for (const id of ["includeUnscored", "includeUnknown", "newOnly", "showClosed", "salaryOnly", "hideRecruiters", "hideOtherLanguage"]) {
   document.getElementById(id).addEventListener("change", e => { filters[id] = e.target.checked; changed(); });
 }
 document.getElementById("minSalary").addEventListener("change", e => { filters.minSalary = Number(e.target.value); changed(); });

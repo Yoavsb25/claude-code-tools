@@ -83,7 +83,10 @@ LEVEL_RULES = [
     ("intern", r"\bintern(ship)?\b|\bplacement\b"),
     ("entry", r"\bgraduate\b|\bnew grad\b|\bentry[- ]level\b|\bapprentice"),
     ("staff+", r"\bstaff\b|\bprincipal\b|\bdistinguished\b|\barchitect\b"),
-    ("manager", r"\bhead of\b|\bdirector\b|\bvp\b|\bvice president\b|\bengineering manager\b|^manager\b"),
+    # Any people/function manager; product, program, project, delivery and account managers are
+    # job titles, not a level.
+    ("manager", r"\bhead of\b|\bdirector\b|\bvp\b|\bvice president\b|\bmgr\b|"
+                r"(?<!product )(?<!program )(?<!programme )(?<!project )(?<!delivery )(?<!account )\bmanager\b"),
     ("senior", r"\bsenior\b|\bsr\.?\b|\blead\b|\biii\b|\biv\b"),
     ("junior", r"\bjunior\b|\bjr\.?\b|\bassociate\b|\b(?:engineer|developer) i\b"),
     ("mid", r"\bmid[- ]?level\b|\bii\b"),
@@ -96,14 +99,17 @@ LINKEDIN_SENIORITY_LEVELS = {
 # First match on the title wins; order matters (e.g. "AI solutions engineer" -> AI/FDE).
 ROLE_FAMILY_RULES = [
     ("Product", r"product manager|product owner|\bpm\b"),
+    # Before AI/FDE so "Research Scientist - Generative Audio" isn't read as an AI engineering role.
+    ("Data/ML", r"scientist|\bresearch(?:er)?\b"),
+    ("Mobile", r"\bandroid\b|\bios\b|\bmobile\b|react native|\bflutter\b|\bkotlin\b|\bswift\b"),
     ("AI/FDE", r"\bai\b|\bllm\b|\bgenai\b|\bgenerative\b|forward[- ]deployed|deployed engineer|\bagents?\b|applied ai"),
-    ("Platform/DevEx", r"platform|devops|\bsre\b|reliability|infrastructure|developer experience|devex|"
-                       r"developer productivity|internal tools|build|release|cloud engineer|tooling"),
+    ("DevEx/Tools", r"developer experience|devex|developer productivity|internal tools|tooling|build|release"),
+    ("Infra/DevOps", r"platform|devops|devsecops|\bsre\b|reliability|infrastructure|cloud engineer|kubernetes"),
     ("Solutions", r"solutions?|deployment strategist|technical success|customer engineer|sales engineer|implementation|integration engineer|"
                   r"technical account|support engineer|pre-?sales|consultant"),
     ("TPM/Program", r"program(?:me)? (?:manager|management|lead)|project manager|delivery manager|\btpm\b|scrum|chief of staff"),
     ("Security/IT", r"security|\biam\b|\bgrc\b|\bit (?:manager|support|analyst|engineer)|"
-                    r"systems analyst|infosec|\bsoc\b|technical writer"),
+                    r"systems analyst|infosec|\bsoc\b"),
     ("Data/ML", r"\bdata\b|machine learning|\bml\b|analytics|scientist|research engineer"),
     ("QA/Automation", r"\bqa\b|quality|\btest|\bsdet\b|automation"),
     ("SWE", r"engineer|developer|programmer|swe\b|full[- ]?stack|backend|back-end|frontend|front-end"),
@@ -123,9 +129,14 @@ NON_TECH_RE = re.compile(
     r"operations (?:associate|executive)|surveillance|summer intern|\bsdr\b|\bbdr\b|"
     r"market operations|general application|general opportunities|register your interest|"
     r"engagement manager|pricing|payments control|floor manager|production manager|"
-    r"property|\bpa\b|freelance",
+    r"property|\bpa\b|freelance|martech|account executive|technical writer",
     re.IGNORECASE,
 )
+# "Solutions Engineer (German speaking)": a separate posting per language. English and Hebrew are fine.
+_LANGUAGES = (r"(?:french|german|spanish|italian|dutch|portuguese|arabic|nordic|swedish|danish|norwegian|"
+              r"finnish|polish|turkish|greek|russian|japanese|mandarin|chinese|korean|hindi|czech|hungarian|romanian)")
+OTHER_LANGUAGE_RE = re.compile(r"\b" + _LANGUAGES + r"[- ]speak(?:ing|er)\b|\bfluent (?:in )?" + _LANGUAGES + r"\b",
+                               re.IGNORECASE)
 DEAL_BREAKER_RE = re.compile(r"\b(?:gambling|betting|casino|sportsbook|igaming|poker)\b", re.IGNORECASE)
 
 # Recruitment agencies post the same roles as the companies, but vaguer ("our client") and often
@@ -153,7 +164,57 @@ UK_REMOTE_RE = re.compile(r"united kingdom|\buk\b|england|emea|europe", re.IGNOR
 # ---- enrichment (pure functions) --------------------------------------------
 
 # "5+ years of X is a plus" is not a requirement; don't let it mark a role as too senior.
-NICE_TO_HAVE_RE = re.compile(r"\bis a plus\b|nice[- ]to[- ]have|\bbonus\b|\bdesirable\b", re.IGNORECASE)
+NICE_TO_HAVE_RE = re.compile(r"\bis a plus\b|nice[- ]to[- ]have|\bbonus\b|\bdesirable\b|\bideally\b|\bpreferred\b",
+                             re.IGNORECASE)
+
+# Skills a job ad can ask for: (name, regex for the job ad, regex for profile.json skills).
+# The profile regex defaults to the job-ad one. Whether you have a skill comes from profile.json,
+# so adding a skill there changes the scores on the next refresh.
+SKILLS = [
+    ("Python", r"\bpython\b", None),
+    ("TypeScript", r"\btypescript\b", None),
+    ("JavaScript", r"\bjavascript\b", None),
+    ("Go", r"\bgolang\b|(?-i:\bGo\b)(?![- ](?:live|to|beyond|further|above|fast)\b)", r"\bgo\b|golang"),
+    ("Java", r"\bjava\b(?!\s*script)", None),
+    ("C#/.NET", r"c#|\.net\b|\bdotnet\b", None),
+    ("C++", r"c\+\+", None),
+    ("Rust", r"\brust\b", None),
+    ("Scala", r"\bscala\b", None),
+    ("Kotlin", r"\bkotlin\b", None),
+    ("Swift", r"(?-i:\bSwift\b)", r"\bswift\b"),
+    ("Ruby", r"\bruby\b|\brails\b", None),
+    ("PHP", r"\bphp\b", None),
+    ("Elixir", r"\belixir\b", None),
+    ("SQL", r"\bsql\b|postgres|mysql", None),
+    ("Bash", r"\bbash\b|shell script", None),
+    ("Linux", r"\blinux\b|\bunix\b", None),
+    ("Docker", r"\bdocker\b|\bcontaineri[sz]", None),
+    ("Kubernetes", r"kubernetes|\bk8s\b|\beks\b|\bgke\b", None),
+    ("Terraform/IaC", r"terraform|infrastructure[- ]as[- ]code|\biac\b|pulumi|cloudformation", None),
+    ("AWS", r"\baws\b|amazon web services", None),
+    ("Azure", r"\bazure\b", None),
+    ("GCP", r"\bgcp\b|google cloud", None),
+    ("CI/CD", r"ci/cd|continuous (?:integration|delivery|deployment)|jenkins|github actions|gitlab ci|circleci", None),
+    ("GitOps", r"gitops|argo ?cd", None),
+    ("React", r"\breact\b(?! native)", None),
+    ("Vue/Angular", r"\bvue(?:\.?js)?\b|\bangular\b", None),
+    ("Node.js", r"node\.?js|express\.?js|\bnestjs\b", r"node|express"),
+    ("Flask/Django/FastAPI", r"\bflask\b|\bdjango\b|fastapi", None),
+    ("REST APIs", r"\brestful\b|\brest(?:/json)? apis?\b|\bapi (?:design|development)\b|\bbuild(?:ing)? apis\b", r"rest api"),
+    ("GraphQL", r"graphql", None),
+    ("Test automation", r"pytest|playwright|vitest|unit tests?|test automation|automated tests?", r"pytest|playwright"),
+    ("Git", r"\bgit\b|github|gitlab", None),
+    # Model names only, not vendors: OpenAI's and Anthropic's own ads name the company everywhere.
+    ("LLMs", r"\bllms?\b|large language model|generative ai|\bgenai\b|prompt engineering|\brag\b|ai agents?",
+     r"ai integration|claude"),
+    ("Kafka", r"\bkafka\b", None),
+    ("Spark/Airflow/dbt", r"\bspark\b|\bairflow\b|\bdbt\b", None),
+    ("ML frameworks", r"pytorch|tensorflow|\bjax\b|scikit", None),
+]
+SKILLS = [(name, re.compile(jd, re.IGNORECASE), re.compile(prof or jd, re.IGNORECASE)) for name, jd, prof in SKILLS]
+LANGUAGES = {"Python", "TypeScript", "JavaScript", "Go", "Java", "C#/.NET", "C++", "Rust", "Scala", "Kotlin",
+             "Swift", "Ruby", "PHP", "Elixir"}
+BLOCKED_FIT_CAP = 20
 
 
 def _to_int(token):
@@ -182,6 +243,40 @@ def extract_years(text):
     return best, evidence
 
 
+def profile_skills():
+    """Names from SKILLS that profile.json's skills list covers."""
+    profile = job_tool.load_json(job_tool.profile_path(), {})
+    text = "\n".join(profile.get("skills") or [])
+    return {name for name, _, prof in SKILLS if prof.search(text)}
+
+
+def skill_fit(text, have):
+    """Score 0-100 for how well a job ad's tech asks match the skills you have. The +1 in the
+    denominator means one matching skill alone scores 50, so a high score needs real evidence.
+    Returns {fit, fit_have, fit_missing, fit_blocker}; fit is None when the ad names no tech.
+    A skill only counts as missing when a required sentence asks for it ("Go is a plus" doesn't).
+    fit_blocker names the main language when the ad requires one you lack and none you have."""
+    found, missing = set(), set()
+    for sentence in _sentences(text):
+        optional = bool(NICE_TO_HAVE_RE.search(sentence))
+        for name, jd, _ in SKILLS:
+            if jd.search(sentence):
+                found.add(name)
+                if name not in have and not optional:
+                    missing.add(name)
+    matched = found & have
+    result = {"fit": None, "fit_have": sorted(matched), "fit_missing": sorted(missing), "fit_blocker": None}
+    if not matched and not missing:
+        return result
+    fit = round(100 * len(matched) / (len(matched) + len(missing) + 1))
+    lacking_langs = sorted(missing & LANGUAGES)
+    if lacking_langs and not (found & have & LANGUAGES):
+        result["fit_blocker"] = lacking_langs[0]
+        fit = min(fit, BLOCKED_FIT_CAP)
+    result["fit"] = fit
+    return result
+
+
 def classify_level(title, linkedin_seniority=None):
     t = (title or "").lower()
     for level, pattern in LEVEL_RULES:
@@ -194,8 +289,11 @@ def classify_level(title, linkedin_seniority=None):
 
 def role_family(title):
     t = (title or "").lower()
+    # "AI" or "security" in a sales or compliance title doesn't make it a tech role.
+    if "freelance" in t:
+        return "Non-tech"
     if NON_TECH_RE.search(t) and not re.search(
-            r"engineer|developer|product manager|\bpm\b|deployment strategist|security|data|\bml\b|\bai\b", t):
+            r"engineer|developer|product manager|\bpm\b|deployment strategist|scientist|data|\bml\b", t):
         return "Non-tech"
     for family, pattern in ROLE_FAMILY_RULES:
         if re.search(pattern, t):
@@ -253,11 +351,15 @@ def posting_key(company, title):
     return " ".join(company_words) + "|" + " ".join(title_words)
 
 
+def title_flags(title):
+    return ["other_language"] if OTHER_LANGUAGE_RE.search(title or "") else []
+
+
 def enrich(raw, linkedin_seniority=None):
     description = raw.get("description") or ""
     years, evidence = extract_years(description)
     salary, salary_min = extract_salary(raw.get("salary") or description)
-    flags = []
+    flags = title_flags(raw.get("title"))
     if DEAL_BREAKER_RE.search(f"{raw.get('company')} {raw.get('title')} {description[:2000]}"):
         flags.append("deal_breaker")
     if is_recruiter(raw.get("company"), description):
@@ -341,15 +443,19 @@ def merge(state, fresh, today):
 
 
 def reclassify(state):
-    """Re-run the rules over stored postings so rule fixes apply to old postings too."""
+    """Re-run the rules over stored postings so rule fixes (and profile skill changes) apply to old
+    postings too."""
+    have = profile_skills()
     for p in state["postings"].values():
+        p.update(skill_fit(f"{p['title']}\n{p.get('description') or ''}", have))
         p["role_family"] = role_family(p["title"])
         title_level = classify_level(p["title"])
         if title_level != "unknown":
             p["level"] = title_level
         if p.get("description"):
             p["years_min"], p["years_evidence"] = extract_years(p["description"])
-        flags = [f for f in p.get("flags", []) if f != "recruiter"]
+        flags = [f for f in p.get("flags", []) if f not in ("recruiter", "other_language")]
+        flags += title_flags(p["title"])
         if is_recruiter(p["company"], p.get("description")):
             flags.append("recruiter")
         p["flags"] = flags
@@ -532,7 +638,7 @@ def save_posting(key):
     row, err = job_tool.upsert_tracker_row({
         "company": p["company"], "role": p["title"], "link": p["url"], "salary": p.get("salary"),
         "role_family": p.get("role_family"), "source": "radar",
-        "notes": f"Saved from Radar ({p.get('years_min') or '?'} yrs, {p.get('level')})",
+        "notes": f"Saved from Radar ({p.get('years_min') or '?'} yrs, {p.get('level')}, fit {p.get('fit', '?')})",
     })
     if err:
         return None, err

@@ -83,6 +83,12 @@ class TestClassifyLevel(unittest.TestCase):
             "Head of Platform": "manager",
             "Manager, Solutions Architecture": "manager",
             "Account Manager, SMB": "unknown",
+            "Data Science Manager": "manager",
+            "Mgr,  Expert Services Mgmt": "manager",
+            "Technical Program Manager": "unknown",
+            "Technical Programme Manager, Core Tech": "unknown",
+            "Product Manager, Payments": "unknown",
+            "Delivery Manager": "unknown",
             "Software Engineer": "unknown",
         }
         for title, expected in cases.items():
@@ -99,9 +105,13 @@ class TestRoleFamily(unittest.TestCase):
         cases = {
             "Forward Deployed Engineer": "AI/FDE",
             "AI Engineer": "AI/FDE",
-            "Platform Engineer": "Platform/DevEx",
-            "Software Engineer - Developer Experience": "Platform/DevEx",
-            "Site Reliability Engineer (SRE)": "Platform/DevEx",
+            "Platform Engineer": "Infra/DevOps",
+            "DevSecOps Engineer": "Infra/DevOps",
+            "Cloud/ DevOps Engineer": "Infra/DevOps",
+            "Software Engineer - Developer Experience": "DevEx/Tools",
+            "Internal Tools Engineer": "DevEx/Tools",
+            "Site Reliability Engineer (SRE)": "Infra/DevOps",
+            "Forward Deployed Infrastructure Engineer": "AI/FDE",
             "Technical Solutions Engineer": "Solutions",
             "Sales Engineer": "Solutions",
             "Technical Program Manager": "TPM/Program",
@@ -114,7 +124,15 @@ class TestRoleFamily(unittest.TestCase):
             "Growth PM": "Product",
             "Deployment Strategist": "Solutions",
             "Information Security Analyst - SecOps": "Security/IT",
-            "Technical Writer": "Security/IT",
+            "Technical Writer": "Non-tech",
+            "Enterprise Account Executive, AI Natives": "Non-tech",
+            "Martech Specialist, AI Deployment": "Non-tech",
+            "Cybersecurity Compliance Analyst": "Non-tech",
+            "Research Scientist - Generative Audio": "Data/ML",
+            "Fraud Data Scientist": "Data/ML",
+            "Android Engineer - Experience": "Mobile",
+            "Senior C++/iOS Engineer - User Platform": "Mobile",
+            "Audio Engineering (Freelance)": "Non-tech",
             "Claims Validation Handler": "Non-tech",
             "Translator/Linguist (Freelance)": "Non-tech",
             "Growth Engineer": "SWE",
@@ -124,6 +142,59 @@ class TestRoleFamily(unittest.TestCase):
         for title, expected in cases.items():
             with self.subTest(title=title):
                 self.assertEqual(radar.role_family(title), expected)
+
+
+class TestTitleFlags(unittest.TestCase):
+    def test_other_language(self):
+        for title in ("Software Engineer, Agent (German speaking)", "Solutions Engineer - UK (Italian Speaking)",
+                      "Solution Engineer French-speaking", "Account Executive, Fluent Dutch"):
+            with self.subTest(title=title):
+                self.assertEqual(radar.title_flags(title), ["other_language"])
+        for title in ("Software Engineer, Agent", "Hebrew speaking Solutions Engineer", "Public Speaking Coach"):
+            with self.subTest(title=title):
+                self.assertEqual(radar.title_flags(title), [])
+
+
+class TestSkillFit(unittest.TestCase):
+    HAVE = {"Python", "TypeScript", "React", "AWS", "Docker", "SQL"}
+
+    def test_scores_matches_against_missing(self):
+        r = radar.skill_fit("You'll build services in Python and TypeScript on AWS with Docker.", self.HAVE)
+        self.assertEqual(r["fit"], 80)  # 4 / (4 + 0 + 1)
+        self.assertEqual(r["fit_have"], ["AWS", "Docker", "Python", "TypeScript"])
+        self.assertEqual(r["fit_missing"], [])
+        self.assertIsNone(r["fit_blocker"])
+
+    def test_single_match_is_not_a_strong_fit(self):
+        self.assertEqual(radar.skill_fit("Experience with SQL.", self.HAVE)["fit"], 50)
+
+    def test_missing_main_language_blocks(self):
+        r = radar.skill_fit("Our backend is written in Go. You know SQL and Docker.", self.HAVE)
+        self.assertEqual(r["fit_blocker"], "Go")
+        self.assertLessEqual(r["fit"], radar.BLOCKED_FIT_CAP)
+
+    def test_language_you_have_alongside_one_you_lack_does_not_block(self):
+        r = radar.skill_fit("You write Go or Python every day.", self.HAVE)
+        self.assertIsNone(r["fit_blocker"])
+        self.assertEqual(r["fit_missing"], ["Go"])
+
+    def test_nice_to_have_skills_are_not_missing(self):
+        r = radar.skill_fit("Strong Python. Rust is a plus.", self.HAVE)
+        self.assertEqual(r["fit_missing"], [])
+
+    def test_go_as_a_verb_is_not_the_language(self):
+        r = radar.skill_fit("We go fast. Ready to go live with Python and React.", self.HAVE)
+        self.assertNotIn("Go", r["fit_missing"])
+
+    def test_no_tech_named(self):
+        self.assertIsNone(radar.skill_fit("Join our friendly team.", self.HAVE)["fit"])
+        self.assertIsNone(radar.skill_fit("", self.HAVE)["fit"])
+
+    def test_profile_skills_read_from_profile(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"JOB_SEARCH_DIR": tmp}):
+            radar.job_tool.save_json(radar.job_tool.profile_path(),
+                                     {"skills": ["Python", "Express", "REST API", "Git/GitHub", "C"]})
+            self.assertEqual(radar.profile_skills(), {"Python", "Node.js", "REST APIs", "Git"})
 
 
 class TestExtractSalary(unittest.TestCase):
