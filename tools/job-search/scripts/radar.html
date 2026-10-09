@@ -99,6 +99,8 @@
   .count { background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 0 8px; font-size: 12px; letter-spacing: 0; }
   .item { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 11px 13px; margin-bottom: 8px; align-items: start; }
   .item .actions { flex-wrap: wrap; justify-content: flex-end; max-width: 460px; }
+  #content, .item > div:first-child { min-width: 0; }
+  .item .actions select { max-width: 190px; }
   .snippet { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
   .stat.met div:first-child { color: var(--good); }
   .cell-select { padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }

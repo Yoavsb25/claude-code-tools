@@ -23,6 +23,7 @@ import argparse
 import email
 import email.policy
 import email.utils
+import html
 import imaplib
 import re
 import subprocess
@@ -90,6 +91,9 @@ LINKEDIN_MESSAGE_RE = re.compile(r"sent you a (new )?message|new message from|\b
 LINKEDIN_COMPANY_RE = re.compile(r"(?:was sent to|was viewed by|\bat)\s+(.+?)\s*$", re.I)
 
 
+NON_TEXT_HTML_RE = re.compile(r"<(style|script|head)\b.*?</\1>", re.I | re.S)
+
+
 # ---- parsing ----------------------------------------------------------------
 
 def parse_message(uid, raw, with_body=True):
@@ -116,7 +120,9 @@ def message_text(msg):
         if part is None:
             return ""
         text = part.get_content()
-        return job_tool.clean_text(text) if part.get_content_subtype() == "html" else text
+        if part.get_content_subtype() == "html":
+            text = job_tool.clean_text(NON_TEXT_HTML_RE.sub(" ", text))
+        return html.unescape(text)
     except (KeyError, LookupError, ValueError):
         return ""
 

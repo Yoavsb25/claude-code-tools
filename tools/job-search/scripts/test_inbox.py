@@ -504,3 +504,17 @@ class TestRealInboxCases(unittest.TestCase):
         r, strength, _ = inbox.match(msg("Your application to AI Engineer at Global", "LinkedIn <jobs-noreply@linkedin.com>"),
                                      [row(1, "Global", "AI Engineer")])
         self.assertEqual((r["id"], strength), (1, "strong"))
+
+
+class TestBodyText(unittest.TestCase):
+    def test_html_body_drops_style_blocks_and_decodes_entities(self):
+        mm = email.message.EmailMessage()
+        mm["Subject"], mm["From"], mm["Date"] = "Hi", "a@b.com", "Wed, 08 Oct 2026 10:00:00 +0000"
+        mm.set_content("<html><head><style>#outlook a { padding:0; }</style></head>"
+                       "<body><p>Thanks for applying &ndash; we&rsquo;re excited</p></body></html>", subtype="html")
+        body = inbox.parse_message(1, mm.as_bytes())["body"]
+        self.assertNotIn("padding", body)
+        self.assertIn("Thanks for applying – we’re excited", body)
+
+    def test_plain_body_entities_decoded(self):
+        self.assertIn("we’re", inbox.parse_message(1, make_raw("Hi", "a@b.com", "we&rsquo;re here"))["body"])
