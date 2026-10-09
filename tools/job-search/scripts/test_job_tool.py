@@ -1606,6 +1606,7 @@ class TestMigration(TrackerStateMixin, unittest.TestCase):
             ("AI Engineer", "P1"), ("Lead AI & Automation Engineer", "P1"), ("AI Enablement Engineer", "P1"),
             ("Platform Engineer", "P2"), ("Software Engineer, Test & Build Engineering", "P2"),
             ("AI Solutions Engineer", "P3"), ("Forward Deployed Engineer", "P3"),
+            ("Forward Deployment Engineer", "P3"), ("Forward-Deployed AI Engineer", "P3"),
             ("Product Manager - Payroll - UK", "P4"), ("Technical Program Manager", "P4"),
             ("Product Data Scientist (Data Labs)", None),
         ]

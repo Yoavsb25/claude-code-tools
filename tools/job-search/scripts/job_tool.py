@@ -437,7 +437,7 @@ CHANNEL_RULES = [
 # First match wins, so the more specific lanes come before the catch-all P2.
 POSITIONING_RULES = [
     ("P4", re.compile(r"program|project|product manager|\btpm\b|delivery", re.I)),
-    ("P3", re.compile(r"forward deployed|\bfde\b|solutions?\b|implementation|customer", re.I)),
+    ("P3", re.compile(r"forward[- ]deploy|\bfde\b|solutions?\b|implementation|customer", re.I)),
     ("P1", re.compile(r"\bai\b|artificial intelligence|\bml\b|machine learning|\bllm|automation|"
                       r"enablement|transformation", re.I)),
     ("P2", re.compile(r"platform|devops|infrastructure|\bsre\b|reliability|build|developer experience|"
