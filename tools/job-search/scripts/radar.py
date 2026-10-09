@@ -631,18 +631,29 @@ def unhide_posting(key):
     return {"key": key}, None
 
 
-def save_posting(key):
-    """Add a posting to the tracker as Shortlisted. The only write the page makes outside
-    radar_state.json; nothing is applied to or sent."""
+def save_posting(key, tier=None):
+    """Add a posting to the tracker as Shortlisted, with the tier chosen on the page and a guessed
+    positioning for Yoav to confirm in Pipeline. The only write the page makes outside
+    radar_state.json besides cockpit edits; nothing is applied to or sent."""
     radar_state = job_tool.load_json(_path("radar.json"), {"postings": {}})
     p = radar_state["postings"].get(key)
     if p is None:
         return None, "unknown posting"
-    row, err = job_tool.upsert_tracker_row({
+    patch = {
         "company": p["company"], "role": p["title"], "link": p["url"], "salary": p.get("salary"),
         "role_family": p.get("role_family"), "source": "radar",
         "notes": f"Saved from Radar ({p.get('years_min') or '?'} yrs, {p.get('level')}, fit {p.get('fit', '?')})",
-    })
+    }
+    if tier is not None:
+        patch["tier"] = tier
+    existing = next((r for r in job_tool.load_rows()["rows"]
+                     if job_tool.normalize_company(r["company"]) == job_tool.normalize_company(p["company"])
+                     and r["role"].strip().lower() == p["title"].strip().lower()), None)
+    if not (existing and existing.get("positioning")):
+        guess = job_tool.infer_positioning(p["title"])
+        if guess:
+            patch.update(positioning=guess, positioning_inferred=True)
+    row, err = job_tool.upsert_tracker_row(patch)
     if err:
         return None, err
     state = load_page_state()

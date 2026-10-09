@@ -1,7 +1,11 @@
+import os
+import tempfile
 import unittest
 from datetime import date
+from unittest.mock import patch
 
 import cockpit
+import job_tool
 
 TODAY = date(2026, 10, 9)  # Friday; the week started Monday 2026-10-05
 
@@ -99,5 +103,41 @@ class TestToday(unittest.TestCase):
         self.assertEqual(t["last_sync"], "2026-10-09T07:00:00+00:00")
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+class TestCockpitState(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def test_update_row_guards(self):
+        row, err = cockpit.update_row({"id": 1, "tier": 1, "channel": "referral"})
+        self.assertIsNone(err)
+        self.assertEqual((row["tier"], row["channel"]), (1, "referral"))
+        self.assertEqual(cockpit.update_row({"id": 9, "tier": 1}), (None, "no tracker row 9"))
+        self.assertIn("can't edit company", cockpit.update_row({"id": 1, "company": "X"})[1])
+        self.assertEqual(cockpit.update_row({"id": 1, "status": None}), (None, "status can't be empty"))
+        self.assertIn("invalid tier", cockpit.update_row({"id": 1, "tier": 7})[1])
+        self.assertEqual(len(job_tool.load_rows()["rows"]), 1)
+        self.assertEqual(job_tool.load_rows()["rows"][0]["status"], "Applied")
+
+    def test_proof_log(self):
+        self.assertEqual(cockpit.add_proof("  "), (None, "describe the proof piece"))
+        entry, err = cockpit.add_proof("Blog post on inbox sync", today=TODAY)
+        self.assertEqual(entry, {"date": "2026-10-09", "title": "Blog post on inbox sync"})
+        self.assertEqual(cockpit.load_proof(), [entry])
+
+    def test_build(self):
+        job_tool.save_json(job_tool.connections_path(), {"connections": [
+            {"first_name": "Dana", "last_name": "Levi", "company": "Acme", "position": "EM", "url": "u"}]})
+        b = cockpit.build(TODAY)
+        self.assertEqual(set(b), {"today", "pipeline", "contacts", "insights", "options"})
+        self.assertEqual(b["pipeline"][0]["company"], "Acme")
+        self.assertEqual(b["contacts"][1][0]["name"], "Dana Levi")
+        self.assertIn("Ghosted", b["options"]["statuses"])
+        self.assertEqual(b["options"]["tiers"], [1, 2])

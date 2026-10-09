@@ -385,6 +385,11 @@ class TestPageServer(unittest.TestCase):
                          ("Acme", "Platform Engineer", "Shortlisted", "https://acme/jobs/1"))
         self.assertEqual(radar.load_page_state()["saved"]["acme|platform engineer"]["tracker_id"], saved["tracker_id"])
 
+    def test_save_with_tier_infers_positioning(self):
+        radar.save_posting("acme|platform engineer", tier=1)
+        row = radar.job_tool.load_rows()["rows"][0]
+        self.assertEqual((row["tier"], row["positioning"], row["positioning_inferred"]), (1, "P2", True))
+
     def test_save_unknown_key_errors(self):
         self.assertEqual(radar.save_posting("nope"), (None, "unknown posting"))
 

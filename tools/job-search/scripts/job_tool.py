@@ -372,7 +372,7 @@ def upsert_tracker_row(patch, source="manual", event=None, when=None):
         if k in ("id", "events"):
             continue
         row[k] = v
-    if "positioning" in patch:
+    if "positioning" in patch and "positioning_inferred" not in patch:
         row["positioning_inferred"] = False
 
     events = row.setdefault("events", [])

@@ -1548,6 +1548,11 @@ class TestTrackerV2(TrackerStateMixin, unittest.TestCase):
                                               "followup_date": "2000-01-01"})
         self.assertIn("Follow-up was due", job_tool.compute_stale_reason(row))
 
+    def test_explicit_inferred_flag_is_kept(self):
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "positioning": "P2",
+                                              "positioning_inferred": True})
+        self.assertTrue(row["positioning_inferred"])
+
     def test_markdown_has_new_columns(self):
         job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "tier": 1, "channel": "ats"})
         text = job_tool.markdown_path().read_text()

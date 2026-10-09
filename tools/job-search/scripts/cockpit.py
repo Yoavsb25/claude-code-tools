@@ -167,3 +167,51 @@ def today_view(rows, state, today):
         "positioning_to_confirm": sum(1 for row in rows if row.get("positioning_inferred")),
         "last_sync": state.get("last_sync"),
     }
+
+
+# ---- guarded writes ---------------------------------------------------------------
+
+def update_row(body):
+    """The only tracker edit the page can make: whitelisted fields on an existing row."""
+    row_id = body.get("id")
+    if not any(row["id"] == row_id for row in job_tool.load_rows()["rows"]):
+        return None, f"no tracker row {row_id}"
+    patch = {k: v for k, v in body.items() if k != "id"}
+    bad = [k for k in patch if k not in EDITABLE]
+    if bad:
+        return None, f"can't edit {', '.join(bad)} from the page"
+    if "status" in patch and not patch["status"]:
+        return None, "status can't be empty"
+    return job_tool.upsert_tracker_row(dict(patch, id=row_id))
+
+
+def proof_path():
+    return job_tool.state_dir() / "cockpit_state.json"
+
+
+def load_proof():
+    return job_tool.load_json(proof_path(), {"proof": []})["proof"]
+
+
+def add_proof(title, today=None):
+    title = (title or "").strip()
+    if not title:
+        return None, "describe the proof piece"
+    state = job_tool.load_json(proof_path(), {"proof": []})
+    entry = {"date": (today or date.today()).isoformat(), "title": title[:200]}
+    state["proof"].append(entry)
+    job_tool.save_json(proof_path(), state)
+    return entry, None
+
+
+def build(today=None):
+    today = today or date.today()
+    rows = job_tool.load_rows()["rows"]
+    return {
+        "today": today_view(rows, inbox.load_state(), today),
+        "pipeline": rows,
+        "contacts": contacts_by_row(rows, job_tool.load_connections()["connections"]),
+        "insights": insights(rows, load_proof(), today),
+        "options": {"statuses": job_tool.STATUS_ORDER, "channels": list(job_tool.CHANNELS),
+                    "positionings": list(job_tool.POSITIONINGS), "tiers": list(job_tool.TIERS)},
+    }
