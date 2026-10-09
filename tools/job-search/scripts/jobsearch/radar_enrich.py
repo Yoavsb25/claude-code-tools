@@ -2,7 +2,9 @@
 
 import re
 
-import job_tool
+from jobsearch.profile import profile_path
+from jobsearch.store import load_json
+from jobsearch.text import company_words_match, normalize_company
 
 STORED_DESCRIPTION_CHARS = 6000
 
@@ -190,7 +192,7 @@ def extract_years(text):
 
 def profile_skills():
     """Names from SKILLS that profile.json's skills list covers."""
-    profile = job_tool.load_json(job_tool.profile_path(), {})
+    profile = load_json(profile_path(), {})
     text = "\n".join(profile.get("skills") or [])
     return {name for name, _, prof in SKILLS if prof.search(text)}
 
@@ -273,8 +275,8 @@ def extract_salary(text):
 def on_watchlist(company_words, watch_words):
     """Word-prefix match in either direction: "Amazon" matches "Amazon / AWS" and
     "Google UK" matches "Google"."""
-    return any(job_tool.company_words_match(w, company_words)
-               or job_tool.company_words_match(company_words, w) for w in watch_words)
+    return any(company_words_match(w, company_words)
+               or company_words_match(company_words, w) for w in watch_words)
 
 
 def is_recruiter(company, description=None):
@@ -291,7 +293,7 @@ def is_target_location(location, remote=None):
 
 
 def posting_key(company, title):
-    company_words = job_tool.normalize_company(company or "")
+    company_words = normalize_company(company or "")
     title_words = re.findall(r"[a-z0-9]+", (title or "").lower())
     return " ".join(company_words) + "|" + " ".join(title_words)
 

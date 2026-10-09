@@ -5,7 +5,9 @@ from datetime import date
 from unittest.mock import patch
 
 from jobsearch import cockpit
-import job_tool
+from jobsearch import network
+from jobsearch import store
+from jobsearch import tracker
 
 TODAY = date(2026, 10, 9)  # Friday; the week started Monday 2026-10-05
 
@@ -109,7 +111,7 @@ class TestCockpitState(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
         self.env.start()
-        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        tracker.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
 
     def tearDown(self):
         self.env.stop()
@@ -123,8 +125,8 @@ class TestCockpitState(unittest.TestCase):
         self.assertIn("can't edit company", cockpit.update_row({"id": 1, "company": "X"})[1])
         self.assertEqual(cockpit.update_row({"id": 1, "status": None}), (None, "status can't be empty"))
         self.assertIn("invalid tier", cockpit.update_row({"id": 1, "tier": 7})[1])
-        self.assertEqual(len(job_tool.load_rows()["rows"]), 1)
-        self.assertEqual(job_tool.load_rows()["rows"][0]["status"], "Applied")
+        self.assertEqual(len(tracker.load_rows()["rows"]), 1)
+        self.assertEqual(tracker.load_rows()["rows"][0]["status"], "Applied")
 
     def test_proof_log(self):
         self.assertEqual(cockpit.add_proof("  "), (None, "describe the proof piece"))
@@ -133,7 +135,7 @@ class TestCockpitState(unittest.TestCase):
         self.assertEqual(cockpit.load_proof(), [entry])
 
     def test_build(self):
-        job_tool.save_json(job_tool.connections_path(), {"connections": [
+        store.save_json(network.connections_path(), {"connections": [
             {"first_name": "Dana", "last_name": "Levi", "company": "Acme", "position": "EM", "url": "u"}]})
         b = cockpit.build(TODAY)
         self.assertEqual(set(b), {"today", "pipeline", "contacts", "insights", "options"})
@@ -162,12 +164,12 @@ class TestCockpitReviewFixes(TestCockpitState):
 
     # 4 — back to Shortlisted forgets the application
     def test_back_to_shortlisted_clears_applied_date(self):
-        job_tool.upsert_tracker_row({"company": "New", "role": "SWE"})
-        job_tool.upsert_tracker_row({"company": "New", "role": "SWE", "status": "Applied"}, source="inbox")
-        row, _ = job_tool.undo_last_status(2)
+        tracker.upsert_tracker_row({"company": "New", "role": "SWE"})
+        tracker.upsert_tracker_row({"company": "New", "role": "SWE", "status": "Applied"}, source="inbox")
+        row, _ = tracker.undo_last_status(2)
         self.assertEqual((row["status"], row["applied_date"], row["followup_date"]), ("Shortlisted", None, None))
         cockpit.update_row({"id": 1, "status": "Shortlisted"})
-        self.assertIsNone(job_tool.load_rows()["rows"][0]["applied_date"])
+        self.assertIsNone(tracker.load_rows()["rows"][0]["applied_date"])
 
 
 class TestInsightsReviewFixes(unittest.TestCase):

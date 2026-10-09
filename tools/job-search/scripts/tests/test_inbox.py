@@ -7,7 +7,8 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 import inbox
-import job_tool
+from jobsearch import store
+from jobsearch import tracker
 
 
 def make_raw(subject, sender, body, date="Wed, 08 Oct 2026 10:00:00 +0000", msg_id="<m1@x>"):
@@ -184,7 +185,7 @@ class TestSync(unittest.TestCase):
                                                ("Nodely", "Software Engineer", "Shortlisted", None),
                                                ("Global", "Python Developer", "Applied", "2026-10-08"),
                                                ("Clear Server", "AI Engineer", "Applied", "2026-09-15")]:
-            job_tool.upsert_tracker_row({"company": company, "role": role, "status": status,
+            tracker.upsert_tracker_row({"company": company, "role": role, "status": status,
                                          "applied_date": applied})
 
     def tearDown(self):
@@ -192,7 +193,7 @@ class TestSync(unittest.TestCase):
         self.tmp.cleanup()
 
     def rows(self):
-        return {r["company"]: r for r in job_tool.load_rows()["rows"]}
+        return {r["company"]: r for r in tracker.load_rows()["rows"]}
 
     def mailbox(self):
         return FakeIMAP({
@@ -254,9 +255,9 @@ class TestSync(unittest.TestCase):
         self.assertEqual(box.calls[0][1:], (None, "SINCE", "09-Sep-2026"))
 
     def test_dry_run_writes_nothing(self):
-        before = job_tool.load_rows()
+        before = tracker.load_rows()
         summary = inbox.sync(self.mailbox(), today=TODAY, dry_run=True)
-        self.assertEqual(job_tool.load_rows(), before)
+        self.assertEqual(tracker.load_rows(), before)
         self.assertFalse(inbox.state_path().exists())
         self.assertEqual(len(summary["applied"]), 2)
 
@@ -327,7 +328,7 @@ class TestReviewFixes(unittest.TestCase):
         self.env.start()
         for company, role in [("Acme", "Platform Engineer"), ("Global", "Python Developer"),
                               ("Old Co", "AI Engineer")]:
-            job_tool.upsert_tracker_row({"company": company, "role": role, "status": "Applied",
+            tracker.upsert_tracker_row({"company": company, "role": role, "status": "Applied",
                                          "applied_date": "2026-10-01" if company != "Old Co" else "2026-09-01"})
 
     def tearDown(self):
@@ -335,7 +336,7 @@ class TestReviewFixes(unittest.TestCase):
         self.tmp.cleanup()
 
     def rows(self):
-        return {r["company"]: r for r in job_tool.load_rows()["rows"]}
+        return {r["company"]: r for r in tracker.load_rows()["rows"]}
 
     # 1 — own sent mail
     def test_own_sent_mail_is_ignored(self):
@@ -525,8 +526,8 @@ class TestConcurrentStateEdits(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
         self.env.start()
-        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
-        job_tool.save_json(inbox.state_path(), {
+        tracker.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        store.save_json(inbox.state_path(), {
             "uidvalidity": 1, "last_uid": 0, "last_sync": None, "ignored": [],
             "actions": [{"msg_id": "<old>", "row_id": 1, "done": False, "subject": "s", "sender": "x",
                          "date": "2026-10-01", "kind": "reply"}],

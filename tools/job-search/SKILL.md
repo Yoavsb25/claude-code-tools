@@ -83,7 +83,7 @@ Profile fields (all optional except `roles`):
 call (multiple questions within one call is fine) or one free-text message — never split intake
 across multiple sequential question rounds, that's more friction than a first-time user should
 have to sit through. The one exception is `roles` itself, if the user hasn't already named one —
-resolve that first via **Role discovery** below (a legitimate back-and-forth, not intake-splitting),
+resolve that first via role discovery (`references/intake.md`) (a legitimate back-and-forth, not intake-splitting),
 then batch everything else into one call. `skills`/`education`/`experience_summary` don't need to
 be exhaustive — a short list and a one-paragraph summary are enough to start; they can be refined
 later via `profile set`. Save the answer with `profile set` before searching, so future runs don't
@@ -107,54 +107,13 @@ the changed keys if they say yes. Don't overwrite fields they didn't mention.
 **How many results:** default top 20 per category (public and private/non-public companies scored
 and capped independently — see Stage 3/4), unless the user asks for a different count.
 
-**Role discovery.** Run this when `roles` isn't set yet (first run and the user hasn't already
-named a role) or whenever the user explicitly asks for help figuring out what to search for
-("what roles should I look at", "suggest some titles", "I'm not sure what I want next").
-
-1. **Ask about direction before assuming continuity.** Don't default to "more of the same" just
-   because a resume shows a long history in one field — ask directly: *"Are you looking to
-   continue in your current field, or make a change? (Someone with 30 years as a software
-   engineer might now want something totally different — like becoming a pilot. Tell me if
-   that's the kind of shift you're making.)"* Take whatever direction the user states at face
-   value; it overrides anything the resume implies.
-2. **If they name a clear pivot or a specific role themselves:** use that directly as `roles` —
-   skip resume-based suggestions entirely. The resume can still inform Stage 3's requirements-fit
-   scoring (transferable skills), but it must never override a direction the user explicitly
-   stated.
-3. **If they're continuing in their field, or ask for suggestions:** use the profile's `skills`,
-   `education`, and `experience_summary` (from `profile show` in Stage 0) to propose exactly 5
-   candidate role titles that fit their background and stated direction. If those fields aren't
-   set yet, ask for them first (see Stage 1's field table) rather than guessing from `roles` alone.
-   Present the 5 titles as a numbered list with a one-line rationale each, and ask which (if any)
-   to add. **Never add a suggested title to `roles` without explicit confirmation** — this is a
-   suggestion, not a decision the skill gets to make. Once confirmed, save via `profile set` like
-   any other Stage 1 change.
-
-**Ambiguous role titles.** Some titles carry more than one industry meaning — e.g. "Automation
-Engineer" can mean industrial/PLC/manufacturing automation *or* software test/process automation;
-"Analyst" can mean business, data, or security analyst. **Being adjacent to another role in the
-`roles` list does not by itself resolve the ambiguity** — a "Software Engineer" entry sitting next
-to "Automation Engineer" is not sufficient context to assume the software-automation reading; that
-inference has been wrong in practice. Only treat an ambiguous title as resolved if the stored role
-string itself already carries an explicit qualifier (e.g. "Software Automation Engineer," "QA
-Automation Engineer," "Test Automation Engineer," "Industrial Automation Engineer"). Otherwise, ask
-a one-line clarifying question during Stage 1 intake — before Stage 2 runs any search for that
-role — rather than discovering the mismatch mid-search after already spending calls on the wrong
-industry's postings.
-
-**Salary floor vs. seniority sanity check.** Whenever `salary_floor` and `seniority` are both set
-(on profile creation or edit) and `seniority` reads as junior/entry-level, run one `WebSearch` for
-typical market salary at that role/seniority/location combination — e.g. `"[role] [seniority]
-salary [location]"` — before running the full multi-source search. If the floor looks materially
-above what the search turns up, flag it to the user up front, e.g.: *"Your £60k floor is well
-above typical London junior rates (~£35–49k) — want to adjust it, or proceed knowing most matches
-may fall short?"* Let them adjust or explicitly proceed before spending the full search budget,
-rather than only discovering the mismatch after several rounds of per-posting salary enrichment in
-Stage 3. This matters more than it used to: a floor set too high no longer just produces
-low-lighted postings, it can silently exclude most or all disclosed-salary results outright (see
-Stage 3's Constraint fit rule below), so catching a mismatch here before running the full search is
-worth the one extra `WebSearch` call. This is a single check at intake time — distinct from, and in addition to, the per-posting
-salary enrichment in Stage 3 for the near-final shortlist.
+**Before searching, read `references/intake.md` if any of these apply:**
+- `roles` isn't set, or the user asks what roles to look at (role discovery: ask about direction first,
+  then suggest exactly 5 titles; never add one without their confirmation).
+- A target title is ambiguous across industries (e.g. "Automation Engineer") and the stored string
+  has no qualifier: ask one clarifying question before Stage 2.
+- `salary_floor` and a junior `seniority` were just set or changed: one `WebSearch` sanity check of
+  market salary first.
 
 ---
 
@@ -171,7 +130,7 @@ These hit public, keyless JSON APIs directly — no scraping, no bot-wall risk, 
 degrades to a clean `{"error": "...", "results": []}` instead of failing the whole search. The one
 exception is `search workday` (see the Workday bullet in Stage 2b below) — a paid, optional Apify
 fallback for Workday-hosted enterprises, off by default unless an Apify MCP server is available or
-`APIFY_TOKEN` is configured (see README.md for setup/cost):
+`APIFY_TOKEN` is configured (see `references/search-fallbacks.md` for setup/cost):
 
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search remotive --query "<role keyword>" --limit 25
@@ -242,170 +201,21 @@ retry it call-by-call or log each subsequent failure as a separate error.
 
 ### 2b — WebSearch / WebFetch (broader net, especially for LinkedIn)
 
-Run `WebSearch` queries built from the resolved criteria, varying phrasing. Prefer patterns that
-resolve to individual posting pages over generic phrasing that tends to surface aggregator
-listing/landing pages (Glassdoor "N jobs in..." pages, Totaljobs category pages) — those cost a
-query without returning a scoreable result:
-- `site:linkedin.com/jobs [role] [location]`
-- `site:linkedin.com/jobs "[role]" remote`
-- `"[role]" hiring [location] 2026`
-- Plain-language query combining role + location + must-haves, e.g. `Staff Backend Engineer
-  remote Kubernetes hiring`
+Always run this alongside 2a. **Read `references/web-search.md` before starting it.** It has the
+query patterns, proactive company discovery (about 5 new companies per round), the 3–5
+large-enterprise baseline check, the fallback order for a company with no structured match
+(`discover-ats` → `discover-workday` / `discover-comeet` → paid `jobs-index`, confirmed with the user
+first → direct career-page search → Playwright), and LinkedIn enrichment (`search linkedin-detail`,
+never `WebFetch`).
 
-**If `skills` is set**, add exactly one additional query per role blending the role title with the
-top 2–3 skills, e.g. `Software Engineer React Node CI/CD hiring London` — additive to the queries
-above, not a replacement. Bounded to one extra query per role, not one per skill, to keep volume
-in check.
-
-**If `industries_prefer` is set**, add targeted queries per industry, e.g. `[role] fintech
-[location] hiring`.
-
-**Proactive company discovery.** Don't only check companies the user already named. Run
-`WebSearch` queries aimed at surfacing companies matching the profile, not just individual
-postings — aggregator/listicle results here are expected and fine, since only company names get
-extracted from them, unlike the per-role queries above where an aggregator hit is a wasted query:
-- `"who is hiring" [role] [industries_prefer] 2026`
-- `best [industries_prefer] companies to work for [locations] 2026`
-- `[industries_prefer] startups hiring [role]`
-
-Pull candidate company names out of these results, plus the `company` field of any
-Remotive/Arbeitnow hits from 2a, that aren't already in `target_companies` or the Stage 0 tracker
-list. Cap this at roughly the top 5 newly-surfaced companies per round — this widens the net, it
-isn't meant to fan out into dozens of speculative lookups per search. For each candidate company,
-run the auto-detect flow from 2a (`search discover-ats`, then `search discover-workday`) before
-falling back to the direct career-page search below.
-
-**Large-enterprise baseline check.** If `target_companies` has no large enterprises in it and none
-have surfaced yet from the proactive discovery above, don't rely on WebSearch phrasing alone to
-surface them — check a small number (3–5) of well-known large employers relevant to the resolved
-role/industry as a guaranteed baseline part of every search round, via Stage 2b's direct
-career-page search below. This is additional to, not carved out of, the proactive-discovery cap
-above — a quiet discovery round doesn't consume this budget. It's a default baseline, not a
-replacement for user-specified `target_companies`, which always take priority; it exists because
-proactive-discovery WebSearch queries don't reliably surface big-company names on their own.
-
-**Direct career-page search**, for companies with no ATS, Workday, Comeet, or `jobs-index` match —
-i.e. every `platform: "other"` watchlist entry, and every large enterprise where `discover-ats`
-(skipped per Stage 2a's rule), `discover-workday`/`discover-comeet` (tried per "Workday-hosted
-companies specifically" below), and `search jobs-index` (see further below — try this before
-falling all the way through to WebSearch/Playwright, it covers far more platforms than this
-script's own dedicated integrations) all came back empty (e.g. Google, Salesforce — see the
-pattern table). This is the last-resort path once every structured-data option is exhausted, not
-the first thing to try. In addition to the `site:linkedin.com/jobs` queries above, search the
-company's own site directly:
-- `site:<company-domain> careers [role]`
-- `"<company name>" careers [role] [location]`
-- `"<company name>" jobs apply [role]`
-
-If a result lands on the company's own `/careers` or `/jobs` page, `WebFetch` it the same
-optional-enrichment way as any other posting page (see below) — it's often a listing page rather
-than a single JD, so pull out whichever open roles are visible and score them against the profile.
-If `WebFetch` fails or 403s, don't drop the company — note it and rely on the LinkedIn/aggregator
-angle for that company this round instead.
-
-**Known large-enterprise career sites (verified patterns).** Don't spend a generic
-"fetch-the-homepage" call on a large enterprise before checking whether it's already documented.
-Read `references/search-fallbacks.md` (§ "Known large-enterprise career-site patterns") for
-verified listing-page URLs and per-company notes (Unity, NVIDIA, Google, Microsoft, Salesforce,
-Palo Alto Networks, Amdocs so far) — a homepage fetch (via `WebFetch` or a generic
-search-then-scrape tool) almost always lands on marketing content or an empty JS shell instead of
-the actual job list, wasting a call. When you learn a new large enterprise's pattern this way
-(a working filtered-listing URL, a confirmed Workday/ATS tenant, or a confirmed "custom SPA, no
-keyless route, use Playwright"), add it to that table so the next run doesn't rediscover it from
-scratch.
-
-**Checking a specific company: location-first, not title-first.** A `<company> + <one role title>`
-query silently under-covers roles and misses postings when the company uses a different internal
-title for the same job family (e.g. Google's "Customer Engineer" vs. "Solutions Engineer"). Also,
-a company not in `target_companies` can be missed even with a great-fitting posting, since
-market-wide role searches only return a capped, relevance-ranked slice of citywide results — if the
-user asks about a specific posting that didn't come up, check whether its company was in
-`target_companies` before diagnosing anything else. Read `references/search-fallbacks.md`
-(§ "Checking a specific company") for the location-first method, known title synonyms, and a
-documented reliability caveat about bare company-name queries before concluding a target/large
-enterprise has nothing open.
-
-**Workday-hosted companies specifically.** Try this *before* WebSearch/Playwright for any
-target/discovered large enterprise, not just after one turns up a `myworkdayjobs.com` URL by
-chance — Workday is the single most common ATS among large enterprises, and detecting it is a
-free, keyless, one-shot check:
-```bash
-python3 ~/.claude/skills/job-search/scripts/job_tool.py search discover-workday --url "<company careers-page URL>" --company "<Company Name>" --query "<role keyword>"
-```
-- `--url` can be a guessed careers URL (`https://<company-domain>/careers`), one already surfaced
-  by an earlier WebSearch this round, or (if you already know it) the company's
-  `myworkdayjobs.com` URL directly — either form works, `discover-workday` detects which.
-- `confidence: "high"` or `"low"` means it found a Workday tenant — treat the returned postings as
-  a Stage 2a-equivalent direct-source result (same dedupe priority as `search ats`), and offer to
-  save `platform: "workday"` / that `detected_slug` to `target_companies` so future rounds skip
-  straight to `search workday-jobs` (no re-discovery HTML fetch needed).
-- `confidence: "none"` means no Workday link was found in that page's HTML — not necessarily
-  proof the company isn't Workday-hosted (the URL guess might be wrong, or the real link is only
-  reachable after JS execution). Same idea for `discover-comeet` and its `COMEET.init(...)` widget
-  config. Once both come back empty, try `search jobs-index` (below) before falling through to
-  WebFetch/Playwright.
-
-**Broad coverage for everything else: `search jobs-index` (paid, try before WebSearch/Playwright).**
-A company matching none of the free discover-ats/discover-workday/discover-comeet paths is *not*
-necessarily a dead end — those only cover a handful of platforms. `search jobs-index` queries a
-pre-built index spanning 54 ATS platforms (Oracle Cloud, SuccessFactors, iCIMS, Phenom People, and
-many more this script has no dedicated integration for), via structured filters instead of
-free-text role-title guessing:
-```bash
-python3 ~/.claude/skills/job-search/scripts/job_tool.py search jobs-index --company "<Company Name>" --location "<City, Region, Country>" --limit 25
-```
-- This requires `APIFY_TOKEN` and is a **paid** call (unlike every other source covered so far) —
-  confirm target companies with the user before running it, same rule as the paid `search workday`
-  Actor. It's cheap by design (`--limit` defaults to 25, costing well under $1 at Apify's free
-  pricing tier — see README.md for exact numbers), but it's still real money, not a free keyless
-  check.
-- `--location` must be the exact `"City, Region/State, Country"` phrase format (English names, no
-  abbreviations — e.g. `"London, England, United Kingdom"`, not `"London, UK"`) — a mismatched
-  format silently returns zero rows rather than erroring, so don't conclude "nothing open" from an
-  empty result without double-checking the location string first.
-- Omit `--query`/title filters entirely for a per-company check and just filter the results
-  yourself afterward (same "pull the full board" philosophy as `search ats`) — the AI-classified
-  filters (`--work-arrangement`, ATS `--ats` list) are more useful for narrowing a *market-wide*
-  scan than for a single already-known company.
-- Treat a real result here the same as a Stage 2a direct-source hit for dedupe priority. If it
-  finds a working ATS worth remembering (e.g. reveals a company is on Oracle Cloud or Comeet), note
-  it in `references/search-fallbacks.md`'s pattern table so a future session knows without a paid
-  call — even though `jobs-index` itself doesn't need that table to keep working.
-
-**JS-rendered career pages (Playwright fallback).** `WebFetch` only reads raw HTML and can't
-execute JavaScript, so some custom/non-ATS career pages that render listings client-side come back
-as an empty shell. Read `references/search-fallbacks.md` (§ "JS-rendered career pages") for when
-and how to fall back to `mcp__playwright__browser_*` tools.
-
-**Sanity-check company names before spending a detail-fetch call.** LinkedIn's public jobs index
-occasionally surfaces synthetic/placeholder listings — company names containing patterns like
-"test company", "sample", "demo", or otherwise clearly not a real employer. Skip these without
-calling `linkedin-detail`/`WebFetch` on them, and don't include them in the shortlist; note in the
-Stage 4 summary how many were filtered as likely test data.
-
-**For a LinkedIn result** (any `linkedin.com/jobs/view/...` URL, whether it came from Stage 2a's
-native search or a WebSearch hit below): use
-`search linkedin-detail --id <the-url>` instead of `WebFetch` for enrichment. This replaces the
-step that previously 403'd on LinkedIn specifically with the same native endpoint Stage 2a uses.
-
-`WebSearch` results include a title, company, URL, and a synthesized snippet — that snippet alone
-is usually enough to score a posting (Stage 3). Treat `WebFetch` on the actual posting page as
-**optional enrichment, not a requirement**: try it on the most promising links to get full JD
-text, exact posted date, and salary if disclosed — but many job-board pages (LinkedIn especially,
-sometimes Greenhouse/Lever's own HTML front-end) return 403s to automated fetches, independent of
-anything about the specific posting.
-
-**If `WebFetch` fails on a posting:** don't drop the result and don't retry — score it from the
-`WebSearch` snippet alone and mark it `"JD: snippet only — verify on posting page"` in the output.
-A failed enrichment call is a normal, expected outcome, not an error to surface loudly.
-
-**Recency filter:** prioritize postings from the last 2–3 weeks. Postings older than ~6 weeks are
-often stale (role filled or closed) — still include them if nothing fresher matches well, but flag
-them as "possibly stale."
-
-**If every source for a given angle comes back empty:** try a broader phrasing (drop a must-have,
-widen location) before giving up on that angle. Note in the final output which angles came up
-empty and which sources errored.
+Rules for every 2b result:
+- A failed `WebFetch` is normal: score from the `WebSearch` snippet, mark it `"JD: snippet only —
+  verify on posting page"`, and don't retry.
+- Skip obvious test/placeholder companies ("test company", "sample", "demo") and count them for the
+  Stage 4 summary.
+- Prefer postings from the last 2–3 weeks; flag anything older than ~6 weeks as "possibly stale".
+- If an angle comes back empty, widen it once (drop a must-have, widen location) and say so in the
+  output.
 
 ---
 
@@ -432,127 +242,23 @@ already shown earlier in this same conversation (e.g. a follow-up "check big com
 "check these via Workday" round) — a second round should never re-present something the first
 round already surfaced, even before anything's been saved to the tracker.
 
-For each remaining posting, score three dimensions:
+Then score every remaining posting. **Read `references/scoring.md` for the full rubric.** The core:
 
-**Role fit (0–10)** — How closely does the title, level, and JD body match the target role(s) and
-seniority? Use exact-title matches and JD language (not just the title) — a "Senior Software
-Engineer" posting that's really staff-scope work should score on scope, not label. **For any
-LinkedIn-sourced candidate, pull its `seniority` field via `search linkedin-detail` before
-scoring — don't infer seniority from the title alone.** LinkedIn's native search only returns
-title/company/location (no description), so a title with no "Senior"/"Staff" qualifier can still
-be a "Mid-Senior level"-tagged posting underneath; title-only inference has let postings like that
-slip into shortlists for junior profiles in practice. This is a required check before scoring a
-LinkedIn result, not optional enrichment — it directly feeds the "years of experience not met"
-hard-check in Requirements fit below.
+- **Role fit, Requirements fit, Constraint fit**, each 0–10. Overall = Role × 0.35 + Requirements
+  × 0.35 + Constraint × 0.3. Anything under 5 is excluded.
+- For a LinkedIn result, fetch its `seniority` with `search linkedin-detail` before scoring. Never
+  infer level from the title alone.
+- **Hard exclusions, whatever the score:** a `deal_breakers` hit, or a *disclosed* salary below
+  `salary_floor`. A location the user can't work caps Constraint fit at ≤3. A real level 2+ steps from
+  the profile's `seniority` never enters the main table.
+- **Worth exploring:** a posting from a named-company check (watchlist or large-enterprise
+  baseline) that scores 3–5, or is seniority-excluded but scores ≥3 with Role fit capped at 3,
+  goes to a separate pool with a one-phrase `Why`. Never for market-wide results, never for a
+  deal-breaker, location or disclosed-salary exclusion.
+- Sort by overall score and don't cap here; Stage 4 caps each category.
+- **Salary enrichment:** with `salary_floor` set, estimate salary for the top 5–6 postings that
+  don't disclose it. Estimates are annotations, never a reason to exclude.
 
-**A 2+-level seniority mismatch excludes a posting from the main shortlist outright — it is not
-just a capped input to the weighted average.** This was found by actually running a search and
-checking the results, not a hypothetical: capping Role fit alone to ≤3 for a badly-mismatched
-posting *sounds* like a fix, but the math doesn't cooperate — a posting with strong Requirements
-fit and Constraint fit can still average above 5 even with Role fit dragged down to 3 (verified
-directly: Role fit 3 + Requirements fit 8 + Constraint fit 9 still computes to 6.55, comfortably
-"above threshold"). A single capped input can't reliably force exclusion out of a weighted average
-where it's only 35% of the total — so this needs to be a real exclusion, at the same severity tier
-as a `deal_breakers` hit, not another score adjustment.
-
-**The rule:** if a posting's real level (title *and* JD body/scope, not just the label) is two or
-more steps away from the profile's `seniority` — a Senior or Staff posting against an "Entry to
-Junior-Mid" profile, or an entry-level posting against a "Senior" profile — exclude it from the
-main shortlist entirely, regardless of what the overall weighted score computes to. One step away
-(e.g. "Mid" against "Entry to Junior-Mid") is a real deduction to Role fit, not an exclusion —
-judge the likely day-to-day scope overlap normally in that case.
-
-**This exclusion still routes through the worth-exploring exception, same as any other exclusion —
-but the main table stays off-limits no matter what the math says.** A 2+-level-mismatched posting
-from a named-company check (watchlist or large-enterprise baseline) isn't gone for good: score it
-with Role fit capped at ≤3 for the write-up. If that capped computation lands under 3, it's fully
-excluded, same as any other weak match. **Otherwise — including when strong Requirements/Constraint
-fit pull the capped computation back above 5 (this happens: Role fit 3 + Requirements fit 7 +
-Constraint fit 9 still averages to 6.2) — it goes to Worth Exploring, not the main table,
-regardless of the number.** The exclusion is "never appears in the main table," full stop; the
-capped score only decides *whether it appears at all* (≥3) and supplies the `Fit` number shown in
-the Worth Exploring row, not whether it's good enough for the main list. A posting from the open
-market-wide search still never gets this exception at all, for either table.
-
-**Requirements fit (0–10)** — Overlap between the JD's required skills and the profile's `skills`,
-`education`, and `experience_summary` (from `profile show` in Stage 0 — no external file to load).
-Judge overlap holistically, including reasonable synonyms (e.g. "CI/CD" should match "continuous
-integration," not just the literal string) — this stays a judgment call, not a keyword-matching
-formula, since JD phrasing varies too much for rigid matching to be reliable. Hard-check any
-explicit education requirement in the JD (minimum degree, a graduation-year window for grad/new-grad
-postings) against `education`, and penalize postings with other hard requirements clearly unmet
-(e.g. a specific clearance, a language not spoken, years of experience not met). If `skills`/
-`education`/`experience_summary` aren't set yet, score with looser judgment from `roles`/
-`seniority` alone and note the lower confidence rather than blocking the search on missing profile
-data.
-
-**Constraint fit (0–10)** — Location/remote match, industry alignment, and deal-breakers:
-- A hit on `deal_breakers` drops this to 0 regardless of other scores — exclude the posting
-  entirely, don't just rank it low.
-- A location mismatch that isn't a formal deal-breaker (on-site/hybrid in a city outside all
-  resolved `locations`, or no remote option when only remote locations are set) caps this at ≤3 —
-  a role someone can't actually work is a near-exclusion even when the user never listed it as a
-  deal-breaker.
-- A hit on `industries_avoid` weights this down heavily (score ≤3) but doesn't auto-exclude,
-  unless the user has said otherwise.
-- A match with `industries_prefer` weights this up.
-- A **disclosed** salary (stated on the posting or in fetched JD text — not the Stage 3 enrichment
-  estimate below) that is clearly below `salary_floor` in the same currency drops this to 0
-  regardless of other scores — exclude the posting entirely, same as a deal-breaker hit. Never
-  exclude based on the *estimated* salary from the enrichment pass below — that stays
-  annotation-only.
-
-**Overall score** = (Role fit × 0.35) + (Requirements fit × 0.35) + (Constraint fit × 0.3).
-Exclude anything scoring under 5 overall — don't pad the list with weak matches.
-
-**Exception — adjacent roles at a specifically-checked company.** A posting that came from
-checking a *named* company (any `target_companies` watchlist entry, or a large-enterprise baseline
-check — i.e. anything from the "Checking a specific company" method in
-`references/search-fallbacks.md`, not the open market-wide role search) and scores **between 3 and
-5** goes to a separate "worth exploring" pool instead of being excluded outright. The idea: a
-company the user specifically wants to work at is worth knowing about even when the *exact* role
-isn't there, as long as it's not a pure stretch. Below 3, still exclude — that's too far off to be
-worth listing even for a desired company (e.g. a Sales role surfacing during an Engineering
-search). A posting from the open market-wide search (no specific company targeted) never qualifies
-for this exception, regardless of score — a loosely-related role from a company nobody specifically
-asked about is noise, not a lead.
-
-**This exception never overrides a hard exclusion.** A `deal_breakers` hit, a role the user
-genuinely can't work (location/remote mismatch per the Constraint fit rule above), or a *disclosed*
-salary below `salary_floor` still excludes the posting completely — being at a desired company
-doesn't make an unworkable role worth surfacing. Only apply the 3–5 exception when the *only*
-reason a posting scored low is a weaker role/requirements match, not an unmet hard constraint.
-
-For each posting landing in the worth-exploring pool, note *why* in one short phrase — what's
-different from the target role, and what's still appealing (e.g. "Data Engineering, not backend,
-but strong skills overlap and same seniority" or "one level senior for the profile, but a rare
-opening at a company on the watchlist"). This becomes the `Why` column in Stage 4.
-
-Sort descending by overall score. **Don't cap here** — Stage 4 applies the requested count (default
-20) per category, after classifying each company as public or private. Capping the combined list
-here first would let one category crowd out the other (e.g. 10 public + 0 private if public matches
-happen to score higher this round).
-
-**Salary enrichment for the near-final shortlist.** If `salary_floor` is set and a posting in the
-top-scoring set doesn't disclose salary, get an estimate for each such posting — capped at the top
-5–6 candidates, so this doesn't multiply cost across the whole list:
-
-- **If the `salary-estimator` skill is available** (check the available-skills list first), invoke
-  it with company/role/location/seniority. It does multi-source research (levels.fyi, Glassdoor,
-  comparable postings, H-1B/LCA data, etc.) and returns a range with a confidence level.
-- **If it isn't available** (not installed/enabled), fall back to one `WebSearch` per candidate for
-  `"<company> <role> salary <location>"` — the same query pattern Stage 1's intake-time sanity
-  check uses — to check public salary-aggregator data (Glassdoor, levels.fyi, Payscale-style
-  results).
-
-Either way, use the result only to annotate the posting with the estimated range (and confidence,
-if the skill provided one), and flag it if the low end looks below the floor. Never exclude a
-posting based on estimated data alone, and mark it clearly as `"salary: ~£X–Y estimated (Medium
-confidence), unconfirmed"` (fallback WebSearch estimates without a formal confidence level can just
-say `"unconfirmed"`) in the output — it's a data point to verify during application, not a scored
-fact. This is now the only flag-only salary path: a *disclosed* salary below the floor is handled
-by the Constraint fit rule above and excludes the posting outright, so the two paragraphs aren't in
-tension — one covers confirmed data, the other covers guesses.
 
 ---
 
@@ -713,61 +419,29 @@ file, not just the in-conversation tables — a self-contained record of the rou
    and the empty-angles note. No reformatting or re-encoding into another shape; the file content is
    the chat content.
 2. Write it with the `Write` tool to
-   `~/Desktop/Job-Search/searches/<date>-job-search-results.md` (create the `searches/` directory
+   `~/job-search-data/searches/<date>-job-search-results.md` (create the `searches/` directory
    first if it doesn't exist yet). Re-running a search the same day overwrites that day's file.
 3. In an interactive session, mention the saved path after presenting the Stage 4 tables. In a
-   non-interactive/scheduled run (see "Scheduled daily runs" below), the file simply lands on disk
+   non-interactive/scheduled run (see `references/radar-and-inbox.md`), the file simply lands on disk
    at that path — there's no chat to attach it to, so mention the saved path in whatever summary
    output the scheduled run produces.
 
 ---
 
-## Job Radar (daily, browsable)
+## Job Radar, the Cockpit and inbox sync (daily, automatic)
 
-Every morning `scripts/radar.py refresh` (launchd, plain Python, no LLM) collects every London /
-UK-remote posting from the `companies.json` watchlist plus a LinkedIn sweep into
-`~/job-search-data/radar.json`, with years required (pulled from the JD text, with the evidence
-sentence), level, role family and salary. `radar.py status` prints a summary; coverage per company
-is in `coverage.json`. the user browses it with `radar.py serve` (local page at http://127.0.0.1:8765,
-refreshes in the background if data is over 12h old). See `references/scheduled-runs.md`.
+At 07:00 `radar.py daily` refreshes `data/radar.json` (every London / UK-remote posting from the
+watchlist plus a LinkedIn sweep), syncs Gmail read-only into the tracker, and commits `data/`.
+the user browses it all on the Cockpit page (`radar.py serve`). **Read
+`references/radar-and-inbox.md`** when they asks about the radar, the page, the 07:00 job or
+employer emails.
 
-The page is the **Job Cockpit** (`cockpit.py` builds its data; served at `/api/cockpit`):
-- **Today** (default): weekly 3/2/1 tiles plus a public-proof log (`cockpit_state.json`), emails
-  that need a reply ("✓ Handled"), emails to sort ("It's <company>" / another row / Ignore), follow-ups
-  due, and the last 7 days of automatic status changes with Undo; "Sync inbox now" runs inbox sync.
-- **Roles**: the radar. "☆ Save as…" Tier 1 (tailor + warm path) or Tier 2 (fast apply) adds a
-  Shortlisted row with a guessed positioning; Hide choices live in `radar_state.json`.
-- **Pipeline**: every tracker row with status / tier / channel / positioning editable in place
-  ("confirm" accepts a guessed positioning); a row opens to its history, LinkedIn connections at the
-  company, and a "Copy /resume-tailor command" button.
-- **Insights**: funnel (applied → heard back → conversations → interviewing → offers), median time to
-  a response, and conversation rate by channel, positioning and tier (groups under 5 marked "few").
-Page edits are limited to status, tier, channel, positioning, notes and follow-up date.
+- "What's new" or a quick shortlist: start from `radar.json` (not closed, `years_min` ≤ 3 or
+  unknown, role_family not Non-tech) instead of re-fetching every source.
+- "Anything from employers?" / "what do I need to reply to?": run `inbox.py actions` and
+  `inbox.py review`.
+- Never apply, send messages, or add tracker rows without the user choosing the role.
 
-When the user asks "what's new" or wants a shortlist, start from `radar.json` (filter: not closed,
-`years_min` ≤ 3 or unknown, role_family not Non-tech) instead of re-fetching every source. Never
-apply, send messages, or add tracker rows without them choosing the role.
-
----
-
-## Inbox sync (daily, read-only)
-
-`scripts/inbox.py` reads Gmail over IMAP and keeps the tracker in step with what employers sent.
-It runs inside `radar.py daily` at 07:00; `inbox.py sync [--days N] [--dry-run]` runs it by hand.
-The mailbox is opened read-only and fetched with `BODY.PEEK`: nothing is marked read, moved or
-sent. Credentials: a Gmail app password in the macOS Keychain (service `job-search-imap`;
-`inbox.py setup` prints the steps).
-
-Only unambiguous matches (company named by the sender or subject, one row fits) change the
-tracker: confirmation → `Applied`, rejection → `Rejected`, invite/reply → `Responded` plus an
-action item. Everything else waits in the review queue. When the user asks "anything from employers?"
-or "what do I need to reply to?", run `inbox.py actions` and `inbox.py review`; settle review
-items with `inbox.py resolve <msg_id> --row ID` or `--ignore`, and mark replies handled with
-`inbox.py done <msg_id>`. A status update the user tells you directly still goes through
-`tracker upsert`.
-
-`~/job-search-data` is a local git repo; `radar.py daily` commits it after each run, so
-`git -C ~/job-search-data log -p tracker.json` shows every automatic change.
 
 ## Network — warm intros at target companies
 

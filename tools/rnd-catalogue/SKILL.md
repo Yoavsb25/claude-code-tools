@@ -95,7 +95,7 @@ source.
 
 If all three of Stage 2 come back `confidence: "none"` for a company, **ask the user before
 spending anything further**: `"[Company] isn't on any free source — want me to check the paid
-jobs-index for it? (see job-search's README for cost)"`. If yes:
+jobs-index for it? (see job-search's references/search-fallbacks.md for cost)"`. If yes:
 ```bash
 python3 ~/.claude/skills/job-search/scripts/job_tool.py search jobs-index --company "<Company Name>" --limit 25
 ```
@@ -249,7 +249,7 @@ No fit score, no salary column, no Skills Fit column — pure inventory.
 ### Stage 5 — Save the snapshot
 
 Write the exact markdown from Stage 4 to
-`~/Desktop/Job-Search/rnd-catalogue/<date>-catalogue.md` (create the `rnd-catalogue/` directory
+`~/job-search-data/rnd-catalogue/<date>-catalogue.md` (create the `rnd-catalogue/` directory
 first if needed). Re-running the same day overwrites that day's file, same convention as
 `job-search`'s `searches/` directory.
 

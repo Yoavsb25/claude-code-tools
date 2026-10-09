@@ -2,7 +2,7 @@
 
 import re
 
-from jobsearch.fetchconfig import DEFAULT, FetchConfig
+from jobsearch.fetchconfig import DEFAULT
 
 # Same suffix set ATS slug-guessing uses — kept here so normalize_company does not import sources.
 ATS_SLUG_SUFFIXES = {

@@ -6,7 +6,8 @@ import email.utils
 import html
 import re
 
-import job_tool
+from jobsearch.store import today_str
+from jobsearch.text import clean_text, normalize_company
 
 BODY_CHARS = 6000
 
@@ -70,7 +71,7 @@ def parse_message(uid, raw, with_body=True):
     try:
         sent = email.utils.parsedate_to_datetime(str(msg["Date"])).date().isoformat()
     except (TypeError, ValueError):
-        sent = job_tool.today_str()
+        sent = today_str()
     return {
         "uid": uid,
         "msg_id": str(msg["Message-ID"] or f"<uid-{uid}>").strip(),
@@ -90,7 +91,7 @@ def message_text(msg):
             return ""
         text = part.get_content()
         if part.get_content_subtype() == "html":
-            text = job_tool.clean_text(NON_TEXT_HTML_RE.sub(" ", text))
+            text = clean_text(NON_TEXT_HTML_RE.sub(" ", text))
         return html.unescape(text)
     except (KeyError, LookupError, ValueError):
         return ""
@@ -179,24 +180,24 @@ def match(msg, rows):
     sender, subject = _words(msg["sender"]), _words(msg["subject"])
     body = _words(msg["body"])
     named = LINKEDIN_COMPANY_RE.search(msg["subject"]) if "linkedin" in msg["sender"].lower() else None
-    subject_company = job_tool.normalize_company(named.group(1)) if named else None
+    subject_company = normalize_company(named.group(1)) if named else None
     strong, weak = [], []
     for r in rows:
         if r.get("status") == "Withdrawn":
             continue
-        cw = job_tool.normalize_company(r["company"])
+        cw = normalize_company(r["company"])
         if _named_in_head(cw, r["company"], sender, subject, subject_company):
             strong.append(r)
         elif _contains(sender + subject + body, cw):
             weak.append(r)
     if len(strong) > 1:
-        names = {r["id"]: job_tool.normalize_company(r["company"]) for r in strong}
+        names = {r["id"]: normalize_company(r["company"]) for r in strong}
         contained = [r for r in strong
                      if any(len(names[o["id"]]) > len(names[r["id"]]) and _contains(names[o["id"]], names[r["id"]])
                             for o in strong)]
         weak += contained
         strong = [r for r in strong if r not in contained]
-    if len(strong) > 1 and len({tuple(job_tool.normalize_company(r["company"])) for r in strong}) == 1:
+    if len(strong) > 1 and len({tuple(normalize_company(r["company"])) for r in strong}) == 1:
         strong = _by_role(strong, sender + subject + body)
     if len(strong) == 1:
         return strong[0], "strong", [strong[0]["id"]]

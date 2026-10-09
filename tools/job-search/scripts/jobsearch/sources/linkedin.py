@@ -1,10 +1,8 @@
 """LinkedIn guest job search and detail parsing."""
 
-import json
 import re
 import urllib.parse
 
-from jobsearch.fetchconfig import DEFAULT as DEFAULT_FETCH
 from jobsearch.http import http_get_html_backoff
 from jobsearch.sources.common import posting, print_detail_result, print_search_result
 from jobsearch.text import (
@@ -197,10 +195,6 @@ def cmd_search_linkedin(args):
         for card in cards
     ]
     print_search_result("linkedin", results, None)
-
-
-def print_detail_result(source, result, error):
-    print(json.dumps({"source": source, "error": error, "result": result}, indent=2))
 
 
 def cmd_search_linkedin_detail(args):

@@ -29,7 +29,6 @@ Undo), Roles (this radar), Pipeline (edit the tracker) and Insights (what conver
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 import threading
@@ -43,10 +42,8 @@ from pathlib import Path
 
 from jobsearch import cockpit
 import inbox
-import job_tool
 from jobsearch.fetchconfig import RADAR as RADAR_FETCH
 
-# CLOSED_AFTER_DAYS / PRUNE_AFTER_DAYS imported from jobsearch.radar_merge below
 STALE_AFTER_HOURS = 12
 PAGE_PATH = Path(__file__).with_name("radar.html")
 HIDE_REASONS = {"too senior", "wrong work", "pay", "company", "other"}
@@ -56,8 +53,7 @@ LINKEDIN_MAX_DETAILS = 100
 LINKEDIN_LOCATION = "London, England, United Kingdom"
 LINKEDIN_JOBAGE_DAYS = 7
 LINKEDIN_DELAY_S = 1.0
-STORED_DESCRIPTION_CHARS = 6000
-# Built from the capability map (docs/job-radar-plan.md): market language, not job titles.
+# Built from the capability map (docs/specs/job-radar-design.md): market language, not job titles.
 LINKEDIN_QUERIES = [
     "platform engineer", "developer experience", "devops engineer", "automation engineer",
     "AI engineer", "forward deployed engineer", "solutions engineer", "technical program manager",
@@ -67,59 +63,26 @@ WORKDAY_MAX_SCANNED = 80
 
 from jobsearch import radar_enrich as _enrich
 from jobsearch import radar_merge as _merge
-
-# Enrichment / merge re-exports (tests and refresh call these as radar.*)
-STORED_DESCRIPTION_CHARS = _enrich.STORED_DESCRIPTION_CHARS
-NUMBER_WORDS = _enrich.NUMBER_WORDS
-YEARS_RE = _enrich.YEARS_RE
-YEARS_NOISE_RE = _enrich.YEARS_NOISE_RE
-NICE_TO_HAVE_RE = _enrich.NICE_TO_HAVE_RE
-LEVEL_RULES = _enrich.LEVEL_RULES
-LINKEDIN_SENIORITY_LEVELS = _enrich.LINKEDIN_SENIORITY_LEVELS
-ROLE_FAMILY_RULES = _enrich.ROLE_FAMILY_RULES
-NON_TECH_RE = _enrich.NON_TECH_RE
-OTHER_LANGUAGE_RE = _enrich.OTHER_LANGUAGE_RE
-DEAL_BREAKER_RE = _enrich.DEAL_BREAKER_RE
-RECRUITER_NAME_RE = _enrich.RECRUITER_NAME_RE
-RECRUITER_TEXT_RE = _enrich.RECRUITER_TEXT_RE
-SALARY_RE = _enrich.SALARY_RE
-LONDON_RE = _enrich.LONDON_RE
-UK_REMOTE_RE = _enrich.UK_REMOTE_RE
-SKILLS = _enrich.SKILLS
-LANGUAGES = _enrich.LANGUAGES
-BLOCKED_FIT_CAP = _enrich.BLOCKED_FIT_CAP
-
-_to_int = _enrich._to_int
-_sentences = _enrich._sentences
-extract_years = _enrich.extract_years
-profile_skills = _enrich.profile_skills
-skill_fit = _enrich.skill_fit
-classify_level = _enrich.classify_level
-role_family = _enrich.role_family
-_salary_value = _enrich._salary_value
-extract_salary = _enrich.extract_salary
-on_watchlist = _enrich.on_watchlist
-is_recruiter = _enrich.is_recruiter
-is_target_location = _enrich.is_target_location
-posting_key = _enrich.posting_key
-title_flags = _enrich.title_flags
-enrich = _enrich.enrich
-
-CLOSED_AFTER_DAYS = _merge.CLOSED_AFTER_DAYS
-PRUNE_AFTER_DAYS = _merge.PRUNE_AFTER_DAYS
-merge = _merge.merge
-
+from jobsearch import http
+from jobsearch.profile import profile_path
+from jobsearch import store
+from jobsearch import text
+from jobsearch import tracker
+from jobsearch.sources import ats
+from jobsearch.sources import comeet
+from jobsearch.sources import linkedin
+from jobsearch.sources import workday
 
 def _path(name):
-    return job_tool.state_dir() / name
+    return store.state_dir() / name
 
 
 def load_watchlist():
     """companies.json, seeded from profile.json target_companies the first time."""
     path = _path("companies.json")
     if path.exists():
-        return job_tool.load_json(path, [])
-    profile = job_tool.load_json(job_tool.profile_path(), {})
+        return store.load_json(path, [])
+    profile = store.load_json(profile_path(), {})
     seeded = [
         {"name": c["name"], "platform": c.get("platform") or "linkedin-only",
          "slug": c.get("slug"), "tier": c.get("tier")}
@@ -128,25 +91,25 @@ def load_watchlist():
     for c in seeded:
         if c["platform"] == "other" or not c["slug"]:
             c["platform"], c["slug"] = "linkedin-only", None
-    job_tool.save_json(path, seeded)
+    store.save_json(path, seeded)
     return seeded
 
 
 def reclassify(state):
     """Re-run the rules over stored postings so rule fixes (and profile skill changes) apply to old
     postings too."""
-    have = profile_skills()
+    have = _enrich.profile_skills()
     for p in state["postings"].values():
-        p.update(skill_fit(f"{p['title']}\n{p.get('description') or ''}", have))
-        p["role_family"] = role_family(p["title"])
-        title_level = classify_level(p["title"])
+        p.update(_enrich.skill_fit(f"{p['title']}\n{p.get('description') or ''}", have))
+        p["role_family"] = _enrich.role_family(p["title"])
+        title_level = _enrich.classify_level(p["title"])
         if title_level != "unknown":
             p["level"] = title_level
         if p.get("description"):
-            p["years_min"], p["years_evidence"] = extract_years(p["description"])
+            p["years_min"], p["years_evidence"] = _enrich.extract_years(p["description"])
         flags = [f for f in p.get("flags", []) if f not in ("recruiter", "other_language")]
-        flags += title_flags(p["title"])
-        if is_recruiter(p["company"], p.get("description")):
+        flags += _enrich.title_flags(p["title"])
+        if _enrich.is_recruiter(p["company"], p.get("description")):
             flags.append("recruiter")
         p["flags"] = flags
 
@@ -165,8 +128,8 @@ def fetch_company(company):
 def _fetch_company_once(company):
     platform, slug, name = company.get("platform"), company.get("slug"), company["name"]
     try:
-        if platform in job_tool.ATS_ENDPOINTS:
-            results, err = job_tool.fetch_ats_postings(platform, slug, config=RADAR_FETCH)
+        if platform in ats.ATS_ENDPOINTS:
+            results, err = ats.fetch_ats_postings(platform, slug, config=RADAR_FETCH)
         elif platform == "workday":
             tenant, wd_host, site = slug.split("/")
             tenant_info = {
@@ -174,12 +137,12 @@ def _fetch_company_once(company):
                 "api_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
                 "public_base": f"https://{tenant}.{wd_host}.myworkdayjobs.com/{site}",
             }
-            results, err = job_tool.fetch_workday_postings(
+            results, err = workday.fetch_workday_postings(
                 tenant_info, limit=10000, max_scanned=WORKDAY_MAX_SCANNED, location_hint="London",
                 config=RADAR_FETCH)
         elif platform == "comeet":
             token, uid = slug.split(":")
-            results, err = job_tool.fetch_comeet_postings(
+            results, err = comeet.fetch_comeet_postings(
                 token, uid, name, limit=10000, config=RADAR_FETCH)
         else:
             return name, [], None
@@ -198,16 +161,16 @@ def fetch_linkedin(max_details, known_keys):
         for page in range(LINKEDIN_PAGES_PER_QUERY):
             params = {
                 "keywords": query, "location": LINKEDIN_LOCATION,
-                "f_TPR": job_tool.jobage_to_tpr(LINKEDIN_JOBAGE_DAYS), "start": str(page * 10),
+                "f_TPR": linkedin.jobage_to_tpr(LINKEDIN_JOBAGE_DAYS), "start": str(page * 10),
             }
-            html, err = job_tool.http_get_html_backoff(
-                job_tool.LINKEDIN_SEARCH_URL + "?" + urllib.parse.urlencode(params),
+            html, err = http.http_get_html_backoff(
+                linkedin.LINKEDIN_SEARCH_URL + "?" + urllib.parse.urlencode(params),
                 config=RADAR_FETCH)
             time.sleep(LINKEDIN_DELAY_S)
             if err:
                 errors.append(err)
                 break
-            page_cards = job_tool.parse_linkedin_cards(html or "")
+            page_cards = linkedin.parse_linkedin_cards(html or "")
             for c in page_cards:
                 cards.setdefault(c["id"], c)
             if len(page_cards) < 10:
@@ -221,15 +184,15 @@ def fetch_linkedin(max_details, known_keys):
             "description": None, "salary": None,
         }
         seniority = None
-        key = posting_key(card["company"], card["title"])
+        key = _enrich.posting_key(card["company"], card["title"])
         if key not in known_keys and details_fetched < max_details:
-            html, err = job_tool.http_get_html_backoff(f"{job_tool.LINKEDIN_DETAIL_URL}/{card['id']}", config=RADAR_FETCH)
+            html, err = http.http_get_html_backoff(f"{linkedin.LINKEDIN_DETAIL_URL}/{card['id']}", config=RADAR_FETCH)
             time.sleep(LINKEDIN_DELAY_S)
             details_fetched += 1
             if err:
                 errors.append(err)
             elif html:
-                detail = job_tool.parse_linkedin_detail(html, card["id"])
+                detail = linkedin.parse_linkedin_detail(html, card["id"])
                 raw["description"] = detail.get("description")
                 seniority = detail.get("seniority")
         results.append((raw, seniority))
@@ -241,15 +204,15 @@ def fetch_linkedin(max_details, known_keys):
 def refresh(use_linkedin=True, max_details=LINKEDIN_MAX_DETAILS, today=None):
     today = today or date.today().isoformat()
     watchlist = load_watchlist()
-    state = job_tool.load_json(_path("radar.json"), {"postings": {}})
+    state = store.load_json(_path("radar.json"), {"postings": {}})
 
     fresh, coverage_rows = {}, []
     fetchable = [c for c in watchlist if c.get("platform") != "linkedin-only"]
     with ThreadPoolExecutor(max_workers=COMPANY_WORKERS) as pool:
         for name, results, err in pool.map(fetch_company, fetchable):
-            kept = [r for r in results if is_target_location(r.get("location"), r.get("remote"))]
+            kept = [r for r in results if _enrich.is_target_location(r.get("location"), r.get("remote"))]
             for r in kept:
-                fresh[posting_key(r["company"], r["title"])] = enrich(r)
+                fresh[_enrich.posting_key(r["company"], r["title"])] = _enrich.enrich(r)
             coverage_rows.append({"name": name, "ok": err is None, "error": err,
                                   "total": len(results), "london": len(kept)})
     for c in watchlist:
@@ -257,40 +220,40 @@ def refresh(use_linkedin=True, max_details=LINKEDIN_MAX_DETAILS, today=None):
             coverage_rows.append({"name": c["name"], "ok": None, "error": None,
                                   "total": None, "london": None, "linkedin_only": True})
 
-    previous = job_tool.load_json(_path("coverage.json"), {})
+    previous = store.load_json(_path("coverage.json"), {})
     linkedin_stats, discovered = previous.get("linkedin"), previous.get("discovered") or []
     if use_linkedin:
         known = set(state["postings"]) | set(fresh)
         results, linkedin_stats = fetch_linkedin(max_details, known)
-        watch_words = [job_tool.normalize_company(c["name"]) for c in watchlist]
+        watch_words = [text.normalize_company(c["name"]) for c in watchlist]
         counts = {}
         for raw, seniority in results:
-            if not is_target_location(raw["location"]):
+            if not _enrich.is_target_location(raw["location"]):
                 continue
-            key = posting_key(raw["company"], raw["title"])
+            key = _enrich.posting_key(raw["company"], raw["title"])
             if key not in fresh:
-                fresh[key] = enrich(raw, seniority)
-            words = job_tool.normalize_company(raw["company"] or "")
-            if raw["company"] and not is_recruiter(raw["company"]) and not on_watchlist(words, watch_words):
+                fresh[key] = _enrich.enrich(raw, seniority)
+            words = text.normalize_company(raw["company"] or "")
+            if raw["company"] and not _enrich.is_recruiter(raw["company"]) and not _enrich.on_watchlist(words, watch_words):
                 counts[raw["company"]] = counts.get(raw["company"], 0) + 1
         discovered = sorted(
             ({"company": k, "postings": v} for k, v in counts.items() if k), key=lambda d: -d["postings"])
 
-    merge(state, fresh, today)
+    _merge.merge(state, fresh, today)
     reclassify(state)
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     state["updated_at"] = stamp
-    job_tool.save_json(_path("radar.json"), state)
+    store.save_json(_path("radar.json"), state)
     coverage = {"updated_at": stamp, "companies": sorted(coverage_rows, key=lambda r: r["name"].lower()),
                 "linkedin": linkedin_stats, "discovered": discovered[:50]}
-    job_tool.save_json(_path("coverage.json"), coverage)
+    store.save_json(_path("coverage.json"), coverage)
     return state, coverage
 
 
 # ---- page server --------------------------------------------------------------
 
 def load_page_state():
-    state = job_tool.load_json(_path("radar_state.json"), {})
+    state = store.load_json(_path("radar_state.json"), {})
     state.setdefault("hidden", {})
     state.setdefault("saved", {})
     state.setdefault("last_visit", None)
@@ -310,14 +273,14 @@ def hide_posting(key, reason):
         return None, f"unknown reason {reason!r}"
     state = load_page_state()
     state["hidden"][key] = {"reason": reason, "date": date.today().isoformat()}
-    job_tool.save_json(_path("radar_state.json"), state)
+    store.save_json(_path("radar_state.json"), state)
     return state["hidden"][key], None
 
 
 def unhide_posting(key):
     state = load_page_state()
     state["hidden"].pop(key, None)
-    job_tool.save_json(_path("radar_state.json"), state)
+    store.save_json(_path("radar_state.json"), state)
     return {"key": key}, None
 
 
@@ -325,7 +288,7 @@ def save_posting(key, tier=None):
     """Add a posting to the tracker as Shortlisted, with the tier chosen on the page and a guessed
     positioning for the user to confirm in Pipeline. The only write the page makes outside
     radar_state.json besides cockpit edits; nothing is applied to or sent."""
-    radar_state = job_tool.load_json(_path("radar.json"), {"postings": {}})
+    radar_state = store.load_json(_path("radar.json"), {"postings": {}})
     p = radar_state["postings"].get(key)
     if p is None:
         return None, "unknown posting"
@@ -336,26 +299,26 @@ def save_posting(key, tier=None):
     }
     if tier is not None:
         patch["tier"] = tier
-    existing = next((r for r in job_tool.load_rows()["rows"]
-                     if job_tool.normalize_company(r["company"]) == job_tool.normalize_company(p["company"])
+    existing = next((r for r in tracker.load_rows()["rows"]
+                     if text.normalize_company(r["company"]) == text.normalize_company(p["company"])
                      and r["role"].strip().lower() == p["title"].strip().lower()), None)
     if not (existing and existing.get("positioning")):
-        guess = job_tool.infer_positioning(p["title"])
+        guess = tracker.infer_positioning(p["title"])
         if guess:
             patch.update(positioning=guess, positioning_inferred=True)
-    row, err = job_tool.upsert_tracker_row(patch)
+    row, err = tracker.upsert_tracker_row(patch)
     if err:
         return None, err
     state = load_page_state()
     state["saved"][key] = {"tracker_id": row["id"], "date": date.today().isoformat()}
-    job_tool.save_json(_path("radar_state.json"), state)
+    store.save_json(_path("radar_state.json"), state)
     return state["saved"][key], None
 
 
 def record_visit():
     state = load_page_state()
     state["last_visit"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    job_tool.save_json(_path("radar_state.json"), state)
+    store.save_json(_path("radar_state.json"), state)
     return {"last_visit": state["last_visit"]}, None
 
 
@@ -366,15 +329,15 @@ def add_to_watchlist(name, tier=None):
     if not name:
         return None, "company name required"
     watchlist = load_watchlist()
-    words = job_tool.normalize_company(name)
-    if any(job_tool.normalize_company(c["name"]) == words for c in watchlist):
+    words = text.normalize_company(name)
+    if any(text.normalize_company(c["name"]) == words for c in watchlist):
         return None, f"{name} is already on the watchlist"
-    chosen, confidence, _ = job_tool.discover_ats(name)
+    chosen, confidence, _ = ats.discover_ats(name)
     entry = {"name": name, "platform": "linkedin-only", "slug": None, "tier": tier}
     if chosen and confidence == "high":
         entry["platform"], entry["slug"] = chosen[0], chosen[1]
     watchlist.append(entry)
-    job_tool.save_json(_path("companies.json"), watchlist)
+    store.save_json(_path("companies.json"), watchlist)
     return entry, None
 
 
@@ -427,7 +390,7 @@ def make_handler(runner, inbox_runner=None):
         "/api/tracker": cockpit.update_row,
         "/api/inbox/resolve": lambda body: inbox.resolve(body.get("msg_id"), body.get("row_id")),
         "/api/inbox/done": lambda body: inbox.mark_done(body.get("msg_id")),
-        "/api/inbox/undo": lambda body: job_tool.undo_last_status(body.get("row_id")),
+        "/api/inbox/undo": lambda body: tracker.undo_last_status(body.get("row_id")),
         "/api/inbox/sync": lambda body: ({"started": inbox_runner.start()}, None),
         "/api/proof": lambda body: cockpit.add_proof(body.get("title")),
     }
@@ -465,19 +428,19 @@ def make_handler(runner, inbox_runner=None):
             if self.path in ("/", "/index.html"):
                 self._send(200, PAGE_PATH.read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/api/data":
-                radar_state = job_tool.load_json(_path("radar.json"), {"postings": {}})
+                radar_state = store.load_json(_path("radar.json"), {"postings": {}})
                 postings = [dict(p, key=k) for k, p in radar_state["postings"].items()]
                 self._send(200, {
                     "updated_at": radar_state.get("updated_at"),
                     "refreshing": runner.running, "refresh_error": runner.last_error,
                     "postings": postings, "page_state": load_page_state(),
-                    "coverage": job_tool.load_json(_path("coverage.json"), None),
+                    "coverage": store.load_json(_path("coverage.json"), None),
                 })
             elif self.path == "/api/cockpit":
                 self._send(200, dict(cockpit.build(), inbox_syncing=inbox_runner.running,
                                      inbox_error=inbox_runner.last_error))
             elif self.path == "/api/status":
-                radar_state = job_tool.load_json(_path("radar.json"), {})
+                radar_state = store.load_json(_path("radar.json"), {})
                 self._send(200, {"updated_at": radar_state.get("updated_at"),
                                  "refreshing": runner.running, "refresh_error": runner.last_error})
             else:
@@ -504,7 +467,7 @@ def make_handler(runner, inbox_runner=None):
 
 def cmd_serve(args):
     runner = Runner(refresh)
-    if is_stale(job_tool.load_json(_path("radar.json"), None)):
+    if is_stale(store.load_json(_path("radar.json"), None)):
         runner.start()
         print("Data is older than 12h: refreshing in the background (about 3 minutes).")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runner, Runner(sync_inbox_from_page)))
@@ -560,7 +523,7 @@ def snapshot_state(message):
     """Commit the state dir (a local git repo since 2026-10-09) so every automatic tracker change
     is reviewable and revertable: `git -C ~/job-search-data log -p tracker.json`. No-op without a
     repo or when nothing changed; never pushes."""
-    d = job_tool.state_dir()
+    d = store.state_dir()
     if not (d / ".git").exists():
         return
     subprocess.run(["git", "-C", str(d), "add", "-A"], capture_output=True)
@@ -568,8 +531,8 @@ def snapshot_state(message):
 
 
 def cmd_status(_args):
-    state = job_tool.load_json(_path("radar.json"), None)
-    coverage = job_tool.load_json(_path("coverage.json"), None)
+    state = store.load_json(_path("radar.json"), None)
+    coverage = store.load_json(_path("coverage.json"), None)
     if not state or not coverage:
         print("No radar data yet. Run: radar.py refresh")
         return

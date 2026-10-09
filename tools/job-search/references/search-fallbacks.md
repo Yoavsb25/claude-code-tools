@@ -256,6 +256,17 @@ Actor's broader experience-level/taxonomy filters not yet exposed as CLI flags) 
 a market-wide scan than a single already-known company. If a call reveals which real ATS a company
 is on, add a row to the pattern table below so a future session can try that path for free first.
 
+## Apify setup (both paid sources)
+
+- Create a free account at [apify.com](https://apify.com) and set `APIFY_TOKEN`. Without it, both
+  `search workday` and `search jobs-index` degrade to `{"error": "APIFY_TOKEN not set...",
+  "results": []}`. An Apify MCP server (`mcp__apify__*`) covers the Workday fallback but not
+  `jobs-index`.
+- Workday Actor cost: roughly $3–3.50 per 1,000 jobs plus a small per-run fee, so the free
+  $5/month credit covers occasional checks.
+- Override the Actors with `APIFY_WORKDAY_ACTOR_ID` / `APIFY_JOBS_INDEX_ACTOR_ID`. A different
+  Actor may use a different schema, which needs a field-mapping change in `job_tool.py`.
+
 ## JS-rendered career pages (Playwright fallback)
 
 **When this applies:** `WebFetch` only reads raw HTML — it can't execute JavaScript, so many

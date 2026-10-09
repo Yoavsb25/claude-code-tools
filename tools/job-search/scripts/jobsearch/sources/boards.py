@@ -3,7 +3,6 @@
 import os
 import urllib.parse
 
-from jobsearch.fetchconfig import DEFAULT as DEFAULT_FETCH
 from jobsearch.http import http_get_json, http_post_json
 from jobsearch.sources.common import posting, print_search_result
 

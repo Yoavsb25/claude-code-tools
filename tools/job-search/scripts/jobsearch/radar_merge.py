@@ -2,7 +2,6 @@
 
 from datetime import date
 
-from jobsearch.radar_enrich import is_target_location, posting_key  # noqa: F401 — re-export
 
 CLOSED_AFTER_DAYS = 3
 PRUNE_AFTER_DAYS = 30

@@ -12,7 +12,10 @@ import statistics
 from datetime import date, timedelta
 
 import inbox
-import job_tool
+from jobsearch.network import load_connections
+from jobsearch.store import load_json, parse_date, save_json, state_dir
+from jobsearch.text import company_words_match, normalize_company
+from jobsearch.tracker import CHANNELS, POSITIONINGS, STATUS_ORDER, TIERS, compute_stale_reason, load_rows, upsert_tracker_row
 
 CONVERSATION_STATUSES = ("Responded", "Phone Screen", "Interviewing", "Offer")
 WEEKLY_TARGETS = {"applications": 3, "conversations": 2, "proof": 1}
@@ -39,14 +42,14 @@ def reached_conversation(row):
 def first_response_days(row):
     """Days from applying to the first employer reaction (an email that isn't a confirmation, or a
     status change to a conversation or Rejected). None if nothing came back yet."""
-    applied_on = job_tool.parse_date(row.get("applied_date"))
+    applied_on = parse_date(row.get("applied_date"))
     if not applied_on:
         return None
     heard = []
     for e in row.get("events") or []:
         reaction = ((e.get("type") == "email" and e.get("kind") in ("rejection", "interview", "reply")) or
                     (e.get("type") == "status" and e.get("to") in CONVERSATION_STATUSES + ("Rejected",)))
-        d = job_tool.parse_date(e.get("date"))
+        d = parse_date(e.get("date"))
         if reaction and d:
             heard.append(max((d - applied_on).days, 0))
     return min(heard) if heard else None
@@ -83,7 +86,7 @@ def weekly_kpis(rows, proof, today):
     end = start + timedelta(days=6)
 
     def in_week(value):
-        d = job_tool.parse_date(value)
+        d = parse_date(value)
         return d is not None and start <= d <= end
 
     return {
@@ -125,15 +128,15 @@ def insights(rows, proof, today):
 def contacts_by_row(rows, connections, limit=8):
     """Connections whose company matches each row's company. A one-word dictionary name ("Global")
     must match exactly, so a contact at "Global Payments" isn't offered as a way into "Global"."""
-    index = [(job_tool.normalize_company(c.get("company")), c) for c in connections]
+    index = [(normalize_company(c.get("company")), c) for c in connections]
     out = {}
     for row in rows:
-        target = job_tool.normalize_company(row["company"])
+        target = normalize_company(row["company"])
         generic = len(target) == 1 and target[0] in inbox.GENERIC_COMPANY_WORDS
         hits = [{"name": f"{c.get('first_name') or ''} {c.get('last_name') or ''}".strip(),
                  "position": c.get("position"), "url": c.get("url")}
                 for words, c in index
-                if (words == target if generic else job_tool.company_words_match(target, words))]
+                if (words == target if generic else company_words_match(target, words))]
         if hits:
             out[row["id"]] = hits[:limit]
     return out
@@ -159,7 +162,7 @@ def today_view(rows, state, today):
 
     followups = []
     for row in rows:
-        reason = job_tool.compute_stale_reason(row)
+        reason = compute_stale_reason(row)
         if reason:
             followups.append({"id": row["id"], "company": row["company"], "role": row["role"],
                               "status": row["status"], "reason": reason})
@@ -180,7 +183,7 @@ def today_view(rows, state, today):
 def update_row(body):
     """The only tracker edit the page can make: whitelisted fields on an existing row."""
     row_id = body.get("id")
-    if type(row_id) is not int or not any(row["id"] == row_id for row in job_tool.load_rows()["rows"]):
+    if type(row_id) is not int or not any(row["id"] == row_id for row in load_rows()["rows"]):
         return None, f"no tracker row {row_id}"
     patch = {k: v for k, v in body.items() if k != "id"}
     bad = [k for k in patch if k not in EDITABLE]
@@ -189,40 +192,40 @@ def update_row(body):
     if "status" in patch and not patch["status"]:
         return None, "status can't be empty"
     followup = patch.get("followup_date")
-    if followup is not None and not (isinstance(followup, str) and job_tool.parse_date(followup)):
+    if followup is not None and not (isinstance(followup, str) and parse_date(followup)):
         return None, "followup_date must be a YYYY-MM-DD date"
     if patch.get("notes") is not None and not isinstance(patch["notes"], str):
         return None, "notes must be text"
-    return job_tool.upsert_tracker_row(dict(patch, id=row_id))
+    return upsert_tracker_row(dict(patch, id=row_id))
 
 
 def proof_path():
-    return job_tool.state_dir() / "cockpit_state.json"
+    return state_dir() / "cockpit_state.json"
 
 
 def load_proof():
-    return job_tool.load_json(proof_path(), {"proof": []})["proof"]
+    return load_json(proof_path(), {"proof": []})["proof"]
 
 
 def add_proof(title, today=None):
     title = (title or "").strip()
     if not title:
         return None, "describe the proof piece"
-    state = job_tool.load_json(proof_path(), {"proof": []})
+    state = load_json(proof_path(), {"proof": []})
     entry = {"date": (today or date.today()).isoformat(), "title": title[:200]}
     state["proof"].append(entry)
-    job_tool.save_json(proof_path(), state)
+    save_json(proof_path(), state)
     return entry, None
 
 
 def build(today=None):
     today = today or date.today()
-    rows = job_tool.load_rows()["rows"]
+    rows = load_rows()["rows"]
     return {
         "today": today_view(rows, inbox.load_state(), today),
         "pipeline": rows,
-        "contacts": contacts_by_row(rows, job_tool.load_connections()["connections"]),
+        "contacts": contacts_by_row(rows, load_connections()["connections"]),
         "insights": insights(rows, load_proof(), today),
-        "options": {"statuses": job_tool.STATUS_ORDER, "channels": list(job_tool.CHANNELS),
-                    "positionings": list(job_tool.POSITIONINGS), "tiers": list(job_tool.TIERS)},
+        "options": {"statuses": STATUS_ORDER, "channels": list(CHANNELS),
+                    "positionings": list(POSITIONINGS), "tiers": list(TIERS)},
     }

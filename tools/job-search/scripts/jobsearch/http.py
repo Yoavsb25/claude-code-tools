@@ -6,7 +6,7 @@ import time
 import urllib.error
 import urllib.request
 
-from jobsearch.fetchconfig import DEFAULT as DEFAULT_FETCH, FetchConfig
+from jobsearch.fetchconfig import DEFAULT as DEFAULT_FETCH
 
 USER_AGENT = "job-search-skill/1.2 (+https://github.com/Yoavsb25/claude-code-tools)"
 LINKEDIN_USER_AGENT = (

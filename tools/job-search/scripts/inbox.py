@@ -23,7 +23,6 @@ import argparse
 import email
 import email.policy
 import email.utils
-import html
 import imaplib
 import re
 import subprocess
@@ -31,7 +30,6 @@ import sys
 import threading
 from datetime import date, datetime, timedelta, timezone
 
-import job_tool
 
 KEYCHAIN_SERVICE = "job-search-imap"
 IMAP_HOST = "imap.gmail.com"
@@ -43,6 +41,9 @@ HEADER_PART = "BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID LIST-UNSUBS
 FULL_PART = "BODY.PEEK[]"
 
 from jobsearch import inbox_mail as _mail
+from jobsearch import store
+from jobsearch import text
+from jobsearch import tracker
 
 ACTION_KINDS = _mail.ACTION_KINDS
 REVIEW_KINDS = _mail.REVIEW_KINDS
@@ -81,11 +82,11 @@ NON_TEXT_HTML_RE = _mail.NON_TEXT_HTML_RE
 # ---- state ------------------------------------------------------------------
 
 def state_path():
-    return job_tool.state_dir() / "inbox_state.json"
+    return store.state_dir() / "inbox_state.json"
 
 
 def load_state():
-    state = job_tool.load_json(state_path(), {})
+    state = store.load_json(state_path(), {})
     for key, default in (("uidvalidity", None), ("last_uid", 0), ("last_sync", None),
                          ("review", []), ("actions", []), ("ignored", [])):
         state.setdefault(key, default)
@@ -106,7 +107,7 @@ def _merge_save(actions=(), review=(), meta=None):
         disk["actions"] += [a for a in actions if a["msg_id"] not in seen]
         disk["review"] += [i for i in review if i["msg_id"] not in seen]
         disk.update(meta or {})
-        job_tool.save_json(state_path(), disk)
+        store.save_json(state_path(), disk)
         return disk
 
 
@@ -177,7 +178,7 @@ def apply_to_row(row_id, item, kind, status):
             patch["applied_date"] = item["date"]
     event = {"date": item["date"], "type": "email", "kind": kind, "subject": item["subject"][:140],
              "msg_id": item["msg_id"], "source": "inbox"}
-    return job_tool.upsert_tracker_row(patch, source="inbox", event=event, when=item["date"])
+    return tracker.upsert_tracker_row(patch, source="inbox", event=event, when=item["date"])
 
 
 def _from_self(msg, own_address):
@@ -189,9 +190,9 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
     Tracker writes and action items are saved per message, so a crash midway loses nothing."""
     today = today or date.today()
     state = load_state()
-    rows = job_tool.load_rows()["rows"]
+    rows = tracker.load_rows()["rows"]
     uids = search_uids(conn, state, days, today)
-    company_words = [job_tool.normalize_company(r["company"]) for r in rows]
+    company_words = [text.normalize_company(r["company"]) for r in rows]
     heads = [parse_message(uid, raw, with_body=False) for uid, raw in fetch(conn, uids, HEADER_PART)]
     wanted = [h["uid"] for h in heads if not _from_self(h, own_address) and is_candidate(h, company_words)]
     summary = {"scanned": len(heads), "candidates": len(wanted), "applied": [], "review": [],
@@ -216,7 +217,7 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
                 if action:
                     _merge_save(actions=[action])
                 apply_to_row(decision["row_id"], msg, kind, decision["status"])
-                rows = job_tool.load_rows()["rows"]
+                rows = tracker.load_rows()["rows"]
         elif decision["type"] == "review":
             summary["review"].append(dict(record, candidates=decision["candidates"],
                                           snippet=" ".join(msg["body"].split())[:300]))
@@ -229,7 +230,7 @@ def sync(conn, today=None, days=None, dry_run=False, own_address=None):
     state = _merge_save(review=summary["review"], meta={k: state[k] for k in ("uidvalidity", "last_uid", "last_sync")})
     # A reply that only matched weakly is still a reply: don't ghost a row while it waits in review.
     pending = {rid for item in state["review"] for rid in item["candidates"]}
-    summary["ghosted"] = [r["id"] for r in job_tool.mark_ghosted(today, skip_ids=pending)]
+    summary["ghosted"] = [r["id"] for r in tracker.mark_ghosted(today, skip_ids=pending)]
     return summary
 
 
@@ -248,7 +249,7 @@ def _resolve(msg_id, row_id):
     if row_id is None:
         state["ignored"].append(msg_id)
     else:
-        found = next((r for r in job_tool.load_rows()["rows"] if r["id"] == row_id), None)
+        found = next((r for r in tracker.load_rows()["rows"] if r["id"] == row_id), None)
         if found is None:
             return None, f"no tracker row {row_id}"
         result, err = apply_to_row(row_id, item, item["kind"], next_status(item["kind"], found["status"]))
@@ -258,7 +259,7 @@ def _resolve(msg_id, row_id):
             action = {k: item[k] for k in ("msg_id", "date", "sender", "subject", "kind")}
             state["actions"].append(dict(action, row_id=row_id, done=False))
     state["review"].remove(item)
-    job_tool.save_json(state_path(), state)
+    store.save_json(state_path(), state)
     return result, None
 
 
@@ -273,7 +274,7 @@ def _mark_done(msg_id):
     if item is None:
         return None, f"no action {msg_id}"
     item["done"] = True
-    job_tool.save_json(state_path(), state)
+    store.save_json(state_path(), state)
     return item, None
 
 
@@ -403,7 +404,7 @@ def main(argv=None):
     p_done.set_defaults(func=lambda a: _exit_on(*mark_done(a.msg_id)))
     p_undo = sub.add_parser("undo")
     p_undo.add_argument("row_id", type=int)
-    p_undo.set_defaults(func=lambda a: _exit_on(*job_tool.undo_last_status(a.row_id)))
+    p_undo.set_defaults(func=lambda a: _exit_on(*tracker.undo_last_status(a.row_id)))
     args = parser.parse_args(argv)
     return args.func(args)
 

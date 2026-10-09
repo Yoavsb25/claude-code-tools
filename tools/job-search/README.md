@@ -25,7 +25,8 @@ lives in the `scripts/jobsearch/` package:
 | `inbox_mail.py` | Email classify/match (IMAP stays in `inbox.py`) |
 | `cockpit.py` | Today / Pipeline / Insights views for the Radar page |
 
-`job_tool.py` re-exports package names so existing callers and tests keep working.
+`job_tool.py` is only the argparse front end; callers import from `jobsearch` directly. Tests live in
+`scripts/tests/` (`cd scripts && python3 -m unittest`).
 
 ## How it works
 
@@ -225,7 +226,7 @@ Either way, the skill always confirms target companies with you before running a
 The daily run is the Job Radar: `scripts/radar.py refresh`, a plain-Python refresh (no LLM, no
 Claude login) fired by a local launchd agent. It collects every London / UK-remote posting from the
 `companies.json` watchlist plus a LinkedIn sweep into `radar.json`. See
-`references/scheduled-runs.md` for the plist, log location, and why the older unattended
+`references/radar-and-inbox.md` for the plist, log location, and why the older unattended
 `claude -p` pipeline was retired.
 
 ## Usage
