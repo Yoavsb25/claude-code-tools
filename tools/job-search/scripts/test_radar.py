@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -408,13 +409,53 @@ class TestPageServer(unittest.TestCase):
         self.assertTrue(radar.is_stale(old, now))
         self.assertTrue(radar.is_stale(None, now))
 
+    def _serve(self, inbox_target=None):
+        inbox_runner = radar.Runner(inbox_target or (lambda: None))
+        server = radar.ThreadingHTTPServer(("127.0.0.1", 0), radar.make_handler(radar.Runner(lambda: None), inbox_runner))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_address[1]}", inbox_runner
+
+    def _post(self, url, body):
+        req = urllib.request.Request(url, method="POST", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        return json.load(urllib.request.urlopen(req))
+
+    def test_cockpit_endpoints(self):
+        base, _ = self._serve()
+        saved = self._post(base + "/api/save", {"key": "acme|platform engineer", "tier": 1})
+        cockpit = json.load(urllib.request.urlopen(base + "/api/cockpit"))
+        self.assertEqual(cockpit["pipeline"][0]["tier"], 1)
+        self.assertFalse(cockpit["inbox_syncing"])
+        row = self._post(base + "/api/tracker", {"id": saved["tracker_id"], "status": "Applied", "channel": "ats"})
+        self.assertEqual((row["status"], row["channel"]), ("Applied", "ats"))
+        self.assertEqual(self._post(base + "/api/proof", {"title": "Talk"})["title"], "Talk")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self._post(base + "/api/tracker", {"id": saved["tracker_id"], "company": "Evil"})
+        self.assertEqual(ctx.exception.code, 400)
+        with self.assertRaises(urllib.error.HTTPError):
+            self._post(base + "/api/inbox/undo", {"row_id": saved["tracker_id"]})  # last change was manual
+
+    def test_inbox_sync_endpoint_reports_error(self):
+        def failing():
+            raise RuntimeError("no Keychain item")
+        base, runner = self._serve(failing)
+        self.assertEqual(self._post(base + "/api/inbox/sync", {}), {"started": True})
+        for _ in range(50):
+            if not runner.running:
+                break
+            time.sleep(0.02)
+        cockpit = json.load(urllib.request.urlopen(base + "/api/cockpit"))
+        self.assertEqual((cockpit["inbox_syncing"], cockpit["inbox_error"]), (False, "no Keychain item"))
+
     def test_http_endpoints(self):
-        server = radar.ThreadingHTTPServer(("127.0.0.1", 0), radar.make_handler(radar.RefreshRunner()))
+        server = radar.ThreadingHTTPServer(("127.0.0.1", 0), radar.make_handler(radar.Runner(lambda: None)))
         threading.Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
         try:
             page = urllib.request.urlopen(base + "/").read().decode()
-            self.assertIn("<title>Job Radar</title>", page)
+            self.assertIn("<title>Job Cockpit</title>", page)
             data = json.load(urllib.request.urlopen(base + "/api/data"))
             self.assertEqual(data["postings"][0]["key"], "acme|platform engineer")
             req = urllib.request.Request(base + "/api/hide", method="POST",

@@ -21,6 +21,10 @@ State (same dir as job_tool.py: ~/job-search-data, override with JOB_SEARCH_DIR)
   coverage.json   - per-company fetch result of the last refresh + LinkedIn stats +
                     companies seen on LinkedIn that aren't on the watchlist yet
   radar_state.json - the page's Hide / Save choices and last visit time
+  cockpit_state.json - public-proof log behind the weekly 3/2/1 targets (cockpit.py)
+
+The page is the Job Cockpit: Today (replies, emails to sort, follow-ups, automatic changes with
+Undo), Roles (this radar), Pipeline (edit the tracker) and Insights (what converts).
 """
 
 import argparse
@@ -37,6 +41,7 @@ from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import cockpit
 import inbox
 import job_tool
 
@@ -688,10 +693,12 @@ def add_to_watchlist(name, tier=None):
     return entry, None
 
 
-class RefreshRunner:
-    """Runs refresh() on a background thread so the page never blocks on a 3-minute fetch."""
+class Runner:
+    """Runs `target` on a background thread so the page never blocks on a slow job (a 3-minute
+    radar refresh, or an inbox sync)."""
 
-    def __init__(self):
+    def __init__(self, target):
+        self.target = target
         self.lock = threading.Lock()
         self.running = False
         self.last_error = None
@@ -706,7 +713,7 @@ class RefreshRunner:
 
     def _run(self):
         try:
-            refresh()
+            self.target()
             self.last_error = None
         except Exception as e:  # surfaced on the page instead of killing the server
             self.last_error = str(e)
@@ -715,14 +722,26 @@ class RefreshRunner:
                 self.running = False
 
 
-def make_handler(runner):
+def sync_inbox_from_page():
+    inbox.run_sync()
+    snapshot_state("inbox sync from the page")
+
+
+def make_handler(runner, inbox_runner=None):
+    inbox_runner = inbox_runner or Runner(sync_inbox_from_page)
     actions = {
         "/api/hide": lambda body: hide_posting(body.get("key"), body.get("reason")),
         "/api/unhide": lambda body: unhide_posting(body.get("key")),
-        "/api/save": lambda body: save_posting(body.get("key")),
+        "/api/save": lambda body: save_posting(body.get("key"), body.get("tier")),
         "/api/visit": lambda body: record_visit(),
         "/api/refresh": lambda body: ({"started": runner.start()}, None),
         "/api/watchlist": lambda body: add_to_watchlist(body.get("company")),
+        "/api/tracker": cockpit.update_row,
+        "/api/inbox/resolve": lambda body: inbox.resolve(body.get("msg_id"), body.get("row_id")),
+        "/api/inbox/done": lambda body: inbox.mark_done(body.get("msg_id")),
+        "/api/inbox/undo": lambda body: job_tool.undo_last_status(body.get("row_id")),
+        "/api/inbox/sync": lambda body: ({"started": inbox_runner.start()}, None),
+        "/api/proof": lambda body: cockpit.add_proof(body.get("title")),
     }
 
     class Handler(BaseHTTPRequestHandler):
@@ -750,6 +769,9 @@ def make_handler(runner):
                     "postings": postings, "page_state": load_page_state(),
                     "coverage": job_tool.load_json(_path("coverage.json"), None),
                 })
+            elif self.path == "/api/cockpit":
+                self._send(200, dict(cockpit.build(), inbox_syncing=inbox_runner.running,
+                                     inbox_error=inbox_runner.last_error))
             elif self.path == "/api/status":
                 radar_state = job_tool.load_json(_path("radar.json"), {})
                 self._send(200, {"updated_at": radar_state.get("updated_at"),
@@ -775,11 +797,11 @@ def make_handler(runner):
 
 
 def cmd_serve(args):
-    runner = RefreshRunner()
+    runner = Runner(refresh)
     if is_stale(job_tool.load_json(_path("radar.json"), None)):
         runner.start()
         print("Data is older than 12h: refreshing in the background (about 3 minutes).")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runner))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runner, Runner(sync_inbox_from_page)))
     url = f"http://127.0.0.1:{args.port}"
     print(f"Job Radar at {url}  (Ctrl+C to stop)")
     if not args.no_open:
