@@ -204,3 +204,157 @@ def decide(msg, kind, rows):
     if candidates or kind in REVIEW_KINDS:
         return {"type": "review", "candidates": candidates}
     return {"type": "skip"}
+
+
+# ---- state ------------------------------------------------------------------
+
+def state_path():
+    return job_tool.state_dir() / "inbox_state.json"
+
+
+def load_state():
+    state = job_tool.load_json(state_path(), {})
+    for key, default in (("uidvalidity", None), ("last_uid", 0), ("last_sync", None),
+                         ("review", []), ("actions", [])):
+        state.setdefault(key, default)
+    return state
+
+
+def _known_msg_ids(rows, state):
+    known = {e.get("msg_id") for r in rows for e in r.get("events") or []}
+    known |= {i["msg_id"] for i in state["review"] + state["actions"]}
+    known.discard(None)
+    return known
+
+
+# ---- IMAP -------------------------------------------------------------------
+
+def _check(typ, data, what):
+    if typ != "OK":
+        raise RuntimeError(f"IMAP {what} failed: {data!r}")
+
+
+def _uidvalidity(conn):
+    _, data = conn.response("UIDVALIDITY")
+    return int(data[0]) if data and data[0] else None
+
+
+def search_uids(conn, state, days, today):
+    validity = _uidvalidity(conn)
+    if validity != state["uidvalidity"]:
+        state["uidvalidity"], state["last_uid"] = validity, 0
+    incremental = bool(state["last_uid"]) and days is None
+    if incremental:
+        typ, data = conn.uid("SEARCH", None, "UID", f"{state['last_uid'] + 1}:*")
+    else:
+        since = (today - timedelta(days=days or FIRST_SYNC_DAYS)).strftime("%d-%b-%Y")
+        typ, data = conn.uid("SEARCH", None, "SINCE", since)
+    _check(typ, data, "SEARCH")
+    uids = sorted(int(u) for u in (data[0] or b"").split())
+    # "UID n:*" always returns the newest message even when it is older than n.
+    return [u for u in uids if u > state["last_uid"]] if incremental else uids
+
+
+def fetch(conn, uids, part):
+    """UID FETCH in batches, returning (uid, raw bytes) in UID order. `part` is always a BODY.PEEK
+    item so the \\Seen flag is never set."""
+    out = []
+    for i in range(0, len(uids), FETCH_BATCH):
+        batch = uids[i:i + FETCH_BATCH]
+        typ, data = conn.uid("FETCH", ",".join(map(str, batch)), f"(UID {part})")
+        _check(typ, data, "FETCH")
+        for item in data:
+            if isinstance(item, tuple):
+                m = re.search(rb"UID (\d+)", item[0])
+                if m:
+                    out.append((int(m.group(1)), item[1]))
+    return sorted(out)
+
+
+# ---- sync -------------------------------------------------------------------
+
+def apply_to_row(row_id, item, kind, status):
+    patch = {"id": row_id}
+    if status:
+        patch["status"] = status
+        if status == "Applied":
+            patch["applied_date"] = item["date"]
+    event = {"date": item["date"], "type": "email", "kind": kind, "subject": item["subject"][:140],
+             "msg_id": item["msg_id"], "source": "inbox"}
+    return job_tool.upsert_tracker_row(patch, source="inbox", event=event, when=item["date"])
+
+
+def sync(conn, today=None, days=None, dry_run=False):
+    today = today or date.today()
+    state = load_state()
+    rows = job_tool.load_rows()["rows"]
+    uids = search_uids(conn, state, days, today)
+    company_words = [job_tool.normalize_company(r["company"]) for r in rows]
+    heads = [parse_message(uid, raw, with_body=False) for uid, raw in fetch(conn, uids, HEADER_PART)]
+    wanted = [h["uid"] for h in heads if is_candidate(h, company_words)]
+    summary = {"scanned": len(heads), "candidates": len(wanted), "applied": [], "review": [],
+               "actions": [], "ghosted": []}
+    known = _known_msg_ids(rows, state)
+
+    for uid, raw in fetch(conn, wanted, FULL_PART):
+        msg = parse_message(uid, raw)
+        if msg["msg_id"] in known:
+            continue
+        known.add(msg["msg_id"])
+        kind = classify(msg)
+        decision = decide(msg, kind, rows)
+        record = {k: msg[k] for k in ("msg_id", "date", "sender", "subject")}
+        record["kind"] = kind
+        if decision["type"] == "apply":
+            summary["applied"].append(dict(record, row_id=decision["row_id"], status=decision["status"]))
+            if decision["action"]:
+                summary["actions"].append(dict(record, row_id=decision["row_id"], done=False))
+            if not dry_run:
+                apply_to_row(decision["row_id"], msg, kind, decision["status"])
+                rows = job_tool.load_rows()["rows"]
+        elif decision["type"] == "review":
+            summary["review"].append(dict(record, candidates=decision["candidates"],
+                                          snippet=" ".join(msg["body"].split())[:300]))
+
+    if dry_run:
+        return summary
+    if uids:
+        state["last_uid"] = max(state["last_uid"], uids[-1])
+    state["last_sync"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    state["review"] += summary["review"]
+    state["actions"] += summary["actions"]
+    job_tool.save_json(state_path(), state)
+    summary["ghosted"] = [r["id"] for r in job_tool.mark_ghosted(today)]
+    return summary
+
+
+def resolve(msg_id, row_id=None):
+    """Settle a review item: attach it to tracker row `row_id`, or drop it when row_id is None."""
+    state = load_state()
+    item = next((i for i in state["review"] if i["msg_id"] == msg_id), None)
+    if item is None:
+        return None, f"no review item {msg_id}"
+    result = {"dropped": msg_id}
+    if row_id is not None:
+        found = next((r for r in job_tool.load_rows()["rows"] if r["id"] == row_id), None)
+        if found is None:
+            return None, f"no tracker row {row_id}"
+        result, err = apply_to_row(row_id, item, item["kind"], next_status(item["kind"], found["status"]))
+        if err:
+            return None, err
+        if item["kind"] in ACTION_KINDS:
+            action = {k: item[k] for k in ("msg_id", "date", "sender", "subject", "kind")}
+            state["actions"].append(dict(action, row_id=row_id, done=False))
+    state["review"].remove(item)
+    job_tool.save_json(state_path(), state)
+    return result, None
+
+
+def mark_done(msg_id):
+    state = load_state()
+    item = next((a for a in state["actions"] if a["msg_id"] == msg_id), None)
+    if item is None:
+        return None, f"no action {msg_id}"
+    item["done"] = True
+    job_tool.save_json(state_path(), state)
+    return item, None
