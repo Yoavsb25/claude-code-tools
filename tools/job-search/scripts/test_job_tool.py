@@ -1584,3 +1584,55 @@ class TestUndoAndGhosting(TrackerStateMixin, unittest.TestCase):
         old = job_tool.load_rows()["rows"][0]
         self.assertEqual((old["status"], old["events"][-1]["source"]), ("Ghosted", "auto"))
         self.assertEqual(job_tool.undo_last_status(1)[0]["status"], "Applied")
+
+
+class TestMigration(TrackerStateMixin, unittest.TestCase):
+    def test_infer_channel(self):
+        cases = [
+            ({"notes": "LinkedIn Easy Apply (recruitment agency)"}, "agency"),
+            ({"notes": "LinkedIn Easy Apply"}, "easy_apply"),
+            ({"notes": "Workday confirmation"}, "ats"),
+            ({"notes": None, "link": "https://jobs.ashbyhq.com/freetrade/x"}, "ats"),
+            ({"notes": "Referred by Dana"}, "referral"),
+            ({"notes": "Ask for referral first"}, None),
+            ({"notes": "Confirmation from Global recruitment"}, None),
+        ]
+        for row, expected in cases:
+            with self.subTest(row=row):
+                self.assertEqual(job_tool.infer_channel(row), expected)
+
+    def test_infer_positioning(self):
+        cases = [
+            ("AI Engineer", "P1"), ("Lead AI & Automation Engineer", "P1"), ("AI Enablement Engineer", "P1"),
+            ("Platform Engineer", "P2"), ("Software Engineer, Test & Build Engineering", "P2"),
+            ("AI Solutions Engineer", "P3"), ("Forward Deployed Engineer", "P3"),
+            ("Product Manager - Payroll - UK", "P4"), ("Technical Program Manager", "P4"),
+            ("Product Data Scientist (Data Labs)", None),
+        ]
+        for role, expected in cases:
+            with self.subTest(role=role):
+                self.assertEqual(job_tool.infer_positioning(role), expected)
+
+    def _seed(self, rows):
+        job_tool.save_json(job_tool.tracker_path(), {"next_id": len(rows) + 1, "rows": rows})
+
+    def test_migrate_backfills_and_is_idempotent(self):
+        self._seed([
+            {"id": 1, "company": "Byte", "role": "AI Engineer", "status": "Applied",
+             "applied_date": "2026-10-07", "notes": "LinkedIn Easy Apply", "link": None},
+            {"id": 2, "company": "Freetrade", "role": "Platform Engineer", "status": "Rejected",
+             "applied_date": "2026-10-01", "notes": "Ashby confirmation; rejection email 2026-10-08", "link": None},
+            {"id": 3, "company": "Neo4j", "role": "SWE", "status": "Shortlisted", "positioning": "P2",
+             "applied_date": None, "notes": None, "link": None},
+        ])
+        job_tool.migrate_tracker()
+        rows = job_tool.load_rows()["rows"]
+        self.assertEqual((rows[0]["channel"], rows[0]["positioning"], rows[0]["positioning_inferred"]),
+                         ("easy_apply", "P1", True))
+        self.assertEqual(rows[1]["events"][-1], {"date": "2026-10-08", "type": "status", "from": "Applied",
+                                                 "to": "Rejected", "source": "migrate"})
+        self.assertEqual((rows[2]["positioning"], rows[2].get("positioning_inferred")), ("P2", None))
+        self.assertTrue(job_tool.tracker_path().with_name(f"tracker.json.bak-{job_tool.today_str()}").exists())
+        before = job_tool.load_rows()
+        job_tool.migrate_tracker()
+        self.assertEqual(job_tool.load_rows(), before)

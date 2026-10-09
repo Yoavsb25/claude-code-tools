@@ -10,6 +10,8 @@ Usage:
   job_tool.py tracker list [--status STATUS] [--stale-only]
   job_tool.py tracker upsert '<json row>'         (or '-' to read row from stdin)
   job_tool.py tracker render
+  job_tool.py tracker migrate                     (backfill v2 fields; safe to re-run)
+  job_tool.py tracker undo --id N                 (revert the last automatic status change)
   job_tool.py search remotive --query "backend" [--category X] [--limit 25]
   job_tool.py search arbeitnow --query "backend" [--limit 25] [--max-pages 3]
   job_tool.py search ats --platform greenhouse|lever|ashby|smartrecruiters|recruitee|workable \
@@ -423,6 +425,83 @@ def mark_ghosted(today=None):
     if ghosted:
         save_rows(data)
     return ghosted
+
+
+CHANNEL_RULES = [
+    ("referral", re.compile(r"\breferred\b|via referral|referral (submitted|made)", re.I)),
+    ("agency", re.compile(r"recruitment agency|\bagency\b", re.I)),
+    ("easy_apply", re.compile(r"easy apply", re.I)),
+    ("ats", re.compile(r"greenhouse|lever\.co|ashby|workable|teamtailor|workday|smartrecruiters|recruitee|"
+                       r"jobs\.gem\.com|comeet|bamboohr|personio|hibob", re.I)),
+]
+# First match wins, so the more specific lanes come before the catch-all P2.
+POSITIONING_RULES = [
+    ("P4", re.compile(r"program|project|product manager|\btpm\b|delivery", re.I)),
+    ("P3", re.compile(r"forward deployed|\bfde\b|solutions?\b|implementation|customer", re.I)),
+    ("P1", re.compile(r"\bai\b|artificial intelligence|\bml\b|machine learning|\bllm|automation|"
+                      r"enablement|transformation", re.I)),
+    ("P2", re.compile(r"platform|devops|infrastructure|\bsre\b|reliability|build|developer experience|"
+                      r"software engineer|backend|python developer|quality", re.I)),
+]
+REJECTION_DATE_RE = re.compile(r"rejection[^0-9]{0,40}(\d{4}-\d{2}-\d{2})", re.I)
+
+
+def infer_channel(row):
+    text = f"{row.get('notes') or ''} {row.get('link') or ''}"
+    return next((name for name, rx in CHANNEL_RULES if rx.search(text)), None)
+
+
+def infer_positioning(role):
+    return next((p for p, rx in POSITIONING_RULES if rx.search(role or "")), None)
+
+
+def backfill_events(row):
+    events = []
+    if row.get("applied_date"):
+        events.append({"date": row["applied_date"], "type": "status", "from": None, "to": "Applied",
+                       "source": "migrate"})
+    if row.get("status") not in ("Shortlisted", "Applied"):
+        m = REJECTION_DATE_RE.search(row.get("notes") or "") if row["status"] == "Rejected" else None
+        events.append({"date": m.group(1) if m else None, "type": "status",
+                       "from": "Applied" if row.get("applied_date") else None, "to": row["status"],
+                       "source": "migrate"})
+    return events
+
+
+def migrate_tracker():
+    """Bring every row up to the v2 schema (backing up tracker.json first). Safe to re-run: only
+    fills fields that are missing, never overwrites a value already set."""
+    data = load_rows()
+    backup = tracker_path().with_name(f"tracker.json.bak-{today_str()}")
+    if tracker_path().exists() and not backup.exists():
+        save_json(backup, data)
+    filled = {"channel": 0, "positioning": 0, "events": 0}
+    for row in data["rows"]:
+        row.setdefault("tier", None)
+        if not row.get("channel"):
+            row["channel"] = infer_channel(row)
+            filled["channel"] += row["channel"] is not None
+        if not row.get("positioning"):
+            row["positioning"] = infer_positioning(row.get("role"))
+            row["positioning_inferred"] = row["positioning"] is not None
+            filled["positioning"] += row["positioning"] is not None
+        if "events" not in row:
+            row["events"] = backfill_events(row)
+            filled["events"] += bool(row["events"])
+    save_rows(data)
+    return filled
+
+
+def cmd_tracker_migrate(_args):
+    print(json.dumps(migrate_tracker(), indent=2))
+
+
+def cmd_tracker_undo(args):
+    row, err = undo_last_status(args.id)
+    if err:
+        print(f"error: {err}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(row, indent=2))
 
 
 def cmd_tracker_list(args):
@@ -1796,6 +1875,10 @@ def main():
     p_upsert.add_argument("row")
     p_upsert.set_defaults(func=cmd_tracker_upsert)
     tracker_sub.add_parser("render").set_defaults(func=cmd_tracker_render)
+    tracker_sub.add_parser("migrate").set_defaults(func=cmd_tracker_migrate)
+    p_undo = tracker_sub.add_parser("undo")
+    p_undo.add_argument("--id", type=int, required=True)
+    p_undo.set_defaults(func=cmd_tracker_undo)
 
     p_network = sub.add_parser("network")
     network_sub = p_network.add_subparsers(dest="action", required=True)
