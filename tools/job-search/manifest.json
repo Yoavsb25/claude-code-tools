@@ -1,6 +1,6 @@
 {
   "name": "job-search",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, surfaces worth-exploring roles at target companies, and kicks off resume-tailor",
   "type": "tool",
   "category": "career",
@@ -13,12 +13,14 @@
       { "src": "scripts/radar.py", "dest": "~/.claude/skills/job-search/scripts/radar.py" },
       { "src": "scripts/radar.html", "dest": "~/.claude/skills/job-search/scripts/radar.html" },
       { "src": "scripts/inbox.py", "dest": "~/.claude/skills/job-search/scripts/inbox.py" },
+      { "src": "scripts/cockpit.py", "dest": "~/.claude/skills/job-search/scripts/cockpit.py" },
       { "src": "references/search-fallbacks.md", "dest": "~/.claude/skills/job-search/references/search-fallbacks.md" },
       { "src": "references/network-warm-intros.md", "dest": "~/.claude/skills/job-search/references/network-warm-intros.md" },
       { "src": "references/scheduled-runs.md", "dest": "~/.claude/skills/job-search/references/scheduled-runs.md" },
       { "src": "scripts/test_job_tool.py", "dest": "~/.claude/skills/job-search/scripts/test_job_tool.py" },
       { "src": "scripts/test_radar.py", "dest": "~/.claude/skills/job-search/scripts/test_radar.py" },
-      { "src": "scripts/test_inbox.py", "dest": "~/.claude/skills/job-search/scripts/test_inbox.py" }
+      { "src": "scripts/test_inbox.py", "dest": "~/.claude/skills/job-search/scripts/test_inbox.py" },
+      { "src": "scripts/test_cockpit.py", "dest": "~/.claude/skills/job-search/scripts/test_cockpit.py" }
     ]
   },
   "requirements": {

@@ -729,8 +729,20 @@ UK-remote posting from the `companies.json` watchlist plus a LinkedIn sweep into
 `~/job-search-data/radar.json`, with years required (pulled from the JD text, with the evidence
 sentence), level, role family and salary. `radar.py status` prints a summary; coverage per company
 is in `coverage.json`. Yoav browses it with `radar.py serve` (local page at http://127.0.0.1:8765,
-refreshes in the background if data is over 12h old); its ☆ Save adds a Shortlisted tracker row and
-Hide choices live in `radar_state.json`. See `references/scheduled-runs.md`.
+refreshes in the background if data is over 12h old). See `references/scheduled-runs.md`.
+
+The page is the **Job Cockpit** (`cockpit.py` builds its data; served at `/api/cockpit`):
+- **Today** (default): weekly 3/2/1 tiles plus a public-proof log (`cockpit_state.json`), emails
+  that need a reply ("✓ Handled"), emails to sort ("It's <company>" / another row / Ignore), follow-ups
+  due, and the last 7 days of automatic status changes with Undo; "Sync inbox now" runs inbox sync.
+- **Roles**: the radar. "☆ Save as…" Tier 1 (tailor + warm path) or Tier 2 (fast apply) adds a
+  Shortlisted row with a guessed positioning; Hide choices live in `radar_state.json`.
+- **Pipeline**: every tracker row with status / tier / channel / positioning editable in place
+  ("confirm" accepts a guessed positioning); a row opens to its history, LinkedIn connections at the
+  company, and a "Copy /resume-tailor command" button.
+- **Insights**: funnel (applied → heard back → conversations → interviewing → offers), median time to
+  a response, and conversation rate by channel, positioning and tier (groups under 5 marked "few").
+Page edits are limited to status, tier, channel, positioning, notes and follow-up date.
 
 When Yoav asks "what's new" or wants a shortlist, start from `radar.json` (filter: not closed,
 `years_min` ≤ 3 or unknown, role_family not Non-tech) instead of re-fetching every source. Never
