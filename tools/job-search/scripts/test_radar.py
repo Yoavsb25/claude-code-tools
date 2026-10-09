@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -426,3 +427,41 @@ class TestPageServer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDaily(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+        radar.job_tool.upsert_tracker_row({"company": "Old", "role": "SWE", "status": "Applied",
+                                           "applied_date": "2026-01-01"})
+        self.args = radar.argparse.Namespace(no_linkedin=True, max_details=0)
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def test_daily_survives_inbox_failure_without_ghosting(self):
+        with patch("radar.cmd_refresh") as refresh, \
+             patch("radar.inbox.get_credentials", return_value=(None, "no Keychain item")):
+            radar.cmd_daily(self.args)
+        refresh.assert_called_once()
+        self.assertEqual(radar.job_tool.load_rows()["rows"][0]["status"], "Applied")
+
+    def test_daily_runs_inbox_even_if_refresh_fails(self):
+        with patch("radar.cmd_refresh", side_effect=RuntimeError("boom")), \
+             patch("radar.inbox.run_sync", return_value={"scanned": 0, "candidates": 0, "applied": [],
+                                                          "review": [], "actions": [], "ghosted": []}) as sync:
+            radar.cmd_daily(self.args)
+        sync.assert_called_once()
+
+    def test_daily_commits_state_repo(self):
+        subprocess.run(["git", "init", "-q", self.tmp.name], check=True)
+        subprocess.run(["git", "-C", self.tmp.name, "config", "user.email", "t@t"], check=True)
+        subprocess.run(["git", "-C", self.tmp.name, "config", "user.name", "t"], check=True)
+        with patch("radar.cmd_refresh"), \
+             patch("radar.inbox.get_credentials", return_value=(None, "no Keychain item")):
+            radar.cmd_daily(self.args)
+        log = subprocess.run(["git", "-C", self.tmp.name, "log", "--oneline"], capture_output=True, text=True)
+        self.assertIn("daily run", log.stdout)

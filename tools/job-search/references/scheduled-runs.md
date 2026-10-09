@@ -3,8 +3,11 @@
 Since 2026-09-29 the daily run is the **Job Radar refresh**, not an unattended Claude session.
 
 - `~/Library/LaunchAgents/com.yoavsborovsky.jobradar.plist` runs
-  `/opt/homebrew/bin/python3 scripts/radar.py refresh` at 07:00 (launchd runs a missed slot on
+  `/opt/homebrew/bin/python3 scripts/radar.py daily` at 07:00 (launchd runs a missed slot on
   wake if the Mac was asleep). Log: `~/job-search-data/logs/radar.log`.
+- `daily` = radar refresh, then inbox sync (`inbox.py`, read-only IMAP; ghosting only after a
+  successful sync), then a git commit of `~/job-search-data`. A failing step is logged and the
+  next one still runs.
 - It is plain Python (stdlib + `job_tool.py` fetchers): no LLM, no `claude` CLI, so there is no
   OAuth session to expire. State lives in `~/job-search-data/`, outside `~/Desktop`, because
   macOS TCC blocks launchd jobs from reading the Desktop (this broke every run in Sept 2026).
@@ -12,7 +15,8 @@ Since 2026-09-29 the daily run is the **Job Radar refresh**, not an unattended C
   a LinkedIn sweep, enriched with years required, level, role family, salary) and
   `coverage.json` (per-company fetch result, LinkedIn stats, discovered companies).
 
-The Radar never applies, messages, or writes to the tracker on its own; Yoav browses and saves.
+Nothing ever applies or sends messages. The only automatic tracker writes come from inbox sync
+(unambiguous email matches, undoable) and ghosting; Yoav browses the Radar and saves roles himself.
 
 ## Retired: the unattended Claude pipeline
 

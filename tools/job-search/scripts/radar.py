@@ -7,6 +7,7 @@ and nothing is ever applied to or sent anywhere.
 
 Usage:
   radar.py refresh [--no-linkedin] [--max-details 100]
+  radar.py daily [--no-linkedin]             refresh, then inbox sync, then commit the state repo (launchd)
   radar.py status
   radar.py serve [--port 8765] [--no-open]   local page at http://127.0.0.1:8765
 
@@ -25,6 +26,7 @@ State (same dir as job_tool.py: ~/job-search-data, override with JOB_SEARCH_DIR)
 import argparse
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -35,6 +37,7 @@ from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import inbox
 import job_tool
 
 job_tool.DESCRIPTION_MAX = None  # keep full JD text; "N+ years" often sits near the end
@@ -800,6 +803,31 @@ def cmd_refresh(args):
     summarize(state, coverage)
 
 
+def cmd_daily(args):
+    """The 07:00 launchd entry point. Each step's failure is logged without stopping the other;
+    ghosting only happens inside a successful inbox sync."""
+    try:
+        cmd_refresh(args)
+    except Exception as e:  # noqa: BLE001 — keep going to the inbox sync
+        print(f"radar refresh failed: {e}")
+    try:
+        print(inbox.format_summary(inbox.run_sync()))
+    except Exception as e:  # noqa: BLE001
+        print(f"inbox sync failed: {e}")
+    snapshot_state(f"daily run {date.today().isoformat()}")
+
+
+def snapshot_state(message):
+    """Commit the state dir (a local git repo since 2026-10-09) so every automatic tracker change
+    is reviewable and revertable: `git -C ~/job-search-data log -p tracker.json`. No-op without a
+    repo or when nothing changed; never pushes."""
+    d = job_tool.state_dir()
+    if not (d / ".git").exists():
+        return
+    subprocess.run(["git", "-C", str(d), "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", str(d), "commit", "-q", "-m", message], capture_output=True)
+
+
 def cmd_status(_args):
     state = job_tool.load_json(_path("radar.json"), None)
     coverage = job_tool.load_json(_path("coverage.json"), None)
@@ -816,6 +844,10 @@ def main(argv=None):
     p_refresh.add_argument("--no-linkedin", action="store_true")
     p_refresh.add_argument("--max-details", type=int, default=LINKEDIN_MAX_DETAILS)
     p_refresh.set_defaults(func=cmd_refresh)
+    p_daily = sub.add_parser("daily")
+    p_daily.add_argument("--no-linkedin", action="store_true")
+    p_daily.add_argument("--max-details", type=int, default=LINKEDIN_MAX_DETAILS)
+    p_daily.set_defaults(func=cmd_daily)
     sub.add_parser("status").set_defaults(func=cmd_status)
     p_serve = sub.add_parser("serve")
     p_serve.add_argument("--port", type=int, default=8765)

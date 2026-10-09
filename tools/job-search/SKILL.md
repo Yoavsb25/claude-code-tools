@@ -682,8 +682,16 @@ merges — it will not create a duplicate. It also auto-sets `applied_date` and 
 you move a row's status to `Applied`, `Phone Screen`, or `Interviewing`; only pass those fields
 explicitly if you need to override the default.
 
-`status` must be one of, in order: `Shortlisted` → `Applied` → `Phone Screen` → `Interviewing` →
-`Offer` / `Rejected` / `Withdrawn`. Never move a row backwards except to `Withdrawn` or `Rejected`.
+`status` must be one of, in order: `Shortlisted` → `Applied` → `Responded` → `Phone Screen` →
+`Interviewing` → `Offer` / `Rejected` / `Ghosted` / `Withdrawn`. Never move a row backwards except to
+`Withdrawn` or `Rejected`. `Responded` = any human reply or invite; `Ghosted` is set automatically
+(21 days in `Applied` with no reply, only after a successful inbox sync).
+
+Also record how the application was made, so the weekly review can learn what converts:
+`channel` (`easy_apply` | `ats` | `agency` | `referral` | `other`), `tier` (`1` = tailored CV +
+warm-path check, `2` = fast path) and `positioning` (`P1`–`P4`). Invalid values are rejected. Every
+status change is appended to the row's `events` history; `tracker undo --id N` reverts the last
+*automatic* change (inbox sync or ghosting).
 
 **After persisting, surface staleness:**
 ```bash
@@ -729,6 +737,25 @@ When Yoav asks "what's new" or wants a shortlist, start from `radar.json` (filte
 apply, send messages, or add tracker rows without him choosing the role.
 
 ---
+
+## Inbox sync (daily, read-only)
+
+`scripts/inbox.py` reads Gmail over IMAP and keeps the tracker in step with what employers sent.
+It runs inside `radar.py daily` at 07:00; `inbox.py sync [--days N] [--dry-run]` runs it by hand.
+The mailbox is opened read-only and fetched with `BODY.PEEK`: nothing is marked read, moved or
+sent. Credentials: a Gmail app password in the macOS Keychain (service `job-search-imap`;
+`inbox.py setup` prints the steps).
+
+Only unambiguous matches (company named by the sender or subject, one row fits) change the
+tracker: confirmation → `Applied`, rejection → `Rejected`, invite/reply → `Responded` plus an
+action item. Everything else waits in the review queue. When Yoav asks "anything from employers?"
+or "what do I need to reply to?", run `inbox.py actions` and `inbox.py review`; settle review
+items with `inbox.py resolve <msg_id> --row ID` or `--ignore`, and mark replies handled with
+`inbox.py done <msg_id>`. A status update Yoav tells you directly still goes through
+`tracker upsert`.
+
+`~/job-search-data` is a local git repo; `radar.py daily` commits it after each run, so
+`git -C ~/job-search-data log -p tracker.json` shows every automatic change.
 
 ## Network — warm intros at target companies
 

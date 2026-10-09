@@ -1,9 +1,10 @@
 import email.message
 import os
+import subprocess
 import tempfile
 import unittest
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import inbox
 import job_tool
@@ -284,3 +285,33 @@ class TestSync(unittest.TestCase):
         item, err = inbox.mark_done("<i@x>")
         self.assertIsNone(err)
         self.assertTrue(item["done"])
+
+
+class TestCredentialsAndConnect(unittest.TestCase):
+    def test_reads_keychain(self):
+        meta = MagicMock(stdout='keychain: "x"\n    "acct"<blob>="me@gmail.com"\n')
+        secret = MagicMock(stdout="abcd efgh ijkl mnop\n")
+        with patch("inbox.subprocess.run", side_effect=[meta, secret]):
+            self.assertEqual(inbox.get_credentials(), (("me@gmail.com", "abcd efgh ijkl mnop"), None))
+
+    def test_missing_keychain_item(self):
+        with patch("inbox.subprocess.run", side_effect=subprocess.CalledProcessError(44, "security")):
+            creds, err = inbox.get_credentials()
+        self.assertIsNone(creds)
+        self.assertIn("inbox.py setup", err)
+
+    def test_open_mailbox_is_read_only(self):
+        fake = MagicMock()
+        fake.select.return_value = ("OK", [b"12"])
+        with patch("inbox.imaplib.IMAP4_SSL", return_value=fake):
+            inbox.open_mailbox("me@gmail.com", "pw")
+        fake.select.assert_called_once_with(inbox.MAILBOX, readonly=True)
+
+    def test_format_summary(self):
+        text = inbox.format_summary({"scanned": 5, "candidates": 3, "ghosted": [4],
+                                     "applied": [{"subject": "Re", "kind": "rejection", "row_id": 1,
+                                                  "status": "Rejected"}],
+                                     "review": [{"subject": "Hm", "kind": "rejection", "msg_id": "<w@x>"}],
+                                     "actions": []})
+        self.assertIn("1 tracker update", text)
+        self.assertIn("1 to review", text)

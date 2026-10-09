@@ -358,3 +358,125 @@ def mark_done(msg_id):
     item["done"] = True
     job_tool.save_json(state_path(), state)
     return item, None
+
+
+# ---- credentials + connection -----------------------------------------------
+
+SETUP_HELP = f"""One-off setup (2 minutes):
+  1. Google Account > Security > 2-Step Verification must be on.
+  2. https://myaccount.google.com/apppasswords > create one called "job-search".
+  3. Store it in the Keychain (it prompts for the password, nothing lands in shell history):
+       security add-generic-password -U -s {KEYCHAIN_SERVICE} -a <you>@gmail.com -w
+  4. Check it: python3 inbox.py setup"""
+
+
+def get_credentials():
+    try:
+        meta = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE],
+                              capture_output=True, text=True, check=True).stdout
+        password = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+                                  capture_output=True, text=True, check=True).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None, f"no Keychain item '{KEYCHAIN_SERVICE}' — run `inbox.py setup` for instructions"
+    m = re.search(r'"acct"<blob>="([^"]*)"', meta)
+    if not m or not password:
+        return None, f"Keychain item '{KEYCHAIN_SERVICE}' has no account or password"
+    return (m.group(1), password), None
+
+
+def open_mailbox(user, password):
+    conn = imaplib.IMAP4_SSL(IMAP_HOST, timeout=60)
+    conn.login(user, password)
+    typ, data = conn.select(MAILBOX, readonly=True)
+    _check(typ, data, "SELECT")
+    return conn
+
+
+def run_sync(days=None, dry_run=False):
+    creds, err = get_credentials()
+    if err:
+        raise RuntimeError(err)
+    conn = open_mailbox(*creds)
+    try:
+        return sync(conn, days=days, dry_run=dry_run)
+    finally:
+        try:
+            conn.logout()
+        except (imaplib.IMAP4.error, OSError):
+            pass
+
+
+def format_summary(s):
+    lines = [f"Inbox: scanned {s['scanned']}, {s['candidates']} job-related, "
+             f"{len(s['applied'])} tracker update(s), {len(s['review'])} to review, "
+             f"{len(s['actions'])} need a reply, {len(s['ghosted'])} ghosted"]
+    for a in s["applied"]:
+        change = f" → {a['status']}" if a["status"] else ""
+        lines.append(f"  row {a['row_id']}{change}  [{a['kind']}] {a['subject']}")
+    for r in s["review"]:
+        lines.append(f"  review {r['msg_id']}  [{r['kind']}] {r['subject']}")
+    return "\n".join(lines)
+
+
+# ---- CLI --------------------------------------------------------------------
+
+def _print_items(items, empty):
+    if not items:
+        print(empty)
+    for i in items:
+        extra = f" candidates={i['candidates']}" if "candidates" in i else f" row={i.get('row_id')}"
+        print(f"{i['date']}  [{i['kind']}] {i['subject']}\n    from {i['sender']}  {i['msg_id']}{extra}")
+
+
+def _exit_on(result, err):
+    if err:
+        print(f"error: {err}", file=sys.stderr)
+        sys.exit(1)
+    print(result)
+
+
+def cmd_setup(_args):
+    creds, err = get_credentials()
+    if err:
+        print(f"{err}\n\n{SETUP_HELP}")
+        return 1
+    open_mailbox(*creds).logout()
+    print(f"OK: logged in to {IMAP_HOST} as {creds[0]} (read-only)")
+
+
+def cmd_sync(args):
+    print(format_summary(run_sync(days=args.days, dry_run=args.dry_run)))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("setup").set_defaults(func=cmd_setup)
+    p_sync = sub.add_parser("sync")
+    p_sync.add_argument("--days", type=int)
+    p_sync.add_argument("--dry-run", action="store_true")
+    p_sync.set_defaults(func=cmd_sync)
+    sub.add_parser("review").set_defaults(
+        func=lambda a: _print_items(load_state()["review"], "Review queue is empty."))
+    p_resolve = sub.add_parser("resolve")
+    p_resolve.add_argument("msg_id")
+    group = p_resolve.add_mutually_exclusive_group(required=True)
+    group.add_argument("--row", type=int)
+    group.add_argument("--ignore", action="store_true")
+    p_resolve.set_defaults(func=lambda a: _exit_on(*resolve(a.msg_id, a.row)))
+    p_actions = sub.add_parser("actions")
+    p_actions.add_argument("--all", action="store_true")
+    p_actions.set_defaults(func=lambda a: _print_items(
+        [i for i in load_state()["actions"] if a.all or not i["done"]], "Nothing needs a reply."))
+    p_done = sub.add_parser("done")
+    p_done.add_argument("msg_id")
+    p_done.set_defaults(func=lambda a: _exit_on(*mark_done(a.msg_id)))
+    p_undo = sub.add_parser("undo")
+    p_undo.add_argument("row_id", type=int)
+    p_undo.set_defaults(func=lambda a: _exit_on(*job_tool.undo_last_status(a.row_id)))
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
