@@ -442,3 +442,65 @@ class TestReviewFixes(unittest.TestCase):
         box = Trailing({7: make_raw("Your application to Acme", "Acme <jobs@acme.com>", "Unfortunately we "
                                     "have decided to move forward with other candidates.", msg_id="<t@x>")})
         self.assertEqual([u for u, _ in inbox.fetch(box, [7], inbox.FULL_PART)], [7])
+
+
+class TestRealInboxCases(unittest.TestCase):
+    """Cases from the 2026-10-09 dry run over Yoav's real inbox (bodies shortened)."""
+
+    def kind(self, subject, sender, body, bulk=False):
+        return inbox.classify(dict(msg(subject, sender, body), bulk=bulk))
+
+    def test_rejection_phrasings(self):
+        cases = [
+            ("Attio Application Update", "Attio <careers@mail.attio.com>",
+             "Thank you for you application the Product Engineer role at Attio. The team has taken the time to "
+             "review your profile and has decided not to move forward at this time."),
+            ("Update on your application for Solutions Engineer", "Aveni Hiring Team <no-reply@ashbyhq.com>",
+             "Thank you for applying for the Solutions Engineer role at Aveni. After reviewing your CV we’ve "
+             "decided not to progress your application to the next stage on this occasion."),
+            ("Thank you from JFrog!", "no-reply@jfrog.com",
+             "Thank you for your interest in joining our swamp! Unfortunately, at this moment in time we don’t "
+             "have any relevant opportunities that fit your skills and experience."),
+            ("Your application to Forward Deployed Engineer at Findrs", "LinkedIn <jobs-noreply@linkedin.com>",
+             "Your update from Findrs https://www.linkedin.com/help?lipi=urn%3Ali%3Apage%3Aemail_email_jobs_"
+             "application_rejected_01"),
+        ]
+        for subject, sender, body in cases:
+            with self.subTest(subject=subject):
+                self.assertEqual(self.kind(subject, sender, body), "rejection")
+
+    def test_bulk_mail_is_never_a_reply(self):
+        self.assertEqual(self.kind("Help us match you with the right jobs", "La Fosse <data.admin@lafosse.com>",
+                                   "Thanks for your recent application. Could you update your details?", bulk=True),
+                         "other")
+        self.assertEqual(self.kind("You're invited to London Office", "Unity <info@gable.to>",
+                                   "You're invited to visit London Office. Your host is Emma.", bulk=True), "other")
+
+    def test_linkedin_inmail_is_still_a_reply_despite_bulk_headers(self):
+        self.assertEqual(self.kind("Career Opportunity with a UK Series A Insurtech",
+                                   "Adam Tully <inmail-hit-reply@linkedin.com>", "Hello Yoav, is timing right?",
+                                   bulk=True), "reply")
+
+    def test_receipts_and_job_alerts_are_noise(self):
+        self.assertEqual(self.kind("Your receipt from Anthropic, PBC #2851", '"Anthropic, PBC" <invoice@mail.anthropic.com>',
+                                   "Receipt £18.00 Paid"), "noise")
+        self.assertEqual(self.kind("Staff Engineer (IT Automation) at SoSafe",
+                                   "LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>",
+                                   "Your job alert. Book a time to chat"), "noise")
+        self.assertFalse(inbox.is_candidate(msg("Staff Engineer at SoSafe", "jobalerts-noreply@linkedin.com"), []))
+
+    def test_bulk_flag_parsed_from_list_unsubscribe(self):
+        m = email.message.EmailMessage()
+        m["Subject"], m["From"], m["Date"] = "Hi", "a@b.com", "Wed, 08 Oct 2026 10:00:00 +0000"
+        m["List-Unsubscribe"] = "<mailto:u@b.com>"
+        m.set_content("x")
+        self.assertTrue(inbox.parse_message(1, m.as_bytes())["bulk"])
+        self.assertFalse(inbox.parse_message(1, make_raw("Hi", "a@b.com", "x"))["bulk"])
+
+    def test_linkedin_subject_names_generic_company_exactly(self):
+        r, strength, _ = inbox.match(msg("Yoav, your application was sent to Byte", "LinkedIn <jobs-noreply@linkedin.com>"),
+                                     [row(1, "Byte", "Artificial Intelligence Engineer")])
+        self.assertEqual((r["id"], strength), (1, "strong"))
+        r, strength, _ = inbox.match(msg("Your application to AI Engineer at Global", "LinkedIn <jobs-noreply@linkedin.com>"),
+                                     [row(1, "Global", "AI Engineer")])
+        self.assertEqual((r["id"], strength), (1, "strong"))

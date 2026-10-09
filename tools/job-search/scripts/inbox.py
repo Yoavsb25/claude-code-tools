@@ -37,7 +37,7 @@ MAILBOX = '"[Gmail]/All Mail"'
 FIRST_SYNC_DAYS = 30
 FETCH_BATCH = 200
 BODY_CHARS = 6000
-HEADER_PART = "BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID)]"
+HEADER_PART = "BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID LIST-UNSUBSCRIBE)]"
 FULL_PART = "BODY.PEEK[]"
 
 ACTION_KINDS = ("interview", "reply")
@@ -50,7 +50,9 @@ ROLE_STOPWORDS = {"senior", "junior", "lead", "engineer", "engineering", "the", 
 
 NOISE_SUBJECT_RE = re.compile(
     r"job alert|jobs? you may be interested|new jobs? (for you|match|in)|recommended (jobs|for you)|"
-    r"jobs? similar to|is hiring|are hiring|top job picks|newsletter|webinar|people also (viewed|applied)", re.I)
+    r"jobs? similar to|is hiring|are hiring|top job picks|newsletter|webinar|people also (viewed|applied)|"
+    r"receipt|invoice|your order|payment|verification code|password|security alert", re.I)
+NOISE_SENDER_RE = re.compile(r"jobalerts|job-alerts|jobs-listings|invitations@linkedin|newsletter", re.I)
 JOB_HINT_RE = re.compile(
     r"applica|applying|applied|interview|candida|position|\brole\b|opportunit|recruit|talent|hiring|"
     r"career|offer|assessment", re.I)
@@ -63,7 +65,8 @@ NOREPLY_RE = re.compile(r"no-?reply|do-?not-?reply|notification|mailer|automated
 # can't reply to everyone"), so they only count as a rejection when no confirmation phrase is present.
 WEAK_REJECTION_RE = re.compile(r"unfortunately|unsuccessful", re.I)
 REJECTION_RE = re.compile(
-    r"regret to inform|not (be )?(moving|move|progress\w*|proceed\w*) (forward|further|ahead)|"
+    r"regret to inform|not to (move|proceed|progress|continue)|application_rejected|"
+    r"do(n.t| not) have any (relevant|suitable) (opportunit|position|role)|not (be )?(moving|move|progress\w*|proceed\w*) (forward|further|ahead)|"
     r"(decided|chosen) to (move|proceed|progress|go) (forward |ahead )?with other|other candidates (whose|who)|"
     r"will not be (progressing|proceeding|taking)|not been successful|"
     r"position has (now )?been filled|no longer (being )?consider|not (been )?selected", re.I)
@@ -83,6 +86,8 @@ CONDITIONAL_RE = re.compile(
     r"\bif (you are |you're |you have been |your application is )?(shortlisted|successful|selected|suitable)|"
     r"if your (profile|experience|application|skills|background)|should (you|your \w+) (be|progress|match)", re.I)
 LINKEDIN_MESSAGE_RE = re.compile(r"sent you a (new )?message|new message from|\binmail\b", re.I)
+# LinkedIn names the employer exactly: "...application was sent to Byte", "...to AI Engineer at Byte".
+LINKEDIN_COMPANY_RE = re.compile(r"(?:was sent to|was viewed by|\bat)\s+(.+?)\s*$", re.I)
 
 
 # ---- parsing ----------------------------------------------------------------
@@ -100,6 +105,8 @@ def parse_message(uid, raw, with_body=True):
         "sender": " ".join(str(msg["From"] or "").split()),
         "subject": " ".join(str(msg["Subject"] or "").split()),
         "body": message_text(msg)[:BODY_CHARS] if with_body else "",
+        # Mass mail (newsletters, marketing, visitor systems) carries List-Unsubscribe; a person's reply doesn't.
+        "bulk": msg["List-Unsubscribe"] is not None,
     }
 
 
@@ -127,7 +134,7 @@ def _contains(words, seq):
 
 def is_candidate(head, company_words):
     """Cheap header-only filter deciding which messages are worth downloading in full."""
-    if NOISE_SUBJECT_RE.search(head["subject"]):
+    if NOISE_SUBJECT_RE.search(head["subject"]) or NOISE_SENDER_RE.search(head["sender"]):
         return False
     if JOB_HINT_RE.search(head["subject"]) or ATS_SENDER_RE.search(head["sender"]):
         return True
@@ -139,7 +146,7 @@ def classify(msg):
     """Order matters: rejections often open with "thank you for applying", and confirmations often
     mention a future interview, so a confirmation only loses to an explicit invitation."""
     text = f"{msg['subject']}\n{msg['body']}"
-    if NOISE_SUBJECT_RE.search(msg["subject"]):
+    if NOISE_SUBJECT_RE.search(msg["subject"]) or NOISE_SENDER_RE.search(msg["sender"]):
         return "noise"
     confirm = CONFIRM_RE.search(text)
     if REJECTION_RE.search(text) or (WEAK_REJECTION_RE.search(text) and not confirm):
@@ -152,7 +159,9 @@ def classify(msg):
         return "confirmation"
     if INTERVIEW_RE.search(text):
         return "interview"
-    if LINKEDIN_MESSAGE_RE.search(msg["subject"]) or not NOREPLY_RE.search(msg["sender"]):
+    if LINKEDIN_MESSAGE_RE.search(msg["subject"]) or "inmail" in msg["sender"].lower():
+        return "reply"
+    if not msg.get("bulk") and not NOREPLY_RE.search(msg["sender"]):
         return "reply"
     return "other"
 
@@ -175,11 +184,13 @@ def _is_generic(company_words):
     return len(company_words) == 1 and company_words[0] in GENERIC_COMPANY_WORDS
 
 
-def _named_in_head(cw, company, sender_words, subject_words):
+def _named_in_head(cw, company, sender_words, subject_words, subject_company=None):
     # An email platform (LinkedIn, Greenhouse, ...) as the employer is named by every notification
     # it sends, so for those only the subject counts.
     in_sender = _contains(sender_words, cw) and not ATS_SENDER_RE.search(company)
     in_subject = _contains(subject_words, cw)
+    if subject_company == cw:
+        return True
     if _is_generic(cw):
         return in_sender
     return in_sender or in_subject
@@ -192,12 +203,14 @@ def match(msg, rows):
     longer matched name ("Global" inside "Cboe Global") is demoted."""
     sender, subject = _words(msg["sender"]), _words(msg["subject"])
     body = _words(msg["body"])
+    named = LINKEDIN_COMPANY_RE.search(msg["subject"]) if "linkedin" in msg["sender"].lower() else None
+    subject_company = job_tool.normalize_company(named.group(1)) if named else None
     strong, weak = [], []
     for r in rows:
         if r.get("status") == "Withdrawn":
             continue
         cw = job_tool.normalize_company(r["company"])
-        if _named_in_head(cw, r["company"], sender, subject):
+        if _named_in_head(cw, r["company"], sender, subject, subject_company):
             strong.append(r)
         elif _contains(sender + subject + body, cw):
             weak.append(r)
