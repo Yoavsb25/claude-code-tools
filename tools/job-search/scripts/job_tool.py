@@ -408,7 +408,7 @@ def undo_last_status(row_id):
     return row, None
 
 
-def mark_ghosted(today=None):
+def mark_ghosted(today=None, skip_ids=()):
     """Applied rows with no reply for GHOST_AFTER_DAYS become Ghosted. Only call this right after a
     successful inbox sync — otherwise a reply that was never read would be mistaken for silence."""
     today = today or date.today()
@@ -416,7 +416,8 @@ def mark_ghosted(today=None):
     ghosted = []
     for row in data["rows"]:
         applied = parse_date(row.get("applied_date"))
-        if row["status"] != "Applied" or not applied or (today - applied).days < GHOST_AFTER_DAYS:
+        if (row["status"] != "Applied" or not applied or row["id"] in skip_ids
+                or (today - applied).days < GHOST_AFTER_DAYS):
             continue
         row["status"] = "Ghosted"
         row.setdefault("events", []).append({"date": today.isoformat(), "type": "status",

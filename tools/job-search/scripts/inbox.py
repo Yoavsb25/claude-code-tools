@@ -42,6 +42,9 @@ FULL_PART = "BODY.PEEK[]"
 
 ACTION_KINDS = ("interview", "reply")
 REVIEW_KINDS = ("confirmation", "rejection", "interview")
+GENERIC_COMPANY_WORDS = {"global", "search", "data", "digital", "talent", "group", "solutions", "partners",
+                         "consulting", "recruitment", "people", "tech", "cloud", "capital", "media",
+                         "health", "energy", "systems", "software", "client", "server", "united", "byte"}
 ROLE_STOPWORDS = {"senior", "junior", "lead", "engineer", "engineering", "the", "and", "of", "for", "a",
                   "uk", "london", "remote", "hybrid", "i", "ii", "iii"}
 
@@ -56,10 +59,13 @@ ATS_SENDER_RE = re.compile(
     r"comeet|bamboohr|personio|hibob|jobvite|icims|successfactors|linkedin", re.I)
 NOREPLY_RE = re.compile(r"no-?reply|do-?not-?reply|notification|mailer|automated", re.I)
 
+# "unfortunately"/"unsuccessful" alone also appear in confirmation boilerplate ("unfortunately we
+# can't reply to everyone"), so they only count as a rejection when no confirmation phrase is present.
+WEAK_REJECTION_RE = re.compile(r"unfortunately|unsuccessful", re.I)
 REJECTION_RE = re.compile(
-    r"unfortunately|regret to inform|not (be )?(moving|move|progress\w*|proceed\w*) (forward|further|ahead)|"
+    r"regret to inform|not (be )?(moving|move|progress\w*|proceed\w*) (forward|further|ahead)|"
     r"(decided|chosen) to (move|proceed|progress|go) (forward |ahead )?with other|other candidates (whose|who)|"
-    r"will not be (progressing|proceeding|taking)|not been successful|unsuccessful|"
+    r"will not be (progressing|proceeding|taking)|not been successful|"
     r"position has (now )?been filled|no longer (being )?consider|not (been )?selected", re.I)
 VIEWED_RE = re.compile(r"application was viewed|viewed your application", re.I)
 INVITE_RE = re.compile(
@@ -73,6 +79,9 @@ CONFIRM_RE = re.compile(
 INTERVIEW_RE = re.compile(
     r"\binterview|phone screen|screening call|intro(ductory)? call|next stage|take-home|"
     r"technical (assessment|test)|coding (test|challenge)|hackerrank|codility", re.I)
+CONDITIONAL_RE = re.compile(
+    r"\bif (you are |you're |you have been |your application is )?(shortlisted|successful|selected|suitable)|"
+    r"if your (profile|experience|application|skills|background)|should (you|your \w+) (be|progress|match)", re.I)
 LINKEDIN_MESSAGE_RE = re.compile(r"sent you a (new )?message|new message from|\binmail\b", re.I)
 
 
@@ -132,13 +141,14 @@ def classify(msg):
     text = f"{msg['subject']}\n{msg['body']}"
     if NOISE_SUBJECT_RE.search(msg["subject"]):
         return "noise"
-    if REJECTION_RE.search(text):
+    confirm = CONFIRM_RE.search(text)
+    if REJECTION_RE.search(text) or (WEAK_REJECTION_RE.search(text) and not confirm):
         return "rejection"
     if VIEWED_RE.search(text):
         return "viewed"
-    if INVITE_RE.search(text):
+    if INVITE_RE.search(text) and not (confirm and CONDITIONAL_RE.search(text)):
         return "interview"
-    if CONFIRM_RE.search(text):
+    if confirm:
         return "confirmation"
     if INTERVIEW_RE.search(text):
         return "interview"
@@ -160,22 +170,46 @@ def _by_role(rows, words):
     return rows
 
 
+def _is_generic(company_words):
+    """A one-word dictionary name ("Byte", "Global") is too easily matched by accident."""
+    return len(company_words) == 1 and company_words[0] in GENERIC_COMPANY_WORDS
+
+
+def _named_in_head(cw, company, sender_words, subject_words):
+    # An email platform (LinkedIn, Greenhouse, ...) as the employer is named by every notification
+    # it sends, so for those only the subject counts.
+    in_sender = _contains(sender_words, cw) and not ATS_SENDER_RE.search(company)
+    in_subject = _contains(subject_words, cw)
+    if _is_generic(cw):
+        return in_sender
+    return in_sender or in_subject
+
+
 def match(msg, rows):
     """'strong' = the company is named by the sender or subject and exactly one row fits; 'weak' =
-    named only in the body, or several rows fit. Only strong matches ever change the tracker."""
-    head = _words(f"{msg['sender']} {msg['subject']}")
+    named only in the body, or several rows fit. Only strong matches ever change the tracker.
+    Generic one-word names only count when they are in the sender, and a name contained in a
+    longer matched name ("Global" inside "Cboe Global") is demoted."""
+    sender, subject = _words(msg["sender"]), _words(msg["subject"])
     body = _words(msg["body"])
     strong, weak = [], []
     for r in rows:
         if r.get("status") == "Withdrawn":
             continue
         cw = job_tool.normalize_company(r["company"])
-        if _contains(head, cw):
+        if _named_in_head(cw, r["company"], sender, subject):
             strong.append(r)
-        elif _contains(body, cw):
+        elif _contains(sender + subject + body, cw):
             weak.append(r)
     if len(strong) > 1:
-        strong = _by_role(strong, head + body)
+        names = {r["id"]: job_tool.normalize_company(r["company"]) for r in strong}
+        contained = [r for r in strong
+                     if any(len(names[o["id"]]) > len(names[r["id"]]) and _contains(names[o["id"]], names[r["id"]])
+                            for o in strong)]
+        weak += contained
+        strong = [r for r in strong if r not in contained]
+    if len(strong) > 1 and len({tuple(job_tool.normalize_company(r["company"])) for r in strong}) == 1:
+        strong = _by_role(strong, sender + subject + body)
     if len(strong) == 1:
         return strong[0], "strong", [strong[0]["id"]]
     candidates = strong or weak
@@ -215,14 +249,14 @@ def state_path():
 def load_state():
     state = job_tool.load_json(state_path(), {})
     for key, default in (("uidvalidity", None), ("last_uid", 0), ("last_sync", None),
-                         ("review", []), ("actions", [])):
+                         ("review", []), ("actions", []), ("ignored", [])):
         state.setdefault(key, default)
     return state
 
 
 def _known_msg_ids(rows, state):
     known = {e.get("msg_id") for r in rows for e in r.get("events") or []}
-    known |= {i["msg_id"] for i in state["review"] + state["actions"]}
+    known |= {i["msg_id"] for i in state["review"] + state["actions"]} | set(state["ignored"])
     known.discard(None)
     return known
 
@@ -263,11 +297,17 @@ def fetch(conn, uids, part):
         batch = uids[i:i + FETCH_BATCH]
         typ, data = conn.uid("FETCH", ",".join(map(str, batch)), f"(UID {part})")
         _check(typ, data, "FETCH")
-        for item in data:
-            if isinstance(item, tuple):
-                m = re.search(rb"UID (\d+)", item[0])
-                if m:
-                    out.append((int(m.group(1)), item[1]))
+        for j, item in enumerate(data):
+            if not isinstance(item, tuple):
+                continue
+            # The UID can come before the literal or in the trailing b" UID n)" element.
+            m = re.search(rb"UID (\d+)", item[0])
+            if not m and j + 1 < len(data) and isinstance(data[j + 1], bytes):
+                m = re.search(rb"UID (\d+)", data[j + 1])
+            if m:
+                out.append((int(m.group(1)), item[1]))
+    if len(out) < len(uids):
+        print(f"warning: asked IMAP for {len(uids)} messages, parsed {len(out)}", file=sys.stderr)
     return sorted(out)
 
 
@@ -284,14 +324,20 @@ def apply_to_row(row_id, item, kind, status):
     return job_tool.upsert_tracker_row(patch, source="inbox", event=event, when=item["date"])
 
 
-def sync(conn, today=None, days=None, dry_run=False):
+def _from_self(msg, own_address):
+    return bool(own_address) and email.utils.parseaddr(msg["sender"])[1].lower() == own_address.lower()
+
+
+def sync(conn, today=None, days=None, dry_run=False, own_address=None):
+    """One pass over new mail. Messages sent by `own_address` (All Mail includes Sent) are skipped.
+    Tracker writes and action items are saved per message, so a crash midway loses nothing."""
     today = today or date.today()
     state = load_state()
     rows = job_tool.load_rows()["rows"]
     uids = search_uids(conn, state, days, today)
     company_words = [job_tool.normalize_company(r["company"]) for r in rows]
     heads = [parse_message(uid, raw, with_body=False) for uid, raw in fetch(conn, uids, HEADER_PART)]
-    wanted = [h["uid"] for h in heads if is_candidate(h, company_words)]
+    wanted = [h["uid"] for h in heads if not _from_self(h, own_address) and is_candidate(h, company_words)]
     summary = {"scanned": len(heads), "candidates": len(wanted), "applied": [], "review": [],
                "actions": [], "ghosted": []}
     known = _known_msg_ids(rows, state)
@@ -307,9 +353,13 @@ def sync(conn, today=None, days=None, dry_run=False):
         record["kind"] = kind
         if decision["type"] == "apply":
             summary["applied"].append(dict(record, row_id=decision["row_id"], status=decision["status"]))
-            if decision["action"]:
-                summary["actions"].append(dict(record, row_id=decision["row_id"], done=False))
+            action = dict(record, row_id=decision["row_id"], done=False) if decision["action"] else None
+            if action:
+                summary["actions"].append(action)
             if not dry_run:
+                if action:
+                    state["actions"].append(action)
+                    job_tool.save_json(state_path(), state)
                 apply_to_row(decision["row_id"], msg, kind, decision["status"])
                 rows = job_tool.load_rows()["rows"]
         elif decision["type"] == "review":
@@ -322,9 +372,10 @@ def sync(conn, today=None, days=None, dry_run=False):
         state["last_uid"] = max(state["last_uid"], uids[-1])
     state["last_sync"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     state["review"] += summary["review"]
-    state["actions"] += summary["actions"]
     job_tool.save_json(state_path(), state)
-    summary["ghosted"] = [r["id"] for r in job_tool.mark_ghosted(today)]
+    # A reply that only matched weakly is still a reply: don't ghost a row while it waits in review.
+    pending = {rid for item in state["review"] for rid in item["candidates"]}
+    summary["ghosted"] = [r["id"] for r in job_tool.mark_ghosted(today, skip_ids=pending)]
     return summary
 
 
@@ -335,7 +386,9 @@ def resolve(msg_id, row_id=None):
     if item is None:
         return None, f"no review item {msg_id}"
     result = {"dropped": msg_id}
-    if row_id is not None:
+    if row_id is None:
+        state["ignored"].append(msg_id)
+    else:
         found = next((r for r in job_tool.load_rows()["rows"] if r["id"] == row_id), None)
         if found is None:
             return None, f"no tracker row {row_id}"
@@ -384,10 +437,23 @@ def get_credentials():
     return (m.group(1), password), None
 
 
+def find_all_mail(conn):
+    """The All Mail folder is "[Gmail]/All Mail" or, on UK accounts, "[Google Mail]/All Mail"; find
+    it by its \\All special-use flag."""
+    typ, data = conn.list()
+    if typ == "OK":
+        for line in data or []:
+            line = line.decode(errors="replace") if isinstance(line, bytes) else str(line)
+            m = re.search(r'"([^"]+)"\s*$', line)
+            if "\\All" in line.split(")")[0] and m:
+                return f'"{m.group(1)}"'
+    return MAILBOX
+
+
 def open_mailbox(user, password):
     conn = imaplib.IMAP4_SSL(IMAP_HOST, timeout=60)
     conn.login(user, password)
-    typ, data = conn.select(MAILBOX, readonly=True)
+    typ, data = conn.select(find_all_mail(conn), readonly=True)
     _check(typ, data, "SELECT")
     return conn
 
@@ -398,7 +464,7 @@ def run_sync(days=None, dry_run=False):
         raise RuntimeError(err)
     conn = open_mailbox(*creds)
     try:
-        return sync(conn, days=days, dry_run=dry_run)
+        return sync(conn, days=days, dry_run=dry_run, own_address=creds[0])
     finally:
         try:
             conn.logout()

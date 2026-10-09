@@ -302,6 +302,7 @@ class TestCredentialsAndConnect(unittest.TestCase):
 
     def test_open_mailbox_is_read_only(self):
         fake = MagicMock()
+        fake.list.return_value = ("OK", [])
         fake.select.return_value = ("OK", [b"12"])
         with patch("inbox.imaplib.IMAP4_SSL", return_value=fake):
             inbox.open_mailbox("me@gmail.com", "pw")
@@ -315,3 +316,129 @@ class TestCredentialsAndConnect(unittest.TestCase):
                                      "actions": []})
         self.assertIn("1 tracker update", text)
         self.assertIn("1 to review", text)
+
+
+class TestReviewFixes(unittest.TestCase):
+    """Regressions for the 2026-10-09 whole-branch review findings."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+        for company, role in [("Acme", "Platform Engineer"), ("Global", "Python Developer"),
+                              ("Old Co", "AI Engineer")]:
+            job_tool.upsert_tracker_row({"company": company, "role": role, "status": "Applied",
+                                         "applied_date": "2026-10-01" if company != "Old Co" else "2026-09-01"})
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def rows(self):
+        return {r["company"]: r for r in job_tool.load_rows()["rows"]}
+
+    # 1 — own sent mail
+    def test_own_sent_mail_is_ignored(self):
+        box = FakeIMAP({1: make_raw("Following up on my Acme application", "Yoav <me@gmail.com>",
+                                    "Unfortunately I need to reschedule.", msg_id="<s@x>")})
+        inbox.sync(box, today=TODAY, own_address="me@gmail.com")
+        self.assertEqual(self.rows()["Acme"]["status"], "Applied")
+        self.assertEqual(inbox.load_state()["actions"], [])
+
+    # 2 — boilerplate
+    def test_unfortunately_boilerplate_in_confirmation(self):
+        body = ("We have received your application. Unfortunately, due to the high volume of applications, "
+                "we are unable to respond to every candidate individually.")
+        self.assertEqual(inbox.classify(msg("Application received", body=body)), "confirmation")
+
+    def test_conditional_invite_in_confirmation(self):
+        body = "Thanks for your application. If shortlisted, we'd love to schedule a call."
+        self.assertEqual(inbox.classify(msg("Thanks for applying", body=body)), "confirmation")
+
+    def test_real_invite_after_thanks_is_still_interview(self):
+        body = "Thank you for your application. We'd like to invite you to a first interview."
+        self.assertEqual(inbox.classify(msg("Next steps", body=body)), "interview")
+
+    # 3 — short / generic / contained names
+    def test_generic_name_inside_longer_company_is_weak(self):
+        r, strength, _ = inbox.match(msg("Update from Cboe Global Markets", "noreply@myworkday.com"),
+                                     [row(1, "Global", "Python Developer")])
+        self.assertEqual((r, strength), (None, "weak"))
+
+    def test_contained_company_loses_to_longer_match(self):
+        rows = [row(1, "Cboe", "Python Developer"), row(2, "Global", "Platform Engineer")]
+        r, strength, _ = inbox.match(msg("Cboe Global Markets: Platform Engineer application",
+                                         "noreply@myworkday.com"), rows)
+        self.assertEqual((r["id"], strength), (1, "strong"))
+
+    def test_generic_name_from_own_sender_is_strong(self):
+        r, strength, _ = inbox.match(msg("Your application", "Global Recruitment <jobs@global.com>"),
+                                     [row(1, "Global", "Python Developer")])
+        self.assertEqual((r["id"], strength), (1, "strong"))
+
+    def test_platform_vendor_company_not_matched_by_its_notifications(self):
+        r, strength, _ = inbox.match(msg("You appeared in 5 searches", "LinkedIn <notifications@linkedin.com>"),
+                                     [row(1, "LinkedIn", "Software Engineer")])
+        self.assertIsNone(r)
+
+    # 4 — ignore is durable
+    def test_ignored_item_does_not_return_on_resync(self):
+        box = lambda: FakeIMAP({1: make_raw("Your application", "Talent <talent@agency.co>",
+                                            "Unfortunately the global client paused hiring.", msg_id="<w@x>")})
+        inbox.sync(box(), today=TODAY)
+        inbox.resolve("<w@x>")
+        inbox.sync(box(), today=TODAY, days=30)
+        self.assertEqual(inbox.load_state()["review"], [])
+
+    # 5 — actions survive a crash mid-sync
+    def test_action_saved_even_if_sync_crashes_later(self):
+        box = FakeIMAP({1: make_raw("Acme - next steps", "Sam at Acme <sam@acme.com>",
+                                    "Could you share your availability?", msg_id="<i@x>")})
+        real_apply = inbox.apply_to_row
+
+        def apply_then_crash(*a, **k):
+            real_apply(*a, **k)
+            raise OSError("connection reset")
+
+        with patch("inbox.apply_to_row", side_effect=apply_then_crash):
+            with self.assertRaises(OSError):
+                inbox.sync(box, today=TODAY)
+        self.assertEqual([a["msg_id"] for a in inbox.load_state()["actions"]], ["<i@x>"])
+
+    # 6 — no ghosting while a reply waits in review
+    def test_row_with_pending_review_is_not_ghosted(self):
+        old_id = self.rows()["Old Co"]["id"]
+        box = FakeIMAP({1: make_raw("Re: your application", "Dana <dana@gmail.com>",
+                                    "Old Co would like to invite you to interview.", msg_id="<p@x>")})
+        inbox.sync(box, today=TODAY)
+        self.assertEqual([i["candidates"] for i in inbox.load_state()["review"]], [[old_id]])
+        self.assertEqual(self.rows()["Old Co"]["status"], "Applied")
+
+    # 7 — All Mail folder discovered, not hard-coded
+    def test_open_mailbox_finds_all_mail_folder(self):
+        fake = MagicMock()
+        fake.list.return_value = ("OK", [b'(\\HasNoChildren) "/" "INBOX"',
+                                         b'(\\All \\HasNoChildren) "/" "[Google Mail]/All Mail"'])
+        fake.select.return_value = ("OK", [b"12"])
+        with patch("inbox.imaplib.IMAP4_SSL", return_value=fake):
+            inbox.open_mailbox("me@gmail.com", "pw")
+        fake.select.assert_called_once_with('"[Google Mail]/All Mail"', readonly=True)
+
+    # 8 — UID in the trailing element of a FETCH response
+    def test_fetch_reads_uid_from_trailing_element(self):
+        class Trailing(FakeIMAP):
+            def uid(self, command, *args):
+                typ, data = super().uid(command, *args)
+                if command != "FETCH":
+                    return typ, data
+                out = []
+                for item in data:
+                    if isinstance(item, tuple):
+                        seq = item[0].split(b" ")[0]
+                        out += [(seq + b" (BODY[] {%d}" % len(item[1]), item[1]),
+                                b" UID " + item[0].split(b"UID ")[1].split(b" ")[0] + b")"]
+                return typ, out
+
+        box = Trailing({7: make_raw("Your application to Acme", "Acme <jobs@acme.com>", "Unfortunately we "
+                                    "have decided to move forward with other candidates.", msg_id="<t@x>")})
+        self.assertEqual([u for u, _ in inbox.fetch(box, [7], inbox.FULL_PART)], [7])
