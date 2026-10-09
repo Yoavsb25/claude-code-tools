@@ -93,6 +93,28 @@
     .cov-grid { grid-template-columns: 1fr; }
     .row { grid-template-columns: 1fr; }
   }
+  .block { margin-bottom: 22px; }
+  .block h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px;
+    display: flex; gap: 8px; align-items: center; }
+  .count { background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 0 8px; font-size: 12px; letter-spacing: 0; }
+  .item { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 11px 13px; margin-bottom: 8px; align-items: start; }
+  .item .actions { flex-wrap: wrap; justify-content: flex-end; max-width: 460px; }
+  .snippet { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .stat.met div:first-child { color: var(--good); }
+  .cell-select { padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .btn.tiny { padding: 1px 6px; font-size: 12px; margin-left: 4px; }
+  tr.prow { cursor: pointer; }
+  tr.prow:hover td { background: var(--surface-2); }
+  .pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pgrid h3, .insights h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 0 6px; }
+  .timeline, .contacts { margin: 0; padding-left: 18px; font-size: 13px; }
+  .proof { display: flex; gap: 8px; margin: -4px 0 18px; }
+  .proof input { flex: 1; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .insights { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 820px) {
+    .pgrid, .insights, .item { grid-template-columns: 1fr; }
+    table.pipeline { display: block; overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -102,7 +124,10 @@
     <span class="meta" id="updated">Loading…</span>
     <button class="btn" id="refreshBtn" type="button">Refresh now</button>
     <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-tab="roles" aria-selected="true">Roles</button>
+      <button class="tab" role="tab" data-tab="today" aria-selected="true">Today</button>
+      <button class="tab" role="tab" data-tab="roles" aria-selected="false">Roles</button>
+      <button class="tab" role="tab" data-tab="pipeline" aria-selected="false">Pipeline</button>
+      <button class="tab" role="tab" data-tab="insights" aria-selected="false">Insights</button>
       <button class="tab" role="tab" data-tab="saved" aria-selected="false">Saved</button>
       <button class="tab" role="tab" data-tab="hidden" aria-selected="false">Hidden</button>
       <button class="tab" role="tab" data-tab="coverage" aria-selected="false">Coverage</button>
@@ -179,7 +204,32 @@ const DEFAULTS = {
 };
 const PAGE_SIZE = 120;
 
-let data = null, prevVisit = null, visited = false, tab = "roles", shown = PAGE_SIZE;
+let data = null, prevVisit = null, visited = false, tab = "today", shown = PAGE_SIZE;
+let cockpit = null, flash = null;
+const NO_FILTER_TABS = ["today", "pipeline", "insights", "coverage"];
+const POSITIONING_LABELS = { P1: "P1 · AI tooling builder", P2: "P2 · platform engineer", P3: "P3 · FDE / solutions", P4: "P4 · technical program lead" };
+const CHANNEL_LABELS = { easy_apply: "LinkedIn Easy Apply", ats: "Company careers site", agency: "Agency", referral: "Referral", other: "Other" };
+const TIER_LABELS = { 1: "Tier 1 · tailored", 2: "Tier 2 · fast" };
+
+async function loadCockpit() { cockpit = await api("/api/cockpit"); }
+
+async function act(path, body) {
+  try { await api(path, body); flash = null; }
+  catch (e) { flash = e.message; }
+  await loadCockpit();
+  render();
+}
+function flashNotice() { return flash && el("div", { class: "notice warn" }, flash); }
+function plusDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function selectTab(name) {
+  tab = name;
+  shown = PAGE_SIZE;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
+  render();
+}
+let pipelineFilter = "active";
+const pipelineOpen = new Set();
+
 const openKeys = new Set();
 let filters = loadFilters();
 
@@ -217,6 +267,7 @@ async function api(path, body) {
 
 async function load() {
   data = await api("/api/data");
+  await loadCockpit();
   if (!visited) {
     prevVisit = data.page_state.last_visit;
     visited = true;
@@ -360,7 +411,10 @@ function card(p) {
   } else {
     actions.append(saved
       ? el("span", { class: "saved" }, "✓ Saved")
-      : el("button", { class: "btn primary", type: "button", onclick: () => save(p) }, "☆ Save"));
+      : el("select", { "aria-label": "Save this role", onchange: e => e.target.value && save(p, Number(e.target.value)) },
+          el("option", { value: "" }, "☆ Save as…"),
+          el("option", { value: "1" }, "Tier 1 · tailor + warm path"),
+          el("option", { value: "2" }, "Tier 2 · fast apply")));
     const select = el("select", { "aria-label": "Hide this role", onchange: e => hide(p, e.target.value) },
       el("option", { value: "" }, "Hide…"), ...HIDE_REASONS.map(r => el("option", { value: r }, r)));
     actions.append(select);
@@ -408,9 +462,13 @@ function render() {
   const main = document.getElementById("main");
   const content = document.getElementById("content");
   const filtersEl = document.getElementById("filters");
-  main.classList.toggle("wide", tab === "coverage");
-  filtersEl.hidden = tab === "coverage";
+  const noFilters = NO_FILTER_TABS.includes(tab);
+  main.classList.toggle("wide", noFilters);
+  filtersEl.hidden = noFilters;
   if (tab === "coverage") return content.replaceChildren(renderCoverage());
+  if (tab === "today") return content.replaceChildren(renderToday());
+  if (tab === "pipeline") return content.replaceChildren(renderPipeline());
+  if (tab === "insights") return content.replaceChildren(renderInsights());
 
   const { hidden, saved } = data.page_state;
   let list;
@@ -439,6 +497,92 @@ function render() {
     list.length > shown && el("button", { class: "btn more", type: "button", onclick: () => { shown += PAGE_SIZE; render(); } }, `Show ${Math.min(PAGE_SIZE, list.length - shown)} more`),
   );
 }
+
+function gmailLink(msgId) {
+  return "https://mail.google.com/mail/u/0/#search/" + encodeURIComponent("rfc822msgid:" + msgId.replace(/[<>]/g, ""));
+}
+function section(title, count, body) {
+  return el("section", { class: "block" }, el("h2", {}, title, el("span", { class: "count" }, count)), body);
+}
+function mailItem(i, buttons) {
+  return el("div", { class: "card item" },
+    el("div", {},
+      el("div", { class: "title" }, i.subject || "(no subject)"),
+      el("div", { class: "sub" }, `${i.sender} · ${i.date} · ${i.kind}`),
+      i.snippet && el("div", { class: "snippet" }, i.snippet)),
+    el("div", { class: "actions" }, ...buttons,
+      el("a", { class: "btn", href: gmailLink(i.msg_id), target: "_blank", rel: "noopener" }, "Open in Gmail ↗")));
+}
+function kpiStrip(week) {
+  const tile = (label, n, target) => el("div", { class: "stat" + (n >= target ? " met" : "") },
+    el("div", {}, `${n}/${target}`), el("div", {}, label));
+  return el("div", { class: "stat-row" },
+    tile("applications this week", week.applications, week.targets.applications),
+    tile("conversations this week", week.conversations, week.targets.conversations),
+    tile("public-proof pieces", week.proof, week.targets.proof));
+}
+function rowLabel(r) { return `${r.company} — ${r.role}`; }
+
+function renderToday() {
+  const t = cockpit.today;
+  const rowOptions = cockpit.pipeline.filter(r => r.status !== "Withdrawn").sort((a, b) => a.company.localeCompare(b.company));
+  const empty = text => el("div", { class: "empty" }, text);
+
+  const actions = t.actions.map(a => mailItem(a, [
+    a.row && el("span", { class: "badge" }, rowLabel(a.row)),
+    el("button", { class: "btn primary", type: "button", onclick: () => act("/api/inbox/done", { msg_id: a.msg_id }) }, "✓ Handled"),
+  ]));
+  const review = t.review.map(i => mailItem(i, [
+    ...i.candidates.map(c => el("button", { class: "btn", type: "button",
+      onclick: () => act("/api/inbox/resolve", { msg_id: i.msg_id, row_id: c.id }) }, `It's ${c.company}`)),
+    el("select", { "aria-label": "Attach to another application",
+      onchange: e => e.target.value && act("/api/inbox/resolve", { msg_id: i.msg_id, row_id: Number(e.target.value) }) },
+      el("option", { value: "" }, "Another row…"), ...rowOptions.map(r => el("option", { value: r.id }, rowLabel(r)))),
+    el("button", { class: "btn", type: "button", onclick: () => act("/api/inbox/resolve", { msg_id: i.msg_id }) }, "Ignore"),
+  ]));
+  const followups = t.followups.map(f => el("div", { class: "card item" },
+    el("div", {}, el("div", { class: "title" }, rowLabel(f)), el("div", { class: "sub" }, f.reason)),
+    el("div", { class: "actions" },
+      f.status !== "Shortlisted" && el("button", { class: "btn", type: "button",
+        onclick: () => act("/api/tracker", { id: f.id, followup_date: plusDays(7) }) }, "Followed up · remind in 7 days"),
+      el("button", { class: "btn", type: "button", onclick: () => { pipelineOpen.add(f.id); pipelineFilter = "all"; selectTab("pipeline"); } }, "Open in Pipeline"))));
+  const changes = t.recent_changes.map(c => el("div", { class: "card item" },
+    el("div", {}, el("div", { class: "title" }, rowLabel(c.row)),
+      el("div", { class: "sub" }, `${c.from || "—"} → ${c.to} · ${c.source === "auto" ? "no reply in 21 days" : "from an email"} · ${c.date}`)),
+    el("div", { class: "actions" }, c.undoable && el("button", { class: "btn", type: "button",
+      onclick: () => act("/api/inbox/undo", { row_id: c.row.id }) }, "Undo"))));
+
+  return el("div", {},
+    flashNotice(),
+    cockpit.inbox_error && el("div", { class: "notice warn" }, `Last inbox sync failed: ${cockpit.inbox_error}`),
+    el("div", { class: "summary" },
+      el("div", {}, el("strong", {}, "Today"), ` · inbox synced ${t.last_sync ? ago(t.last_sync) : "never"}`),
+      el("button", { class: "btn", type: "button", disabled: cockpit.inbox_syncing, onclick: syncInbox },
+        cockpit.inbox_syncing ? "Syncing…" : "Sync inbox now")),
+    kpiStrip(cockpit.insights.week),
+    el("form", { class: "proof", onsubmit: e => { e.preventDefault(); act("/api/proof", { title: e.target.elements.title.value }); } },
+      el("input", { name: "title", placeholder: "Log a public-proof piece (post, repo, talk)…", required: true, "aria-label": "Public-proof piece" }),
+      el("button", { class: "btn", type: "submit" }, "Log")),
+    t.positioning_to_confirm > 0 && el("div", { class: "notice" }, `${t.positioning_to_confirm} applications have a guessed positioning. `,
+      el("a", { href: "#", onclick: e => { e.preventDefault(); pipelineFilter = "all"; selectTab("pipeline"); } }, "Confirm them in Pipeline")),
+    section("Needs a reply", t.actions.length, actions.length ? el("div", {}, ...actions) : empty("Nothing waiting on you.")),
+    section("Check these emails", t.review.length, review.length ? el("div", {}, ...review) : empty("No emails to sort.")),
+    section("Follow-ups due", t.followups.length, followups.length ? el("div", {}, ...followups) : empty("No follow-ups due.")),
+    section("Automatic changes · last 7 days", t.recent_changes.length, changes.length ? el("div", {}, ...changes) : empty("No automatic changes this week.")),
+  );
+}
+
+async function syncInbox() {
+  await act("/api/inbox/sync", {});
+  const timer = setInterval(async () => {
+    try { await loadCockpit(); } catch { clearInterval(timer); return; }
+    if (!cockpit.inbox_syncing) clearInterval(timer);
+    render();
+  }, 3000);
+}
+
+function renderPipeline() { return el("div", { class: "empty" }, "Pipeline coming next."); }
+function renderInsights() { return el("div", { class: "empty" }, "Insights coming next."); }
 
 function renderCoverage() {
   const cov = data.coverage;
@@ -490,13 +634,14 @@ function addButton(company) {
   return btn;
 }
 
-async function save(p) {
+async function save(p, tier) {
   try {
-    const result = await api("/api/save", { key: p.key });
-    data.page_state.saved[p.key] = result;
+    data.page_state.saved[p.key] = await api("/api/save", { key: p.key, tier });
+    await loadCockpit();
     render();
   } catch (e) { console.error("save failed", e); }
 }
+
 async function hide(p, reason) {
   if (!reason) return;
   try {
@@ -528,12 +673,7 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
   render();
   pollRefresh();
 });
-document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
-  tab = b.dataset.tab;
-  shown = PAGE_SIZE;
-  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t === b)));
-  render();
-}));
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => selectTab(b.dataset.tab)));
 let qTimer;
 document.getElementById("q").addEventListener("input", e => {
   clearTimeout(qTimer);
