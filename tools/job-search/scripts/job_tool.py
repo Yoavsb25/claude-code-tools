@@ -184,15 +184,21 @@ ATS_SLUG_SUFFIXES = {
 }
 
 STATUS_ORDER = [
-    "Shortlisted", "Applied", "Phone Screen", "Interviewing",
-    "Offer", "Rejected", "Withdrawn",
+    "Shortlisted", "Applied", "Responded", "Phone Screen", "Interviewing",
+    "Offer", "Rejected", "Ghosted", "Withdrawn",
 ]
+FOLLOWUP_STATUSES = ("Applied", "Responded", "Phone Screen", "Interviewing")
+CHANNELS = ("easy_apply", "ats", "agency", "referral", "other")
+POSITIONINGS = ("P1", "P2", "P3", "P4")
+TIERS = (1, 2)
+GHOST_AFTER_DAYS = 21
 SHORTLIST_STALE_DAYS = 10
 DEFAULT_FOLLOWUP_DAYS = 14
 INTERVIEW_FOLLOWUP_DAYS = 7
 
 TRACKER_COLUMNS = [
     ("company", "Company"), ("role", "Role"), ("status", "Status"),
+    ("tier", "Tier"), ("channel", "Channel"), ("positioning", "Pos"),
     ("fit", "Fit"), ("salary", "Salary"), ("found_date", "Found"), ("applied_date", "Applied"),
     ("followup_date", "Follow-up"), ("resume_path", "Resume"),
     ("link", "Link"), ("notes", "Notes"),
@@ -281,7 +287,7 @@ def next_followup(status, applied_date_str, prev_followup_str):
     if status == "Applied":
         base = parse_date(applied_date_str) or date.today()
         return (base + timedelta(days=DEFAULT_FOLLOWUP_DAYS)).isoformat()
-    if status in ("Phone Screen", "Interviewing"):
+    if status in ("Responded", "Phone Screen", "Interviewing"):
         return (date.today() + timedelta(days=INTERVIEW_FOLLOWUP_DAYS)).isoformat()
     return prev_followup_str
 
@@ -295,7 +301,7 @@ def compute_stale_reason(row):
         if found and (today - found).days >= SHORTLIST_STALE_DAYS:
             return f"Still shortlisted after {(today - found).days} days — decide or drop"
 
-    if status in ("Applied", "Phone Screen", "Interviewing"):
+    if status in FOLLOWUP_STATUSES:
         followup = parse_date(row.get("followup_date"))
         if followup and today >= followup:
             return f"Follow-up was due {row['followup_date']} — no status change logged since"
@@ -311,9 +317,22 @@ def cmd_tracker_upsert(args):
     print(json.dumps(row, indent=2))
 
 
-def upsert_tracker_row(patch):
+def validate_tracker_patch(patch):
+    for key, allowed in (("status", STATUS_ORDER), ("channel", CHANNELS),
+                         ("positioning", POSITIONINGS), ("tier", TIERS)):
+        if patch.get(key) is not None and patch[key] not in allowed:
+            return f"invalid {key} {patch[key]!r}; expected one of {list(allowed)}"
+    return None
+
+
+def upsert_tracker_row(patch, source="manual", event=None, when=None):
     """Insert or update one tracker row (matched by id, else company + role). Returns
-    (row, error). Shared by `tracker upsert` and the Radar page's Save button."""
+    (row, error). Shared by `tracker upsert`, the Radar page's Save button and inbox sync.
+    A status change is recorded in the row's `events` history with `source` (manual | radar |
+    inbox | auto | undo) and dated `when` (default today); `event`, if given, is appended as-is."""
+    err = validate_tracker_patch(patch)
+    if err:
+        return None, err
     data = load_rows()
     rows = data["rows"]
 
@@ -338,22 +357,34 @@ def upsert_tracker_row(patch):
             "status": "Shortlisted", "fit": None, "salary": None, "found_date": today_str(),
             "applied_date": None, "followup_date": None, "resume_path": None,
             "link": None, "notes": None,
+            "channel": None, "tier": None, "positioning": None, "events": [],
         }
         data["next_id"] += 1
         rows.append(row)
+        old_status = None
     else:
         row = match
+        old_status = row.get("status")
 
     for k, v in patch.items():
-        if k == "id":
+        if k in ("id", "events"):
             continue
         row[k] = v
+    if "positioning" in patch:
+        row["positioning_inferred"] = False
+
+    events = row.setdefault("events", [])
 
     if "status" in patch:
         if patch["status"] == "Applied" and not row.get("applied_date"):
             row["applied_date"] = today_str()
         if "followup_date" not in patch:
             row["followup_date"] = next_followup(row["status"], row.get("applied_date"), row.get("followup_date"))
+        if patch["status"] != old_status:
+            events.append({"date": when or today_str(), "type": "status", "from": old_status,
+                           "to": patch["status"], "source": source})
+    if event:
+        events.append({"date": today_str(), **event})
 
     save_rows(data)
     return row, None

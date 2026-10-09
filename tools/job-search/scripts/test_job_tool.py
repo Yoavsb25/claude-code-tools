@@ -2,9 +2,11 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 import urllib.error
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -1488,3 +1490,65 @@ class TestGreenhouseLocation(unittest.TestCase):
 
     def test_plain_location_only(self):
         self.assertEqual(job_tool.greenhouse_location({"location": {"name": "London"}}), "London")
+
+
+class TrackerStateMixin:
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
+
+class TestTrackerV2(TrackerStateMixin, unittest.TestCase):
+    def test_rejects_unknown_enum_values(self):
+        for patch_ in ({"status": "Ghosting"}, {"channel": "carrier pigeon"},
+                       {"tier": 3}, {"positioning": "P9"}):
+            with self.subTest(patch_=patch_):
+                row, err = job_tool.upsert_tracker_row(dict(company="Acme", role="SWE", **patch_))
+                self.assertIsNone(row)
+                self.assertIn("invalid", err)
+
+    def test_new_row_has_v2_fields(self):
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE"})
+        self.assertEqual((row["channel"], row["tier"], row["positioning"], row["events"]),
+                         (None, None, None, []))
+
+    def test_status_change_records_event(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE"})
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"},
+                                             source="inbox", when="2026-10-01")
+        self.assertEqual(row["events"][-1], {"date": "2026-10-01", "type": "status", "from": "Shortlisted",
+                                             "to": "Applied", "source": "inbox"})
+
+    def test_same_status_records_no_event(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        self.assertEqual(sum(e["type"] == "status" for e in row["events"]), 1)
+
+    def test_extra_event_is_appended(self):
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE"},
+                                             event={"type": "email", "kind": "viewed", "msg_id": "<1@x>"})
+        self.assertEqual(row["events"][-1]["kind"], "viewed")
+        self.assertIn("date", row["events"][-1])
+
+    def test_setting_positioning_clears_inferred_flag(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE"})
+        data = job_tool.load_rows()
+        data["rows"][0].update(positioning="P2", positioning_inferred=True)
+        job_tool.save_rows(data)
+        row, _ = job_tool.upsert_tracker_row({"id": 1, "positioning": "P1"})
+        self.assertFalse(row["positioning_inferred"])
+
+    def test_responded_counts_for_followups(self):
+        row, _ = job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Responded",
+                                              "followup_date": "2000-01-01"})
+        self.assertIn("Follow-up was due", job_tool.compute_stale_reason(row))
+
+    def test_markdown_has_new_columns(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "tier": 1, "channel": "ats"})
+        text = job_tool.markdown_path().read_text()
+        self.assertIn("| Tier | Channel | Pos |", text)
