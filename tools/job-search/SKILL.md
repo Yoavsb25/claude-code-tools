@@ -1,9 +1,9 @@
 ---
 name: job-search
 description: >
-  Runs Yoav's end-to-end job hunt — finds current openings that match his personalized target
+  Runs the user's end-to-end job hunt — finds current openings that match their personalized target
   criteria (role, location, industry, seniority), ranks them by fit, maintains a running
-  application tracker, and kicks off resume-tailor (and github-project-picker) for any role he
+  application tracker, and kicks off resume-tailor (and github-project-picker) for any role they
   decides to pursue. Use this skill whenever the user wants to discover jobs rather than react to
   one they already have — e.g. "find me some jobs", "what's out there for [role]", "search for
   openings", "help me find my next job", "what should I apply to this week", "update my job
@@ -16,7 +16,7 @@ description: >
 
 # Job Search
 
-You are a job-search agent, not a search box. Your job is to go find roles worth Yoav's time,
+You are a job-search agent, not a search box. Your job is to go find roles worth the user's time,
 rank them honestly, keep a living record of where every application stands, and hand off to
 resume-tailor the moment a role is worth pursuing.
 
@@ -558,7 +558,7 @@ tension — one covers confirmed data, the other covers guesses.
 
 ## Stage 4 — Present the shortlist
 
-**Standing preference: split by public vs. private, not filtered.** Yoav prefers publicly traded
+**Standing preference: split by public vs. private, not filtered.** the user prefers publicly traded
 companies but wants to see private-company matches too, just labeled separately rather than
 excluded — this is why `must_haves` should never contain a hard "publicly traded company" filter
 (see Stage 1's field table). Default presentation is **two tables — Public companies and
@@ -652,7 +652,7 @@ python3 ~/.claude/skills/job-search/scripts/job_tool.py network match --company 
 ```
 and fold `match_count`/connection names into that company's row(s) in the Stage 4 table's
 `Connections` column (comma-separated names, or `—` for zero matches). This merges the previously
-separate "Network — warm intros" lookup into the default search output — no need for Yoav to ask
+separate "Network — warm intros" lookup into the default search output — no need for the user to ask
 for it separately every time. The standalone "who do I know at X" flow (below) still exists for
 ad hoc checks outside a full search run.
 
@@ -728,7 +728,7 @@ Every morning `scripts/radar.py refresh` (launchd, plain Python, no LLM) collect
 UK-remote posting from the `companies.json` watchlist plus a LinkedIn sweep into
 `~/job-search-data/radar.json`, with years required (pulled from the JD text, with the evidence
 sentence), level, role family and salary. `radar.py status` prints a summary; coverage per company
-is in `coverage.json`. Yoav browses it with `radar.py serve` (local page at http://127.0.0.1:8765,
+is in `coverage.json`. the user browses it with `radar.py serve` (local page at http://127.0.0.1:8765,
 refreshes in the background if data is over 12h old). See `references/scheduled-runs.md`.
 
 The page is the **Job Cockpit** (`cockpit.py` builds its data; served at `/api/cockpit`):
@@ -744,9 +744,9 @@ The page is the **Job Cockpit** (`cockpit.py` builds its data; served at `/api/c
   a response, and conversation rate by channel, positioning and tier (groups under 5 marked "few").
 Page edits are limited to status, tier, channel, positioning, notes and follow-up date.
 
-When Yoav asks "what's new" or wants a shortlist, start from `radar.json` (filter: not closed,
+When the user asks "what's new" or wants a shortlist, start from `radar.json` (filter: not closed,
 `years_min` ≤ 3 or unknown, role_family not Non-tech) instead of re-fetching every source. Never
-apply, send messages, or add tracker rows without him choosing the role.
+apply, send messages, or add tracker rows without them choosing the role.
 
 ---
 
@@ -760,10 +760,10 @@ sent. Credentials: a Gmail app password in the macOS Keychain (service `job-sear
 
 Only unambiguous matches (company named by the sender or subject, one row fits) change the
 tracker: confirmation → `Applied`, rejection → `Rejected`, invite/reply → `Responded` plus an
-action item. Everything else waits in the review queue. When Yoav asks "anything from employers?"
+action item. Everything else waits in the review queue. When the user asks "anything from employers?"
 or "what do I need to reply to?", run `inbox.py actions` and `inbox.py review`; settle review
 items with `inbox.py resolve <msg_id> --row ID` or `--ignore`, and mark replies handled with
-`inbox.py done <msg_id>`. A status update Yoav tells you directly still goes through
+`inbox.py done <msg_id>`. A status update the user tells you directly still goes through
 `tracker upsert`.
 
 `~/job-search-data` is a local git repo; `radar.py daily` commits it after each run, so

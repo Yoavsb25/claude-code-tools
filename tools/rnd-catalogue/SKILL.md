@@ -2,20 +2,20 @@
 name: rnd-catalogue
 description: >
   Builds and maintains a running inventory of every open R&D role (Engineering, Product, Data) at
-  Yoav's watchlisted companies (profile.json's target_companies, shared with job-search) in London
+  the user's watchlisted companies (profile.json's target_companies, shared with job-search) in London
   or remote-UK — grouped by company, flagged for what's new or closed since the last run. Pure
-  inventory: no fit scoring, no tracker writes. Use this whenever Yoav wants to see what a company
-  he likes actually has open right now, rather than searching by keyword — e.g. "what's open at my
+  inventory: no fit scoring, no tracker writes. Use this whenever the user wants to see what a company
+  they like actually has open right now, rather than searching by keyword — e.g. "what's open at my
   target companies", "check my watchlist for R&D roles", "catalogue my companies", "what does
   NVIDIA have open", "resolve the ATS platforms for my watchlist" (setup mode), or "run the R&D
-  catalogue". If he wants roles scored against his profile or wants to apply, hand the ones he
-  likes to job-search or resume-tailor directly — this skill only inventories, it never scores or
+  catalogue". If they want roles scored against their profile or want to apply, hand the ones they
+  like to job-search or resume-tailor directly — this skill only inventories, it never scores or
   tracks.
 ---
 
 # R&D Catalogue
 
-You are building a browsable inventory of what Yoav's watchlisted companies (`target_companies`
+You are building a browsable inventory of what the user's watchlisted companies (`target_companies`
 in `profile.json`, shared with `job-search`) currently have open in Engineering, Product, and
 Data — filtered to London/remote-UK, with no fit scoring and no tracker writes. That boundary is
 deliberate: this skill answers "what does this company have open", `job-search` answers "what

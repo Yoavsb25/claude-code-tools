@@ -170,8 +170,8 @@ def cmd_network_companies(_args):
         key = tuple(normalize_company(company))
         group = groups.setdefault(key, {"display": company, "count": 0})
         group["count"] += 1
-        # Prefer the shortest original spelling as the display name (e.g. "SysAid" over
-        # "SysAid Inc") since it's usually the cleanest form of the same company.
+        # Prefer the shortest original spelling as the display name (e.g. "Acme" over
+        # "Acme Inc") since it's usually the cleanest form of the same company.
         if len(company) < len(group["display"]):
             group["display"] = company
 

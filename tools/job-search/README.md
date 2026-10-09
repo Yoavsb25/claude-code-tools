@@ -1,5 +1,8 @@
 # job-search
 
+> **Snapshot.** This tool is maintained in a private project and synced here occasionally, with personal
+> data removed. Paths default to `~/job-search-data` and `~/.claude/skills/job-search`.
+
 Runs the end-to-end job hunt: finds current openings matching a personalized profile
 (role/location/industry/seniority), ranks them by fit, tracks every application through a
 bookkeeping script, and hands off to `resume-tailor` (and `github-project-picker`) for any role

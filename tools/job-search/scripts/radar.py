@@ -323,7 +323,7 @@ def unhide_posting(key):
 
 def save_posting(key, tier=None):
     """Add a posting to the tracker as Shortlisted, with the tier chosen on the page and a guessed
-    positioning for Yoav to confirm in Pipeline. The only write the page makes outside
+    positioning for the user to confirm in Pipeline. The only write the page makes outside
     radar_state.json besides cockpit edits; nothing is applied to or sent."""
     radar_state = job_tool.load_json(_path("radar.json"), {"postings": {}})
     p = radar_state["postings"].get(key)

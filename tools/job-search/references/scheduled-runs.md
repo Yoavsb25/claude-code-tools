@@ -2,7 +2,7 @@
 
 Since 2026-09-29 the daily run is the **Job Radar refresh**, not an unattended Claude session.
 
-- `~/Library/LaunchAgents/com.yoavsborovsky.jobradar.plist` runs
+- `~/Library/LaunchAgents/com.example.jobradar.plist` runs
   `/opt/homebrew/bin/python3 scripts/radar.py daily` at 07:00 (launchd runs a missed slot on
   wake if the Mac was asleep). Log: `~/job-search-data/logs/radar.log`.
 - `daily` = radar refresh, then inbox sync (`inbox.py`, read-only IMAP; ghosting only after a
@@ -16,12 +16,12 @@ Since 2026-09-29 the daily run is the **Job Radar refresh**, not an unattended C
   `coverage.json` (per-company fetch result, LinkedIn stats, discovered companies).
 
 Nothing ever applies or sends messages. The only automatic tracker writes come from inbox sync
-(unambiguous email matches, undoable) and ghosting; Yoav browses the Radar and saves roles himself.
+(unambiguous email matches, undoable) and ghosting; the user browses the Radar and saves roles himself.
 
 ## Retired: the unattended Claude pipeline
 
-`scripts/run_daily.sh` + `com.yoavsborovsky.jobsearch.daily.plist` (plist backed up at
-`~/job-search-data/retired-com.yoavsborovsky.jobsearch.daily.plist`) ran the full Stage 0–7
+`scripts/run_daily.sh` + `com.example.jobsearch.daily.plist` (plist backed up at
+`~/job-search-data/retired-com.example.jobsearch.daily.plist`) ran the full Stage 0–7
 pipeline via `claude -p`. It was retired because it failed on OAuth expiry and TCC, and because a
 30-row LLM shortlist hid the other ~4,000 fetched postings. Full LLM scoring is still available
 interactively through this skill.

@@ -75,13 +75,13 @@ class TestClassify(unittest.TestCase):
 
 class TestMatch(unittest.TestCase):
     def test_sender_names_company(self):
-        r, strength, ids = inbox.match(msg("Your application", "Freetrade Hiring <no-reply@ashbyhq.com>"),
-                                       [row(1, "Freetrade"), row(2, "Byte")])
+        r, strength, ids = inbox.match(msg("Your application", "Fernway Hiring <no-reply@ashbyhq.com>"),
+                                       [row(1, "Fernway"), row(2, "Byte")])
         self.assertEqual((r["id"], strength, ids), (1, "strong", [1]))
 
     def test_subject_names_company(self):
-        r, strength, _ = inbox.match(msg("Your application to Cboe Global Markets", "noreply@myworkday.com"),
-                                     [row(1, "Cboe")])
+        r, strength, _ = inbox.match(msg("Your application to Corex Global Markets", "noreply@myworkday.com"),
+                                     [row(1, "Corex")])
         self.assertEqual((r["id"], strength), (1, "strong"))
 
     def test_body_only_company_mention_goes_to_review(self):
@@ -130,9 +130,9 @@ class TestDecide(unittest.TestCase):
 
 class TestCandidateFilter(unittest.TestCase):
     def test_filters(self):
-        words = [["freetrade"]]
+        words = [["fernway"]]
         self.assertTrue(inbox.is_candidate(msg("Your application", "x@y.com"), words))
-        self.assertTrue(inbox.is_candidate(msg("Hello", "Freetrade <hi@freetrade.io>"), words))
+        self.assertTrue(inbox.is_candidate(msg("Hello", "Fernway <hi@fernway.io>"), words))
         self.assertTrue(inbox.is_candidate(msg("Hello", "no-reply@us.greenhouse-mail.io"), words))
         self.assertFalse(inbox.is_candidate(msg("Job alert: 30 new jobs", "jobalerts-noreply@linkedin.com"), words))
         self.assertFalse(inbox.is_candidate(msg("Your Ocado order", "orders@ocado.com"), words))
@@ -180,10 +180,10 @@ class TestSync(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"JOB_SEARCH_DIR": self.tmp.name})
         self.env.start()
-        for company, role, status, applied in [("Freetrade", "Platform Engineer", "Applied", "2026-10-08"),
-                                               ("Neo4j", "Software Engineer", "Shortlisted", None),
+        for company, role, status, applied in [("Fernway", "Platform Engineer", "Applied", "2026-10-08"),
+                                               ("Nodely", "Software Engineer", "Shortlisted", None),
                                                ("Global", "Python Developer", "Applied", "2026-10-08"),
-                                               ("Client Server", "AI Engineer", "Applied", "2026-09-15")]:
+                                               ("Clear Server", "AI Engineer", "Applied", "2026-09-15")]:
             job_tool.upsert_tracker_row({"company": company, "role": role, "status": status,
                                          "applied_date": applied})
 
@@ -196,13 +196,13 @@ class TestSync(unittest.TestCase):
 
     def mailbox(self):
         return FakeIMAP({
-            101: make_raw("Your application to Freetrade", "Freetrade <no-reply@ashbyhq.com>",
+            101: make_raw("Your application to Fernway", "Fernway <no-reply@ashbyhq.com>",
                           "Unfortunately we have decided to move forward with other candidates.", msg_id="<r@x>"),
-            102: make_raw("Thank you for applying to Neo4j", "Neo4j Careers <no-reply@greenhouse.io>",
+            102: make_raw("Thank you for applying to Nodely", "Nodely Careers <no-reply@greenhouse.io>",
                           "We have received your application.", date="Tue, 07 Oct 2026 09:00:00 +0000",
                           msg_id="<c@x>"),
             103: make_raw("Job alert: 25 new jobs for you", "LinkedIn <jobalerts-noreply@linkedin.com>",
-                          "Freetrade is hiring", msg_id="<n@x>"),
+                          "Fernway is hiring", msg_id="<n@x>"),
             104: make_raw("Your application", "Talent <talent@agency.co>",
                           "Unfortunately the global client has paused hiring.", msg_id="<w@x>"),
             105: make_raw("Your Ocado order", "orders@ocado.com", "Delivered", msg_id="<o@x>"),
@@ -211,9 +211,9 @@ class TestSync(unittest.TestCase):
     def test_sync_applies_strong_matches_and_queues_the_rest(self):
         summary = inbox.sync(self.mailbox(), today=TODAY)
         rows = self.rows()
-        self.assertEqual(rows["Freetrade"]["status"], "Rejected")
-        self.assertEqual(rows["Freetrade"]["events"][-1]["msg_id"], "<r@x>")
-        self.assertEqual((rows["Neo4j"]["status"], rows["Neo4j"]["applied_date"]), ("Applied", "2026-10-07"))
+        self.assertEqual(rows["Fernway"]["status"], "Rejected")
+        self.assertEqual(rows["Fernway"]["events"][-1]["msg_id"], "<r@x>")
+        self.assertEqual((rows["Nodely"]["status"], rows["Nodely"]["applied_date"]), ("Applied", "2026-10-07"))
         self.assertEqual(rows["Global"]["status"], "Applied")
         self.assertEqual([i["msg_id"] for i in inbox.load_state()["review"]], ["<w@x>"])
         self.assertEqual(summary["scanned"], 5)
@@ -244,7 +244,7 @@ class TestSync(unittest.TestCase):
         inbox.sync(self.mailbox(), today=TODAY)
         inbox.sync(self.mailbox(), today=TODAY, days=30)
         rows = self.rows()
-        self.assertEqual(sum(e.get("msg_id") == "<r@x>" for e in rows["Freetrade"]["events"]), 1)
+        self.assertEqual(sum(e.get("msg_id") == "<r@x>" for e in rows["Fernway"]["events"]), 1)
         self.assertEqual(len(inbox.load_state()["review"]), 1)
 
     def test_uidvalidity_change_rescans_window(self):
@@ -262,7 +262,7 @@ class TestSync(unittest.TestCase):
 
     def test_ghosting_runs_after_successful_sync(self):
         summary = inbox.sync(FakeIMAP({1: make_raw("Hello", "a@b.com", "", msg_id="<z@x>")}), today=TODAY)
-        self.assertEqual(self.rows()["Client Server"]["status"], "Ghosted")
+        self.assertEqual(self.rows()["Clear Server"]["status"], "Ghosted")
         self.assertEqual(len(summary["ghosted"]), 1)
 
     def test_resolve_attaches_review_item_to_row(self):
@@ -339,7 +339,7 @@ class TestReviewFixes(unittest.TestCase):
 
     # 1 — own sent mail
     def test_own_sent_mail_is_ignored(self):
-        box = FakeIMAP({1: make_raw("Following up on my Acme application", "Yoav <me@gmail.com>",
+        box = FakeIMAP({1: make_raw("Following up on my Acme application", "Me <me@gmail.com>",
                                     "Unfortunately I need to reschedule.", msg_id="<s@x>")})
         inbox.sync(box, today=TODAY, own_address="me@gmail.com")
         self.assertEqual(self.rows()["Acme"]["status"], "Applied")
@@ -361,13 +361,13 @@ class TestReviewFixes(unittest.TestCase):
 
     # 3 — short / generic / contained names
     def test_generic_name_inside_longer_company_is_weak(self):
-        r, strength, _ = inbox.match(msg("Update from Cboe Global Markets", "noreply@myworkday.com"),
+        r, strength, _ = inbox.match(msg("Update from Corex Global Markets", "noreply@myworkday.com"),
                                      [row(1, "Global", "Python Developer")])
         self.assertEqual((r, strength), (None, "weak"))
 
     def test_contained_company_loses_to_longer_match(self):
-        rows = [row(1, "Cboe", "Python Developer"), row(2, "Global", "Platform Engineer")]
-        r, strength, _ = inbox.match(msg("Cboe Global Markets: Platform Engineer application",
+        rows = [row(1, "Corex", "Python Developer"), row(2, "Global", "Platform Engineer")]
+        r, strength, _ = inbox.match(msg("Corex Global Markets: Platform Engineer application",
                                          "noreply@myworkday.com"), rows)
         self.assertEqual((r["id"], strength), (1, "strong"))
 
@@ -445,24 +445,24 @@ class TestReviewFixes(unittest.TestCase):
 
 
 class TestRealInboxCases(unittest.TestCase):
-    """Cases from the 2026-10-09 dry run over Yoav's real inbox (bodies shortened)."""
+    """Cases from the 2026-10-09 dry run over a real inbox (bodies shortened)."""
 
     def kind(self, subject, sender, body, bulk=False):
         return inbox.classify(dict(msg(subject, sender, body), bulk=bulk))
 
     def test_rejection_phrasings(self):
         cases = [
-            ("Attio Application Update", "Attio <careers@mail.attio.com>",
-             "Thank you for you application the Product Engineer role at Attio. The team has taken the time to "
+            ("Alderly Application Update", "Alderly <careers@mail.alderly.com>",
+             "Thank you for you application the Product Engineer role at Alderly. The team has taken the time to "
              "review your profile and has decided not to move forward at this time."),
-            ("Update on your application for Solutions Engineer", "Aveni Hiring Team <no-reply@ashbyhq.com>",
-             "Thank you for applying for the Solutions Engineer role at Aveni. After reviewing your CV we’ve "
+            ("Update on your application for Solutions Engineer", "Bramwell Hiring Team <no-reply@ashbyhq.com>",
+             "Thank you for applying for the Solutions Engineer role at Bramwell. After reviewing your CV we’ve "
              "decided not to progress your application to the next stage on this occasion."),
-            ("Thank you from JFrog!", "no-reply@jfrog.com",
+            ("Thank you from Cobalt!", "no-reply@cobalt.com",
              "Thank you for your interest in joining our swamp! Unfortunately, at this moment in time we don’t "
              "have any relevant opportunities that fit your skills and experience."),
-            ("Your application to Forward Deployed Engineer at Findrs", "LinkedIn <jobs-noreply@linkedin.com>",
-             "Your update from Findrs https://www.linkedin.com/help?lipi=urn%3Ali%3Apage%3Aemail_email_jobs_"
+            ("Your application to Forward Deployed Engineer at Dunmore", "LinkedIn <jobs-noreply@linkedin.com>",
+             "Your update from Dunmore https://www.linkedin.com/help?lipi=urn%3Ali%3Apage%3Aemail_email_jobs_"
              "application_rejected_01"),
         ]
         for subject, sender, body in cases:
@@ -470,24 +470,24 @@ class TestRealInboxCases(unittest.TestCase):
                 self.assertEqual(self.kind(subject, sender, body), "rejection")
 
     def test_bulk_mail_is_never_a_reply(self):
-        self.assertEqual(self.kind("Help us match you with the right jobs", "La Fosse <data.admin@lafosse.com>",
+        self.assertEqual(self.kind("Help us match you with the right jobs", "Lakeside <data.admin@lakeside.com>",
                                    "Thanks for your recent application. Could you update your details?", bulk=True),
                          "other")
-        self.assertEqual(self.kind("You're invited to London Office", "Unity <info@gable.to>",
-                                   "You're invited to visit London Office. Your host is Emma.", bulk=True), "other")
+        self.assertEqual(self.kind("You're invited to London Office", "Umbra <info@gable.to>",
+                                   "You're invited to visit London Office. Your host is Sam.", bulk=True), "other")
 
     def test_linkedin_inmail_is_still_a_reply_despite_bulk_headers(self):
         self.assertEqual(self.kind("Career Opportunity with a UK Series A Insurtech",
-                                   "Adam Tully <inmail-hit-reply@linkedin.com>", "Hello Yoav, is timing right?",
+                                   "Sam Recruiter <inmail-hit-reply@linkedin.com>", "Hello there, is timing right?",
                                    bulk=True), "reply")
 
     def test_receipts_and_job_alerts_are_noise(self):
-        self.assertEqual(self.kind("Your receipt from Anthropic, PBC #2851", '"Anthropic, PBC" <invoice@mail.anthropic.com>',
+        self.assertEqual(self.kind("Your receipt from Acme Labs, Inc #2851", '"Acme Labs, Inc" <invoice@mail.acmelabs.com>',
                                    "Receipt £18.00 Paid"), "noise")
-        self.assertEqual(self.kind("Staff Engineer (IT Automation) at SoSafe",
+        self.assertEqual(self.kind("Staff Engineer (IT Automation) at SafeCo",
                                    "LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>",
                                    "Your job alert. Book a time to chat"), "noise")
-        self.assertFalse(inbox.is_candidate(msg("Staff Engineer at SoSafe", "jobalerts-noreply@linkedin.com"), []))
+        self.assertFalse(inbox.is_candidate(msg("Staff Engineer at SafeCo", "jobalerts-noreply@linkedin.com"), []))
 
     def test_bulk_flag_parsed_from_list_unsubscribe(self):
         m = email.message.EmailMessage()
@@ -498,7 +498,7 @@ class TestRealInboxCases(unittest.TestCase):
         self.assertFalse(inbox.parse_message(1, make_raw("Hi", "a@b.com", "x"))["bulk"])
 
     def test_linkedin_subject_names_generic_company_exactly(self):
-        r, strength, _ = inbox.match(msg("Yoav, your application was sent to Byte", "LinkedIn <jobs-noreply@linkedin.com>"),
+        r, strength, _ = inbox.match(msg("Hi, your application was sent to Byte", "LinkedIn <jobs-noreply@linkedin.com>"),
                                      [row(1, "Byte", "Artificial Intelligence Engineer")])
         self.assertEqual((r["id"], strength), (1, "strong"))
         r, strength, _ = inbox.match(msg("Your application to AI Engineer at Global", "LinkedIn <jobs-noreply@linkedin.com>"),
