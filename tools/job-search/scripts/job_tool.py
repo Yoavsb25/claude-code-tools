@@ -390,6 +390,41 @@ def upsert_tracker_row(patch, source="manual", event=None, when=None):
     return row, None
 
 
+def undo_last_status(row_id):
+    """Revert the most recent automatic (inbox sync or ghosting) status change on a row."""
+    data = load_rows()
+    row = next((r for r in data["rows"] if r["id"] == row_id), None)
+    if row is None:
+        return None, f"no tracker row {row_id}"
+    last = next((e for e in reversed(row.get("events") or []) if e.get("type") == "status"), None)
+    if last is None or last.get("source") not in ("inbox", "auto") or last.get("from") is None:
+        return None, "last status change was not automatic; nothing to undo"
+    row["status"] = last["from"]
+    row["events"].append({"date": today_str(), "type": "status", "from": last["to"],
+                          "to": last["from"], "source": "undo"})
+    save_rows(data)
+    return row, None
+
+
+def mark_ghosted(today=None):
+    """Applied rows with no reply for GHOST_AFTER_DAYS become Ghosted. Only call this right after a
+    successful inbox sync — otherwise a reply that was never read would be mistaken for silence."""
+    today = today or date.today()
+    data = load_rows()
+    ghosted = []
+    for row in data["rows"]:
+        applied = parse_date(row.get("applied_date"))
+        if row["status"] != "Applied" or not applied or (today - applied).days < GHOST_AFTER_DAYS:
+            continue
+        row["status"] = "Ghosted"
+        row.setdefault("events", []).append({"date": today.isoformat(), "type": "status",
+                                             "from": "Applied", "to": "Ghosted", "source": "auto"})
+        ghosted.append(row)
+    if ghosted:
+        save_rows(data)
+    return ghosted
+
+
 def cmd_tracker_list(args):
     data = load_rows()
     rows = data["rows"]

@@ -1552,3 +1552,35 @@ class TestTrackerV2(TrackerStateMixin, unittest.TestCase):
         job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "tier": 1, "channel": "ats"})
         text = job_tool.markdown_path().read_text()
         self.assertIn("| Tier | Channel | Pos |", text)
+
+
+class TestUndoAndGhosting(TrackerStateMixin, unittest.TestCase):
+    def test_undo_reverts_inbox_change(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        job_tool.upsert_tracker_row({"id": 1, "status": "Rejected"}, source="inbox")
+        row, err = job_tool.undo_last_status(1)
+        self.assertIsNone(err)
+        self.assertEqual(row["status"], "Applied")
+        self.assertEqual(row["events"][-1]["source"], "undo")
+
+    def test_undo_refuses_manual_change(self):
+        job_tool.upsert_tracker_row({"company": "Acme", "role": "SWE", "status": "Applied"})
+        row, err = job_tool.undo_last_status(1)
+        self.assertIsNone(row)
+        self.assertIn("not automatic", err)
+
+    def test_undo_unknown_row(self):
+        self.assertEqual(job_tool.undo_last_status(99), (None, "no tracker row 99"))
+
+    def test_ghosts_applied_rows_after_21_days(self):
+        job_tool.upsert_tracker_row({"company": "Old", "role": "SWE", "status": "Applied",
+                                     "applied_date": "2026-09-01"})
+        job_tool.upsert_tracker_row({"company": "New", "role": "SWE", "status": "Applied",
+                                     "applied_date": "2026-09-25"})
+        job_tool.upsert_tracker_row({"company": "Talking", "role": "SWE", "status": "Responded",
+                                     "applied_date": "2026-09-01"})
+        ghosted = job_tool.mark_ghosted(date(2026, 10, 9))
+        self.assertEqual([r["company"] for r in ghosted], ["Old"])
+        old = job_tool.load_rows()["rows"][0]
+        self.assertEqual((old["status"], old["events"][-1]["source"]), ("Ghosted", "auto"))
+        self.assertEqual(job_tool.undo_last_status(1)[0]["status"], "Applied")
