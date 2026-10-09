@@ -1369,6 +1369,33 @@ def cmd_daily(args):
         print(inbox.format_summary(inbox.run_sync()))
     except Exception as e:  # noqa: BLE001
         print(f"inbox sync failed: {e}")
+    snapshot_state(f"daily run {date.today().isoformat()}")
+
+
+def snapshot_state(message):
+    """Commit the state dir (it is a local git repo since 2026-10-09) so every automatic tracker change
+    is reviewable and revertable: `git -C ~/job-search-data log -p tracker.json`. No-op without a repo
+    or when nothing changed; never pushes."""
+    d = job_tool.state_dir()
+    if not (d / ".git").exists():
+        return
+    subprocess.run(["git", "-C", str(d), "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", str(d), "commit", "-q", "-m", message], capture_output=True)
+```
+
+(`import subprocess` in `radar.py`.) Test in `TestDaily`:
+
+```python
+    def test_daily_commits_state_repo(self):
+        subprocess.run(["git", "init", "-q", self.tmp.name], check=True)
+        subprocess.run(["git", "-C", self.tmp.name, "config", "user.email", "t@t"], check=True)
+        subprocess.run(["git", "-C", self.tmp.name, "config", "user.name", "t"], check=True)
+        args = radar.argparse.Namespace(no_linkedin=True, max_details=0)
+        with patch("radar.cmd_refresh"), \
+             patch("radar.inbox.get_credentials", return_value=(None, "no Keychain item")):
+            radar.cmd_daily(args)
+        log = subprocess.run(["git", "-C", self.tmp.name, "log", "--oneline"], capture_output=True, text=True)
+        self.assertIn("daily run", log.stdout)
 ```
 
 argparse: `p_daily = sub.add_parser("daily")` with the same `--no-linkedin` / `--max-details` arguments as `refresh`, `set_defaults(func=cmd_daily)`. Add `radar.py daily` to the module docstring usage.
