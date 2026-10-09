@@ -581,8 +581,124 @@ async function syncInbox() {
   }, 3000);
 }
 
-function renderPipeline() { return el("div", { class: "empty" }, "Pipeline coming next."); }
-function renderInsights() { return el("div", { class: "empty" }, "Insights coming next."); }
+const STATUS_GROUPS = {
+  active: ["Applied", "Responded", "Phone Screen", "Interviewing", "Offer"],
+  shortlisted: ["Shortlisted"],
+  closed: ["Rejected", "Ghosted", "Withdrawn"],
+  all: null,
+};
+
+function fieldSelect(row, key, values, label, labels = {}, allowBlank = true) {
+  return el("select", { class: "cell-select", "aria-label": label, onclick: e => e.stopPropagation(),
+    onchange: e => {
+      const v = e.target.value;
+      act("/api/tracker", { id: row.id, [key]: v === "" ? null : key === "tier" ? Number(v) : v });
+    } },
+    allowBlank && el("option", { value: "" }, "—"),
+    ...values.map(v => el("option", { value: v, selected: row[key] === v }, labels[v] || (key === "tier" ? `Tier ${v}` : v))));
+}
+
+function renderPipeline() {
+  const o = cockpit.options;
+  const group = STATUS_GROUPS[pipelineFilter];
+  const rows = cockpit.pipeline.filter(r => !group || group.includes(r.status))
+    .sort((a, b) => (b.applied_date || b.found_date || "").localeCompare(a.applied_date || a.found_date || ""));
+  const count = g => cockpit.pipeline.filter(r => !STATUS_GROUPS[g] || STATUS_GROUPS[g].includes(r.status)).length;
+  const chips = el("div", { class: "chips" }, ...Object.keys(STATUS_GROUPS).map(g => el("button", {
+    class: "chip", type: "button", "aria-pressed": String(g === pipelineFilter),
+    onclick: () => { pipelineFilter = g; render(); } }, `${g} (${count(g)})`)));
+
+  function rowsFor(r) {
+    const contacts = cockpit.contacts[r.id] || [];
+    const open = pipelineOpen.has(r.id);
+    const tr = el("tr", { class: "prow", onclick: () => { open ? pipelineOpen.delete(r.id) : pipelineOpen.add(r.id); render(); } },
+      el("td", {}, el("div", { class: "title" }, r.company), el("div", { class: "sub" }, r.role)),
+      el("td", {}, fieldSelect(r, "status", o.statuses, "Status", {}, false)),
+      el("td", {}, fieldSelect(r, "tier", o.tiers, "Tier")),
+      el("td", {}, fieldSelect(r, "channel", o.channels, "Channel", CHANNEL_LABELS)),
+      el("td", {}, fieldSelect(r, "positioning", o.positionings, "Positioning"),
+        r.positioning_inferred && el("button", { class: "btn tiny", type: "button", title: "This was guessed from the title. Click to confirm it.",
+          onclick: e => { e.stopPropagation(); act("/api/tracker", { id: r.id, positioning: r.positioning }); } }, "confirm")),
+      el("td", {}, r.applied_date || "—"),
+      el("td", {}, contacts.length ? `${contacts.length} 👤` : "—"));
+    return open ? [tr, el("tr", {}, el("td", { colspan: 7 }, pipelineDetail(r, contacts)))] : [tr];
+  }
+
+  return el("div", {},
+    flashNotice(),
+    el("div", { class: "summary" }, el("div", {}, el("strong", {}, `${rows.length} applications`), " · click a row for history and Tier 1 helpers"), chips),
+    rows.length
+      ? el("table", { class: "pipeline" },
+          el("thead", {}, el("tr", {}, ...["Company / role", "Status", "Tier", "Channel", "Positioning", "Applied", "Contacts"].map(h => el("th", {}, h)))),
+          el("tbody", {}, ...rows.flatMap(rowsFor)))
+      : el("div", { class: "empty" }, "Nothing in this group."));
+}
+
+function pipelineDetail(r, contacts) {
+  const events = (r.events || []).slice().reverse();
+  return el("div", { class: "pgrid" },
+    el("div", {},
+      el("h3", {}, "History"),
+      events.length
+        ? el("ul", { class: "timeline" }, ...events.map(e => el("li", {},
+            el("span", { class: "meta" }, e.date || "date unknown"), " ",
+            e.type === "status" ? `${e.from || "—"} → ${e.to}` : `${e.kind} email: ${e.subject || ""}`,
+            e.source && e.source !== "manual" && el("span", { class: "meta" }, ` (${e.source})`))))
+        : el("div", { class: "meta" }, "No history yet."),
+      r.notes && el("p", { class: "sub" }, r.notes)),
+    el("div", {},
+      el("h3", {}, "Tier 1 helpers"),
+      el("div", { class: "links" },
+        r.link && el("a", { href: r.link, target: "_blank", rel: "noopener" }, "Job posting ↗"),
+        el("button", { class: "btn", type: "button", onclick: e => copyTailor(r, e.target) }, "Copy /resume-tailor command")),
+      el("h3", {}, `People you know at ${r.company}`),
+      contacts.length
+        ? el("ul", { class: "contacts" }, ...contacts.map(c => el("li", {},
+            c.url ? el("a", { href: c.url, target: "_blank", rel: "noopener" }, c.name) : c.name,
+            c.position ? ` — ${c.position}` : "")))
+        : el("div", { class: "meta" }, "No connections found in your LinkedIn export.")));
+}
+
+async function copyTailor(r, button) {
+  const cmd = `/resume-tailor ${r.role} at ${r.company}${r.link ? " " + r.link : ""}`;
+  try { await navigator.clipboard.writeText(cmd); button.textContent = "Copied ✓"; }
+  catch { button.textContent = cmd; }
+}
+
+function pct(x) { return `${Math.round(x * 100)}%`; }
+
+function breakdownTable(title, groups, labels) {
+  const entries = Object.entries(groups);
+  return el("div", {}, el("h3", {}, title),
+    entries.length
+      ? el("table", {},
+          el("thead", {}, el("tr", {}, ...["", "Applied", "Conversations", "Rate", "Rejected", "Ghosted"].map(h => el("th", {}, h)))),
+          el("tbody", {}, ...entries.map(([k, g]) => el("tr", {},
+            el("td", {}, labels[k] || k),
+            el("td", {}, g.applied), el("td", {}, g.conversations),
+            el("td", {}, pct(g.rate), g.low_sample && el("span", { class: "meta", title: "Fewer than 5 applications: too few to trust" }, " · few")),
+            el("td", {}, g.rejected), el("td", {}, g.ghosted)))))
+      : el("div", { class: "meta" }, "No applications yet."));
+}
+
+function renderInsights() {
+  const i = cockpit.insights;
+  const f = i.funnel;
+  const tile = (n, label) => el("div", { class: "stat" }, el("div", {}, n), el("div", {}, label));
+  return el("div", {},
+    el("div", { class: "summary" }, el("div", {}, el("strong", {}, "Insights"),
+      " · conversation = any reply or invite that moved past Applied")),
+    kpiStrip(i.week),
+    el("div", { class: "stat-row" },
+      tile(f.applied, "applied"), tile(f.heard_back, "heard back"), tile(f.conversations, "conversations"),
+      tile(f.interviewing, "interviewing"), tile(f.offers, "offers"), tile(f.rejected, "rejected"),
+      tile(f.ghosted, "ghosted"), tile(f.waiting, "still waiting"),
+      tile(i.median_days_to_response === null ? "—" : `${i.median_days_to_response}d`, "median time to a response")),
+    el("div", { class: "insights" },
+      breakdownTable("By channel", i.by_channel, CHANNEL_LABELS),
+      breakdownTable("By positioning", i.by_positioning, POSITIONING_LABELS),
+      breakdownTable("By tier", i.by_tier, TIER_LABELS)));
+}
 
 function renderCoverage() {
   const cov = data.coverage;
