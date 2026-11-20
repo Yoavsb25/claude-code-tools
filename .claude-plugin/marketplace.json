@@ -1,0 +1,31 @@
+{
+  "name": "yoav-tools",
+  "owner": { "name": "Yoavsb25" },
+  "metadata": { "description": "Skill bundles from this registry: enable a bundle per project instead of copying skills." },
+  "plugins": [
+    {
+      "name": "life",
+      "description": "Life admin: todos, email-to-todo, groceries, Amazon, flights, stays, expenses, TfL fares, folder tidy-up.",
+      "source": "./tools",
+      "strict": false,
+      "skills": ["./add-todo", "./run-todos", "./process-emails", "./amazon-shopper", "./ocado-shopper", "./ocado-deals",
+                 "./flight-finder", "./stay-finder", "./expense-analyzer", "./trip-expense-report", "./folder-organizer",
+                 "./tube-fare-auditor", "./tfl-refund"]
+    },
+    {
+      "name": "build",
+      "description": "Building software: architecture, product, UI/UX, security, testing and stack choices.",
+      "source": "./tools",
+      "strict": false,
+      "skills": ["./software-architect", "./product-manager", "./ui-ux-expert", "./security-architect",
+                 "./testing-strategist", "./tech-stack-selector"]
+    },
+    {
+      "name": "career",
+      "description": "LinkedIn experience bullets and project entries.",
+      "source": "./tools",
+      "strict": false,
+      "skills": ["./linkedin-experience-writer", "./linkedin-project-adder"]
+    }
+  ]
+}
