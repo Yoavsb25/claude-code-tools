@@ -18,7 +18,6 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
 | [ibkr-setup](./tools/ibkr-setup/) | skill | finance | simple | One-time setup for your IBKR investment profile — captures risk tolerance, time horizon, sector preferences, and target allocation. |
 | [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | career | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
-| [ocado-deals](./tools/ocado-deals/) | skill | shopping | simple | Scans Ocado's Fresh & Chilled, Food Cupboard, and Bakery offer pages and ranks the best deals by absolute £ saving per item. |
 | [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
 | [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
 | [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
@@ -31,6 +30,7 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [ibkr-portfolio-review](./tools/ibkr-portfolio-review/) | skill | finance | intermediate | Professional portfolio analysis using live IBKR data, S&P Global ratings, Moody's credit ratings, Canary Data signals, and credibility-filtered web research. |
 | [ibkr-stock-finder](./tools/ibkr-stock-finder/) | skill | finance | intermediate | Discovers 3–5 investment candidates matched to your profile using IBKR themes, S&P Global screening, Canary Data signals, and credibility-filtered web research. |
 | [linkedin-project-adder](./tools/linkedin-project-adder/) | skill | career | intermediate | Adds a LinkedIn Projects entry from a GitHub URL or description, then fills the form via a headed Playwright browser |
+| [ocado-deals](./tools/ocado-deals/) | skill | shopping | intermediate | Finds Ocado offers that actually save money — compares unit prices against what you usually buy and suggests swaps, stock-ups and standout new deals. |
 | [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
 | [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |
