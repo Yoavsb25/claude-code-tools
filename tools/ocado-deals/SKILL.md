@@ -15,6 +15,7 @@ An offer only matters if it beats what you'd otherwise buy. This skill never ran
 | **Swap** — cheaper equivalent of something you buy | ≥10% cheaper per unit at its **everyday** price **and** saves ≥ £20/year at your usual quantity |
 | **Stock-up** — big offer on something you buy regularly | bought in ≥2 orders, ≥25% cheaper per unit than usual, keeps (cupboard / frozen / freezable / long-dated). Suggest 4–8 weeks' supply, capped by shelf life |
 | **New find** — something you don't usually buy | On offer, and either (a) its unit price is **within 10% of, or below,** the everyday own-brand (Ocado/M&S) price for that type ("big brand at own-brand price"), or (b) no own-brand equivalent exists and it is **≥40% off** its own regular price. Max 8 |
+| **Watch list** — categories you want monitored (stored in `usual.json`) | Offers in each watched category (e.g. meat, fish, prosciutto) judged by the New find rule, even if you never buy them. Up to 3 per category. Say "watch X" / "stop watching X" to change it |
 | **Checked, not worth it** | Up to 5 one-line notes on eye-catching offers (≥25% off their own price) that failed, showing the offer's unit price against your usual or the own-brand price |
 | Groceries only | Exclude household/cleaning, toiletries/personal care, baby non-food, pet, clothing, homeware |
 | History | Last ~3 months of orders, refreshed when older than 30 days |
@@ -35,6 +36,7 @@ Read `~/.claude/ocado-deals/usual.json`:
   "items": [{ "name": "Lurpak Slightly Salted Butter 500g", "type": "butter, salted",
               "pack": "500g", "unit_price": 9.00, "unit": "kg|l|each",
               "orders": 6, "units": 7, "spend_13wk": 31.50, "units_per_week": 0.54 }],
+  "watch_list": ["meat", "fish", "prosciutto"],
   "savings_log": [{ "date": "YYYY-MM-DD", "item": "...", "kind": "swap|stock-up|new", "saving_per_year": 41.0, "one_off": 0 }] }
 ```
 
@@ -61,7 +63,7 @@ If the file exists and `updated` is within 30 days, use it and go to Step 2. Oth
    ```
 4. Aggregate in-page by product name (orders, units, spend, latest pack line) into `sessionStorage['rows']`, sorted by spend. Read it back **10 rows per call**. For the tail, read only products bought in ≥2 orders.
 5. Clear the `ord_*` and `rows` keys and close the tab.
-6. Write the file (`mkdir -p ~/.claude/ocado-deals`). Keep groceries only, and only **regulars** (≥2 orders) — **unless the history has fewer than 2 orders, in which case keep every grocery line** (otherwise the baseline would be empty). Give each a `type` label for equivalence. Parse `unit_price`/`unit` from the pack line (`£13.13 per kilo` → 13.13/kg, `17.0p per item` → 0.17/each). Set `units_per_week = units / weeks_covered` and `baseline_weekly_spend = total spend / weeks_covered`. **Preserve the existing `savings_log`.**
+6. Write the file (`mkdir -p ~/.claude/ocado-deals`). Keep groceries only, and only **regulars** (≥2 orders) — **unless the history has fewer than 2 orders, in which case keep every grocery line** (otherwise the baseline would be empty). Give each a `type` label for equivalence. Parse `unit_price`/`unit` from the pack line (`£13.13 per kilo` → 13.13/kg, `17.0p per item` → 0.17/each). Set `units_per_week = units / weeks_covered` and `baseline_weekly_spend = total spend / weeks_covered`. **Preserve the existing `savings_log` and `watch_list`.**
 
 If the history has fewer than 2 orders, carry on but say "history is thin (N order)" in the report. The Stock-up section then reads "none possible yet — an item needs to appear in at least 2 orders". Swaps and New this week still run against the single order's items.
 
@@ -100,6 +102,11 @@ Fetch all in parallel (and `&page=2` where paginated). For every **grocery** off
 - If Ocado shows no unit price, derive it from the pack size in the name.
 - If neither works, **drop the offer**. Never compare per-each with per-kg.
 
+**Watch list:** for each term in `watch_list`, also collect offers for it:
+- If the Fresh & Chilled offers page has a category filter link whose text matches the term ("Meat & Poultry" for meat, "Fish & Seafood" for fish, "Cooked Meats, Deli & Dips" for deli items), fetch that link.
+- Always also fetch `/search?q=<term>` (e.g. `prosciutto`) and keep only cards that are on offer.
+- A watch term whose fetches all return 0 cards counts as a failed section.
+
 A section **failed** if its fetch is not OK **or it parses 0 product cards** (selectors may have changed). If no section links are found on the offers page, every section failed. List failed sections in the report. If all sections failed, say "Offer scan failed — Ocado's page layout may have changed" and don't print "nothing worth it this week" for Stock-up or New this week. Swaps from everyday searches may still be shown if search worked.
 
 ---
@@ -124,6 +131,8 @@ Then **new finds** (discovery): grocery offers whose type matches nothing in the
 - Offer unit price ≤ reference × 1.10 → New find, described as "£X/kg vs own-brand £Y/kg" (e.g. "£5.47/kg vs own-brand £5.61/kg").
 - No own-brand equivalent in the search → New find only if ≥40% off its own regular price, described as "60% off, no own-brand equivalent".
 - Rank by % off (own price), keep up to 8.
+
+Then **watch list**: for each watched term, take its on-offer groceries that aren't already in Swaps or Stock-up, and score them with the New find rule above (own-brand reference within 10%, or ≥40% off with no own-brand equivalent). Keep up to 3 per term, ranked by % off. Watch-list items don't repeat in New this week. Failures go to the checked list like any other offer.
 
 Then **checked, not worth it**: from the offers that are ≥25% off their own price and failed every rule (including ones in your usual types, like a multi-buy that's still dearer per kg than what you buy), keep the 5 biggest by % off. One line each, e.g. "Crown Farms King Prawns 3 for £12 → £20.00/kg vs your usual £13.75/kg".
 
@@ -150,16 +159,26 @@ Baseline £60.00/week · £Y/year + £W one-off locked in from N accepted sugges
 | Napolina Olive Oil 1L | Half price, £4.50 | £4.50/L vs usual £9.00/L | 2 | £9.00 | £9.00 |
 
 ### New this week
-| Item | Offer | Unit price | Why it's worth it |
-|---|---|---|---|
-| Chicago Town Cheese Pizza 305g | Half price, £1.75 | £5.47/kg | below own-brand £5.61/kg |
-| Birds Eye 22 Chicken Dippers 403g | 60% off, £2.00 | £4.96/kg | 60% off, no own-brand equivalent |
+| Item | What it is | Offer | Unit price | Why it's worth it |
+|---|---|---|---|---|
+| Chicago Town Cheese Pizza 305g | Frozen thick-crust cheese pizza | Half price, £1.75 | £5.47/kg | below own-brand £5.61/kg |
+| Birds Eye 22 Chicken Dippers 403g | Frozen breaded chicken pieces, oven or air fryer | 60% off, £2.00 | £4.96/kg | 60% off, no own-brand equivalent |
+
+### Your watch list
+**Fish**
+| Item | What it is | Offer | Unit price | Why it's worth it |
+|---|---|---|---|---|
+| Russell's Salmon Fillets 240g | 2 fresh skin-on salmon fillets | 41% off, £4.00 | £16.67/kg | below own-brand £18.40/kg |
+
+**Prosciutto** — nothing worth it this week
 
 Checked, not worth it:
-- Crown Farms King Prawns 3 for £12 → £20.00/kg vs your usual £13.75/kg
-- Pizza Express Margherita half price → £11.22/kg vs own-brand £9.30/kg
+- Crown Farms King Prawns 3 for £12 (cooked & peeled prawns) → £20.00/kg vs your usual £13.75/kg
+- Pizza Express Margherita half price (chilled thin-crust pizza) → £11.22/kg vs own-brand £9.30/kg
 ```
 
+- **What it is**: a few plain words on what the product is and how it's used ("buttery piped biscuits with jam", "cured Italian ham, thin slices"). Don't repeat the name. Use the product name and card text; if unsure, keep it generic ("frozen breaded fish").
+- Leave out the watch-list section when `watch_list` is empty. An empty watch-list group says "nothing worth it this week".
 - An empty section says "nothing worth it this week". Leave out the "Checked, not worth it" list when it's empty.
 - Leave out the locked-in line if `savings_log` is empty.
 - Add notes for failed sections and thin history.
@@ -170,3 +189,9 @@ Checked, not worth it:
 ## Step 5 — Log accepted suggestions
 
 When the user says which suggestions they took (e.g. "I took the butter swap"), append one entry per suggestion to `savings_log` in `usual.json`: `{date: today, item, kind, saving_per_year, one_off}`. A swap or new find logs its £/year with `one_off: 0`. A stock-up logs `saving_per_year: 0` and its one-off saving. Then reply with the new totals: "£Y/year + £W one-off locked in from N accepted suggestions since <first date>".
+
+---
+
+## Step 6 — Change the watch list
+
+When the user says "watch X", "also monitor X" or "stop watching X", update only `watch_list` in `usual.json` (add or remove lower-case terms, no duplicates). Then reply with the current list, e.g. "Watching: meat, fish, prosciutto".
