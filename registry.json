@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-20T15:16:16.097Z",
+  "generated": "2026-11-20T17:07:10.506Z",
   "count": 35,
   "tools": [
     {
@@ -93,18 +93,20 @@
     },
     {
       "name": "expense-analyzer",
-      "version": "1.0.0",
-      "description": "Analyzes Wise/Revolut CSV transaction exports and produces a detailed markdown expense report with category totals, top transactions, and flagged unusual spends",
+      "version": "1.1.0",
+      "description": "Markdown expense reports from Monzo (read-only via the wealth-dashboard DB, no download) or Wise/Revolut CSVs: category totals, top transactions, flagged unusual spends",
       "type": "skill",
       "category": "finance",
       "complexity": "intermediate",
       "tags": [
         "finance",
         "expenses",
+        "monzo",
         "wise",
         "revolut",
         "python",
-        "csv"
+        "csv",
+        "sqlite"
       ],
       "install": {
         "files": [
@@ -423,7 +425,7 @@
     },
     {
       "name": "job-search",
-      "version": "1.17.1",
+      "version": "1.22.0",
       "description": "Runs the end-to-end job hunt: queries job-board APIs, LinkedIn, ATS feeds and career pages, tracks applications, surfaces worth-exploring roles at target companies, and kicks off resume-tailor",
       "type": "tool",
       "category": "career",
@@ -451,7 +453,12 @@
         "apify",
         "linkedin-connections",
         "warm-intro",
-        "network"
+        "network",
+        "job-radar",
+        "launchd",
+        "imap",
+        "gmail",
+        "inbox-sync"
       ],
       "install": {
         "files": [
@@ -464,6 +471,94 @@
             "dest": "~/.claude/skills/job-search/scripts/job_tool.py"
           },
           {
+            "src": "scripts/radar.py",
+            "dest": "~/.claude/skills/job-search/scripts/radar.py"
+          },
+          {
+            "src": "scripts/radar.html",
+            "dest": "~/.claude/skills/job-search/scripts/radar.html"
+          },
+          {
+            "src": "scripts/inbox.py",
+            "dest": "~/.claude/skills/job-search/scripts/inbox.py"
+          },
+          {
+            "src": "scripts/jobsearch/__init__.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/__init__.py"
+          },
+          {
+            "src": "scripts/jobsearch/store.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/store.py"
+          },
+          {
+            "src": "scripts/jobsearch/text.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/text.py"
+          },
+          {
+            "src": "scripts/jobsearch/fetchconfig.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/fetchconfig.py"
+          },
+          {
+            "src": "scripts/jobsearch/http.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/http.py"
+          },
+          {
+            "src": "scripts/jobsearch/tracker.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/tracker.py"
+          },
+          {
+            "src": "scripts/jobsearch/profile.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/profile.py"
+          },
+          {
+            "src": "scripts/jobsearch/network.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/network.py"
+          },
+          {
+            "src": "scripts/jobsearch/radar_enrich.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/radar_enrich.py"
+          },
+          {
+            "src": "scripts/jobsearch/radar_merge.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/radar_merge.py"
+          },
+          {
+            "src": "scripts/jobsearch/inbox_mail.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/inbox_mail.py"
+          },
+          {
+            "src": "scripts/jobsearch/cockpit.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/cockpit.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/__init__.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/__init__.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/common.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/common.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/ats.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/ats.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/workday.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/workday.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/comeet.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/comeet.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/linkedin.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/linkedin.py"
+          },
+          {
+            "src": "scripts/jobsearch/sources/boards.py",
+            "dest": "~/.claude/skills/job-search/scripts/jobsearch/sources/boards.py"
+          },
+          {
             "src": "references/search-fallbacks.md",
             "dest": "~/.claude/skills/job-search/references/search-fallbacks.md"
           },
@@ -472,12 +567,40 @@
             "dest": "~/.claude/skills/job-search/references/network-warm-intros.md"
           },
           {
-            "src": "references/scheduled-runs.md",
-            "dest": "~/.claude/skills/job-search/references/scheduled-runs.md"
+            "src": "references/web-search.md",
+            "dest": "~/.claude/skills/job-search/references/web-search.md"
           },
           {
-            "src": "scripts/test_job_tool.py",
-            "dest": "~/.claude/skills/job-search/scripts/test_job_tool.py"
+            "src": "references/scoring.md",
+            "dest": "~/.claude/skills/job-search/references/scoring.md"
+          },
+          {
+            "src": "references/intake.md",
+            "dest": "~/.claude/skills/job-search/references/intake.md"
+          },
+          {
+            "src": "references/radar-and-inbox.md",
+            "dest": "~/.claude/skills/job-search/references/radar-and-inbox.md"
+          },
+          {
+            "src": "scripts/tests/__init__.py",
+            "dest": "~/.claude/skills/job-search/scripts/tests/__init__.py"
+          },
+          {
+            "src": "scripts/tests/test_job_tool.py",
+            "dest": "~/.claude/skills/job-search/scripts/tests/test_job_tool.py"
+          },
+          {
+            "src": "scripts/tests/test_radar.py",
+            "dest": "~/.claude/skills/job-search/scripts/tests/test_radar.py"
+          },
+          {
+            "src": "scripts/tests/test_inbox.py",
+            "dest": "~/.claude/skills/job-search/scripts/tests/test_inbox.py"
+          },
+          {
+            "src": "scripts/tests/test_cockpit.py",
+            "dest": "~/.claude/skills/job-search/scripts/tests/test_cockpit.py"
           }
         ]
       },
