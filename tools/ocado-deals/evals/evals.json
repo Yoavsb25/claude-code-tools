@@ -50,7 +50,7 @@
       "expected_output": "Burgers appear under New this week, about 85% below typical.",
       "assertions": [
         "Ocado Beef Burgers appear under New this week",
-        "the row shows £1.00/kg and roughly 85% below the typical £6.50/kg",
+        "the row shows £1.00/kg and how it compares with the own-brand everyday price (85% below £6.50/kg)",
         "the burgers are NOT listed as a swap or stock-up"
       ]
     },
@@ -140,6 +140,37 @@
         "Brand B appears in at most one section",
         "no yearly saving is claimed from the temporary £2.00 price",
         "it is listed under Stock up this week with a one-off saving, not under Swaps"
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Ocado Large Free Range Eggs 12\", \"type\": \"eggs, large free range\", \"pack\": \"12 per pack\", \"unit_price\": 0.28, \"unit\": \"each\", \"orders\": 10, \"units_per_week\": 1.2}], \"savings_log\": []} Offers this week: Chicago Town Cheese Pizza 305g half price (£5.47/kg on offer, £13.11/kg normally); Ocado Stonebaked Four Cheese Pizza everyday £5.61/kg. Pizza Express Margherita 245g half price (£11.22/kg on offer); cheapest own-brand pizza everyday M&S £9.30/kg. Birds Eye 22 Crispy Chicken Dippers 403g 60% off (£4.96/kg on offer, £12.41/kg normally); no Ocado/M&S equivalent exists.",
+      "expected_output": "Chicago Town (at or below own-brand price) and Birds Eye dippers (no own-brand, ≥40% off) appear under New this week; Pizza Express (21% above own-brand) does not.",
+      "assertions": [
+        "Chicago Town pizza appears under New this week, described as at/below the own-brand price (£5.47 vs £5.61/kg)",
+        "Birds Eye Chicken Dippers appear under New this week, described as 60% off with no own-brand equivalent",
+        "Pizza Express is NOT under New this week (21% above own-brand); it may appear under 'Checked, not worth it'",
+        "New this week has at most 8 rows"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Tiger Delight Large Raw Peeled King Prawns 400g\", \"type\": \"king prawns, raw peeled\", \"pack\": \"400g\", \"unit_price\": 13.75, \"unit\": \"kg\", \"orders\": 2, \"units_per_week\": 0.15}], \"savings_log\": []} Offers this week: Crown Farms Cooked & Peeled King Prawns 200g, Buy any 3 for £12 (normally £5.30, £26.50/kg).",
+      "expected_output": "The prawn offer is rejected and shown in a one-line 'Checked, not worth it' note: £20/kg on offer vs your £13.75/kg.",
+      "assertions": [
+        "the prawn offer is NOT under Swaps, Stock up or New this week",
+        "a 'Checked, not worth it' line names it with £20.00/kg on offer vs the usual £13.75/kg",
+        "the checked list has at most 5 lines"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"New York Bakery Light Bagels 5pk\", \"type\": \"bagels, light\", \"pack\": \"5 per pack\", \"unit_price\": 0.42, \"unit\": \"each\", \"orders\": 9, \"units_per_week\": 1.15}], \"savings_log\": []} Offers this week: New York Bakery Light Bagels 5pk, Buy any 2 for £2.80 (normally £2.10). The product card shows no readable review count.",
+      "expected_output": "The usual product passes the brand/review filter; Stock-up row for the bagels (28p vs 42p each, 33% off).",
+      "assertions": [
+        "the bagels are NOT skipped for having no readable review count",
+        "the bagels appear under Stock up this week at 28p vs 42p each",
+        "suggested quantity is an even number of packs (multi-buy of 2) covering 4–8 weeks (≈ 6 packs)"
       ]
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-20T14:03:45.439Z",
+  "generated": "2026-11-20T14:39:43.812Z",
   "count": 35,
   "tools": [
     {
@@ -566,8 +566,8 @@
     },
     {
       "name": "ocado-deals",
-      "version": "2.0.0",
-      "description": "Finds Ocado offers that actually save money — compares unit prices against what you usually buy and suggests swaps, stock-ups and standout new deals.",
+      "version": "2.1.0",
+      "description": "Finds Ocado offers that actually save money — compares unit prices against what you usually buy, suggests swaps and stock-ups, and surfaces big brands at own-brand prices.",
       "type": "skill",
       "category": "shopping",
       "complexity": "intermediate",
