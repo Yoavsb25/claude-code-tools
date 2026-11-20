@@ -1,7 +1,7 @@
 # rnd-catalogue
 
 Builds a running inventory of every open Engineering/Product/Data role, in London or remote-UK,
-at the companies on Yoav's watchlist (`job-search`'s `target_companies`) — grouped by company,
+at the companies on the user's watchlist (`job-search`'s `target_companies`) — grouped by company,
 flagged for what's new or closed since the last run. Pure inventory: no fit scoring, no tracker
 writes. For scored, trackable results, use `job-search` directly.
 

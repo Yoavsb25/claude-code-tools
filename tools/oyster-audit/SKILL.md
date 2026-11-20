@@ -13,26 +13,26 @@ Runs the TfL fare audit against your current Oyster and Wise CSV files and saves
 Run these two commands to locate the latest files:
 
 ```bash
-ls -t <your-project-root>/oyster-history/*.csv 2>/dev/null | head -1
+ls -t ~/Desktop/Money/Oyster/*.csv 2>/dev/null | head -1
 ```
 
 ```bash
-ls -t <your-project-root>/finence/transaction-history*.csv 2>/dev/null | head -1
+ls -t ~/Desktop/Money/Wise/*Transaction_History*.csv 2>/dev/null | head -1
 ```
 
-**If no Oyster CSV found:** stop and say "No Oyster CSV files found in oyster-history/. Please export your history from oyster.tfl.gov.uk."
+**If no Oyster CSV found:** stop and say "No Oyster CSV files found in ~/Desktop/Money/Oyster/. Please export your history from oyster.tfl.gov.uk."
 
 **If no Wise CSV found:** continue without `--statement` and note this to the user.
 
 If the user passed `--railcard <type>` as an argument, use that. Otherwise default to `26-30`.
 
-If the user said "audit all" or "use all cards", include all CSVs from `oyster-history/` with one `--oyster` flag each.
+If the user said "audit all" or "use all cards", include all CSVs from `~/Desktop/Money/Oyster/` with one `--oyster` flag each.
 
 Example with two cards:
 ```bash
 python3 ~/.claude/skills/tube-fare-auditor/scripts/audit.py \
-  --oyster <your-project-root>/oyster-history/card1.csv \
-  --oyster <your-project-root>/oyster-history/card2.csv \
+  --oyster ~/Desktop/Money/Oyster/card1.csv \
+  --oyster ~/Desktop/Money/Oyster/card2.csv \
   --statement <latest-wise-csv> \
   --railcard <railcard-type> \
   --output /tmp/tube_audit_output/
@@ -70,10 +70,10 @@ If `audit_results.json` is not present, show the actual directory listing to the
 
 Use today's date: `oyster-audit-report-YYYY-MM-DD.md`.
 
-Check if that file already exists in `oyster-history/reports/`:
+Check if that file already exists in `~/Desktop/Money/Oyster/reports/`:
 
 ```bash
-ls <your-project-root>/oyster-history/reports/oyster-audit-report-*.md 2>/dev/null
+ls ~/Desktop/Money/Oyster/reports/oyster-audit-report-*.md 2>/dev/null
 ```
 
 If today's name is taken, append `-2`, `-3`, etc. until you find one that does not exist. Run the `ls` command above, inspect which dated filenames exist, then choose the lowest suffix not already present — try `-2`, then `-3`, etc.
@@ -82,7 +82,7 @@ If today's name is taken, append `-2`, `-3`, etc. until you find one that does n
 
 Read `/tmp/tube_audit_output/audit_results.json`.
 
-Write a complete markdown report to `oyster-history/reports/<chosen-filename>` following this structure:
+Write a complete markdown report to `~/Desktop/Money/Oyster/reports/<chosen-filename>` following this structure:
 
 - **Summary** — total journeys, total charged, issues found, potential overcharge
 - **Section 1 — Fare Discrepancies** — each flagged journey with date, route, charged, expected, explanation
@@ -107,7 +107,7 @@ Also add: `**Railcard:** <railcard type>` and `**Cards:** ending ...XXXX, ending
 After writing the file, display:
 
 ```
-Audit complete. Report saved to `oyster-history/reports/<filename>`.
+Audit complete. Report saved to `~/Desktop/Money/Oyster/reports/<filename>`.
 
 Summary:
 - Journeys analysed: X

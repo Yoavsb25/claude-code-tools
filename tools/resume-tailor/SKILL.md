@@ -1,11 +1,11 @@
 ---
 name: resume-tailor
-description: Tailors Yoav's resume to a specific job posting and saves it as a markdown file. Use this skill whenever the user mentions a job, role, company, or application alongside words like "resume," "CV," "apply," "interview prep," or "customize." Even if they just say "I'm applying to X" or "help me prep for Y" — invoke this skill.
+description: Tailors the user's resume to a specific job posting and saves it as a markdown file. Use this skill whenever the user mentions a job, role, company, or application alongside words like "resume," "CV," "apply," "interview prep," or "customize." Even if they just say "I'm applying to X" or "help me prep for Y" — invoke this skill.
 ---
 
 # Resume Tailor
 
-Your job is to architect a tailored resume — not fill a template. The goal is a single, dense narrative that makes a hiring manager immediately see why Yoav is the answer to the problem they're trying to solve.
+Your job is to architect a tailored resume — not fill a template. The goal is a single, dense narrative that makes a hiring manager immediately see why the user is the answer to the problem they're trying to solve.
 
 ---
 
@@ -32,7 +32,7 @@ Then extract:
 Read `references/source-guide.md` first to understand what each file contains and its noise level. Then load only the files that move the needle for this specific role.
 
 **Always load:**
-- `~/Desktop/Work/SysAid/profile-summaries/overall-profile.md` — overall narrative + impact metrics
+- `~/work-notes/profile-summaries/overall-profile.md` — overall narrative + impact metrics
 
 **Load based on JD emphasis:**
 | JD emphasis | Load these files |
@@ -56,7 +56,7 @@ Apply these rules to every bullet point you write:
 
 **Keyword integration** — Weave the Step 1 keywords naturally into the Summary and Experience sections. Don't stuff — one mention in a bullet is usually enough. The Summary should read like it was written for this specific role.
 
-**Signal-to-noise** — If a SysAid accomplishment doesn't serve the role's North Star, cut it. Three laser-focused bullets beat five diluted ones.
+**Signal-to-noise** — If a current-employer accomplishment doesn't serve the role's North Star, cut it. Three laser-focused bullets beat five diluted ones.
 
 **Relevance ordering** — Within each job entry, sort bullets by relevance to the JD (most relevant first), not by chronology.
 
@@ -65,9 +65,9 @@ Apply these rules to every bullet point you write:
 ## Step 4: Baseline Merger
 
 Read the current resume PDF:
-`~/Desktop/Work/cv/yoav-sborovsky-cv.pdf`
+`~/cv/base-cv.pdf`
 
-If that file doesn't exist, don't fail silently — ask Yoav directly for Education, Military Service, Projects, and Volunteering & Extracurricular content for this run instead.
+If that file doesn't exist, don't fail silently — ask the user directly for Education, Military Service, Projects, and Volunteering & Extracurricular content for this run instead.
 
 Extract: Education, Military Service, Projects, Volunteering & Extracurricular.
 
@@ -85,7 +85,7 @@ Save the final file to: `~/Desktop/Resume-[Company]-[Role].md`
 Use this exact structure:
 
 ```markdown
-# Yoav Sborovsky
+# [Your Name]
 +972-52-465-4302 · yoavsb25@gmail.com · [LinkedIn] · [GitHub] · [Website]
 
 ## Summary
@@ -96,7 +96,7 @@ Use this exact structure:
 
 ## Experience
 
-### [Job Title] · SysAid Technologies · [dates]
+### [Job Title] · [Current Employer] · [dates]
 - [Most relevant bullet, X-Y-Z format, metric near front]
 - [Second most relevant bullet]
 - [3-5 bullets total, ordered by JD relevance]

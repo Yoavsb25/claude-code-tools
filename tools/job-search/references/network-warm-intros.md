@@ -84,7 +84,7 @@ them:
 ## Your network by company (1,240 connections across 812 companies)
 
 ### 3+ connections
-- **SysAid** — 5
+- **Acme** — 5
 - **Amazon Web Services (AWS)** — 4
 ...
 

@@ -1,9 +1,32 @@
 # job-search
 
+> **Snapshot.** This tool is maintained in a private project and synced here occasionally, with personal
+> data removed. Paths default to `~/job-search-data` and `~/.claude/skills/job-search`.
+
 Runs the end-to-end job hunt: finds current openings matching a personalized profile
 (role/location/industry/seniority), ranks them by fit, tracks every application through a
 bookkeeping script, and hands off to `resume-tailor` (and `github-project-picker`) for any role
 worth pursuing.
+
+## Code layout
+
+CLI entry points stay at the top of `scripts/` (`job_tool.py`, `radar.py`, `inbox.py`). Logic
+lives in the `scripts/jobsearch/` package:
+
+| Module | Purpose |
+|---|---|
+| `store.py` | State directory, JSON load/save, dates |
+| `text.py` | HTML cleanup, company-name normalization, `posting()` |
+| `fetchconfig.py` | Timeout / description options for board fetches |
+| `http.py` | `http_get_json` / HTML helpers |
+| `tracker.py` / `profile.py` / `network.py` | Application tracker, preferences, LinkedIn connections |
+| `sources/` | ATS, Workday, Comeet, LinkedIn, Remotive/Arbeitnow/Apify |
+| `radar_enrich.py` / `radar_merge.py` | Years/level/skills tagging and radar.json merge |
+| `inbox_mail.py` | Email classify/match (IMAP stays in `inbox.py`) |
+| `cockpit.py` | Today / Pipeline / Insights views for the Radar page |
+
+`job_tool.py` is only the argparse front end; callers import from `jobsearch` directly. Tests live in
+`scripts/tests/` (`cd scripts && python3 -m unittest`).
 
 ## How it works
 
@@ -54,7 +77,7 @@ python3 scripts/job_tool.py network list [--company "<name>"]
 python3 scripts/job_tool.py network match [--company "<name>"]
 ```
 
-State lives in `~/Desktop/Job-Search/` by default (override with `JOB_SEARCH_DIR`):
+State lives in `~/job-search-data/` by default (override with `JOB_SEARCH_DIR`):
 `profile.json`, `tracker.json` (source of truth), `connections.json` (imported LinkedIn
 connections), and the generated `Tracker.md`. Moving a row's status to `Applied`, `Phone Screen`,
 or `Interviewing` auto-computes `applied_date`/`followup_date`; `tracker list --stale-only` flags
@@ -200,11 +223,11 @@ Either way, the skill always confirms target companies with you before running a
 
 ## Scheduling a daily run
 
-To have this run automatically every morning instead of on request, set it up as a scheduled cloud
-agent via the `schedule` skill — the prompt it runs should ask for the full Stage 0–7 pipeline
-(search, score, two-table shortlist, connections enrichment, save-to-file, auto-shortlist to the
-tracker) exactly as SKILL.md's "Scheduled daily runs" section describes, since there's no one
-online to answer Stage 4's pursue-decision question in real time.
+The daily run is the Job Radar: `scripts/radar.py refresh`, a plain-Python refresh (no LLM, no
+Claude login) fired by a local launchd agent. It collects every London / UK-remote posting from the
+`companies.json` watchlist plus a LinkedIn sweep into `radar.json`. See
+`references/radar-and-inbox.md` for the plist, log location, and why the older unattended
+`claude -p` pipeline was retired.
 
 ## Usage
 
@@ -223,7 +246,7 @@ registry), then say:
   independently) printed in the conversation as two markdown tables.
 - The same shortlist saved to `~/Desktop/Job-Search/searches/<date>-job-search-results.md` every
   run.
-- A running tracker at `~/Desktop/Job-Search/Tracker.md`, generated from `tracker.json` — edit
+- A running tracker at `~/job-search-data/Tracker.md`, generated from `tracker.json` — edit
   through the script, not the file.
 - Tailored resumes via `resume-tailor` for any role the user chooses to pursue.
 

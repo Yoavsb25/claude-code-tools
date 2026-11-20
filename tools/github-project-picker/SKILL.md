@@ -1,11 +1,11 @@
 ---
 name: github-project-picker
-description: Picks the best GitHub projects to showcase on Yoav's resume for a specific job, and writes tailored resume-ready descriptions for each. Use this skill whenever the user mentions a job, role, or company alongside words like "projects," "GitHub," "showcase," "portfolio," "which projects," or "what to include." Even if they just say "I'm applying to X, what should I put in my projects section" — invoke this skill. Also invoke it when running resume-tailor if the user wants GitHub-fresh project descriptions rather than using the PDF.
+description: Picks the best GitHub projects to showcase on the user's resume for a specific job, and writes tailored resume-ready descriptions for each. Use this skill whenever the user mentions a job, role, or company alongside words like "projects," "GitHub," "showcase," "portfolio," "which projects," or "what to include." Even if they just say "I'm applying to X, what should I put in my projects section" — invoke this skill. Also invoke it when running resume-tailor if the user wants GitHub-fresh project descriptions rather than using the PDF.
 ---
 
 # GitHub Project Picker
 
-Your job is to figure out which of Yoav's GitHub projects best showcase his skills for a specific role, then write resume-ready descriptions that make a hiring manager immediately understand the value.
+Your job is to figure out which of the user's GitHub projects best showcase their skills for a specific role, then write resume-ready descriptions that make a hiring manager immediately understand the value.
 
 ---
 
@@ -25,23 +25,23 @@ Then extract:
 
 ## Step 2: Fetch and Read All Repos
 
-Run this to get Yoav's full repo list:
+Run this to get the user's full repo list:
 ```bash
-gh api users/Yoavsb25/repos --paginate -q '.[].name'
+gh api users/<your-github-username>/repos --paginate -q '.[].name'
 ```
 
-**If this fails** (command not found, or an auth error): `gh` isn't installed or isn't logged in. Tell Yoav to run `gh auth login` (or install the GitHub CLI first), and stop — don't fall back to guessing his project list from memory.
+**If this fails** (command not found, or an auth error): `gh` isn't installed or isn't logged in. Tell the user to run `gh auth login` (or install the GitHub CLI first), and stop — don't fall back to guessing their project list from memory.
 
-Skip these non-project repos: `Yoavsb25` (profile README), `private-website` (personal site), `wedding-website`, `Advanced_Programing_HW` (coursework homework), `RealtyCompanyListing` (minimal HTML listing). This list will go stale as new repos get created — also skip, on sight, any repo that's clearly not a showcase project regardless of whether it's listed above: forks, dotfiles/config repos, empty or near-empty READMEs, and coursework/template repos. Note in Step 5's rationale which repos you skipped this way, distinct from the ones on the static list.
+Skip non-project repos: your profile README repo, personal websites, and coursework. This list will go stale as new repos get created — also skip, on sight, any repo that's clearly not a showcase project regardless of whether it's listed above: forks, dotfiles/config repos, empty or near-empty READMEs, and coursework/template repos. Note in Step 5's rationale which repos you skipped this way, distinct from the ones on the static list.
 
 For each remaining repo, fetch its README:
 ```bash
-gh api repos/Yoavsb25/<repo-name>/readme -q '.content' | base64 -d
+gh api repos/<your-github-username>/<repo-name>/readme -q '.content' | base64 -d
 ```
 
 Also grab the repo metadata (description, language, topics) for context:
 ```bash
-gh api repos/Yoavsb25/<repo-name> -q '{description: .description, language: .language, topics: .topics}'
+gh api repos/<your-github-username>/<repo-name> -q '{description: .description, language: .language, topics: .topics}'
 ```
 
 ---
@@ -65,7 +65,7 @@ Score each repo against three dimensions:
 For each selected project, produce a block like this:
 
 ```
-**[Project Name]** | [Comma-separated tech stack, most JD-relevant first] | github.com/Yoavsb25/<repo>
+**[Project Name]** | [Comma-separated tech stack, most JD-relevant first] | github.com/<your-github-username>/<repo>
 - [Lead bullet: the most JD-relevant thing about this project, X-Y-Z format, metric near front]
 - [Second bullet: key engineering decision, architecture choice, or scale/complexity detail]
 - [Optional third bullet: only if it adds distinct signal — deployment, observability, algorithm, etc.]
@@ -84,7 +84,7 @@ For each selected project, produce a block like this:
 
 ## Step 5: Output
 
-Print a brief selection rationale (3–5 lines max) explaining which repos made the cut and why, and which you excluded and why — so Yoav can sanity-check your reasoning.
+Print a brief selection rationale (3–5 lines max) explaining which repos made the cut and why, and which you excluded and why — so the user can sanity-check your reasoning.
 
 Then print the ready-to-paste Projects section:
 

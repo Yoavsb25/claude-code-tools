@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """stdlib-only script that owns rnd-catalogue's catalogue.json -- the running inventory of open
-and recently-closed R&D postings at Yoav's watchlisted companies. Never hand-edit catalogue.json;
+and recently-closed R&D postings at the user's watchlisted companies. Never hand-edit catalogue.json;
 this script (and only this script) writes it, mirroring how job-search's job_tool.py is the only
 thing that writes tracker.json/profile.json.
 
