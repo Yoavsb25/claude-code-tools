@@ -126,3 +126,11 @@ The new skill is checked against the old one on the same eval set (`tools/ocado-
 - History window 3 months, refreshed after 30 days, stored at `~/.claude/ocado-deals/usual.json`.
 - Pet food excluded as non-grocery.
 - Swaps may come from everyday prices, not only offers.
+
+## Addendum — 2.1.0 (2026-11-20)
+
+The user wants to discover new products on sale, not only their usual items. In live runs the 2.0 rule (≥30% below own-brand) surfaced nothing, because branded offers rarely beat own-brand prices.
+
+- **New find (replaces the ≥30% rule):** on offer and within 10% of, or below, the everyday own-brand unit price for its type; or, with no own-brand equivalent, ≥40% off its own price. Max 8.
+- **Checked, not worth it:** up to 5 one-line notes on offers ≥25% off their own price that failed every rule, with unit price against the usual or own-brand price (e.g. prawns 3 for £12 → £20/kg vs usual £13.75/kg).
+- **Brand filter:** products already bought always pass, and an unreadable review count never causes a skip.

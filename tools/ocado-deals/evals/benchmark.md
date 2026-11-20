@@ -1,4 +1,4 @@
-# ocado-deals benchmark — 1.0.0 vs 2.0.0
+# ocado-deals benchmark — 1.0.0 vs 2.x
 
 Evals: `evals.json`. Each eval was run by reading the fixture against the skill's rules, by hand. Eval 1 is the live run.
 
@@ -20,6 +20,10 @@ Evals: `evals.json`. Each eval was run by reading the fixture against the skill'
 | 13 | 1% offer on usual item doesn't skip everyday search | FAIL — no everyday search | PASS — search runs unless item already produced a Swap |
 | 14 | Temporary offer isn't annualised; one section only | FAIL — listed as 50% deal | PASS — not a Swap (£13/yr at everyday price); Stock-up with one-off saving |
 
+| 15 | Discovery: big brand at own-brand price; no-own-brand ≥40% off | FAIL — ranks by £ saved only | PASS (2.1.0) — Chicago Town £5.47 vs £5.61/kg, Birds Eye dippers 60% off; Pizza Express excluded |
+| 16 | Rejected multi-buy shown as "checked, not worth it" | FAIL — would list it as 25% off | PASS (2.1.0) — prawns £20.00/kg vs usual £13.75/kg |
+| 17 | Usual product never dropped by the review filter | n/a — no baseline | PASS (2.1.0) — bagels stock-up, 6 packs |
+
 Eval 1 assertions were tightened after review (layout per section, Chrome load on fresh baseline, yearly/one-off split); the 20 Nov live run predates that wording — its output had all three sections with the required columns except the stock-up unit-price column, now added to the layout.
 
-**1.0.0: 1/14 pass. 2.0.0: 13/13 fixture evals pass; eval 1 (live) passed on 20 Nov under the original wording — re-run live to confirm the tightened assertions.**
+**1.0.0: 1/17 pass. 2.1.0: 16/16 fixture evals pass (eval 5 re-worded for the new discovery rule); eval 1 (live) passed on 20 Nov under the original wording — re-run live to confirm the tightened assertions.**

@@ -11,10 +11,11 @@ An offer only matters if it beats what you'd otherwise buy. This skill never ran
 
 | Rule | Default |
 |---|---|
-| Acceptable brands | Ocado own-brand, M&S, major national brands. Skip unknown brands with <10 reviews |
+| Acceptable brands | Ocado own-brand, M&S, major national brands. **Anything you already buy always passes.** Skip an unknown brand only when a review count is shown and it is <10. An unreadable review count is not a reason to skip |
 | **Swap** — cheaper equivalent of something you buy | ≥10% cheaper per unit at its **everyday** price **and** saves ≥ £20/year at your usual quantity |
 | **Stock-up** — big offer on something you buy regularly | bought in ≥2 orders, ≥25% cheaper per unit than usual, keeps (cupboard / frozen / freezable / long-dated). Suggest 4–8 weeks' supply, capped by shelf life |
-| **New find** — something you don't usually buy | ≥30% cheaper per unit than the everyday own-brand price for that product type. Max 5 |
+| **New find** — something you don't usually buy | On offer, and either (a) its unit price is **within 10% of, or below,** the everyday own-brand (Ocado/M&S) price for that type ("big brand at own-brand price"), or (b) no own-brand equivalent exists and it is **≥40% off** its own regular price. Max 8 |
+| **Checked, not worth it** | Up to 5 one-line notes on eye-catching offers (≥25% off their own price) that failed, showing the offer's unit price against your usual or the own-brand price |
 | Groceries only | Exclude household/cleaning, toiletries/personal care, baby non-food, pet, clothing, homeware |
 | History | Last ~3 months of orders, refreshed when older than 30 days |
 
@@ -119,9 +120,14 @@ For each **usual item** (baseline), look at offers and everyday prices for the s
 
 Then **everyday swaps**: for the top 10 baseline items by spend, unless the item already produced a Swap, run one Ocado search for the `type` and look for a cheaper acceptable equivalent at everyday prices. An offer on the usual item that didn't qualify (like the 1% cut) does **not** skip this search.
 
-Then **new finds**: offers whose type matches nothing in the baseline. For each candidate, get the everyday own-brand unit price for that type (one search). Keep it if it is ≥30% cheaper. Keep the top 5 by % below.
+Then **new finds** (discovery): grocery offers whose type matches nothing in the baseline. For each candidate, run one search for its type and take the cheapest everyday (not on offer) Ocado/M&S unit price as the own-brand reference.
+- Offer unit price ≤ reference × 1.10 → New find, described as "£X/kg vs own-brand £Y/kg" (e.g. "£5.47/kg vs own-brand £5.61/kg").
+- No own-brand equivalent in the search → New find only if ≥40% off its own regular price, described as "60% off, no own-brand equivalent".
+- Rank by % off (own price), keep up to 8.
 
-Anything that fails its rule is silent. Don't list near-misses.
+Then **checked, not worth it**: from the offers that are ≥25% off their own price and failed every rule (including ones in your usual types, like a multi-buy that's still dearer per kg than what you buy), keep the 5 biggest by % off. One line each, e.g. "Crown Farms King Prawns 3 for £12 → £20.00/kg vs your usual £13.75/kg".
+
+Anything else that fails its rule is silent.
 
 ---
 
@@ -144,12 +150,17 @@ Baseline £60.00/week · £Y/year + £W one-off locked in from N accepted sugges
 | Napolina Olive Oil 1L | Half price, £4.50 | £4.50/L vs usual £9.00/L | 2 | £9.00 | £9.00 |
 
 ### New this week
-| Item | Price | vs usual for this type |
-|---|---|---|
-| Ocado Beef Burgers 1kg | £1.00/kg | 85% below typical £6.50/kg |
+| Item | Offer | Unit price | Why it's worth it |
+|---|---|---|---|
+| Chicago Town Cheese Pizza 305g | Half price, £1.75 | £5.47/kg | below own-brand £5.61/kg |
+| Birds Eye 22 Chicken Dippers 403g | 60% off, £2.00 | £4.96/kg | 60% off, no own-brand equivalent |
+
+Checked, not worth it:
+- Crown Farms King Prawns 3 for £12 → £20.00/kg vs your usual £13.75/kg
+- Pizza Express Margherita half price → £11.22/kg vs own-brand £9.30/kg
 ```
 
-- An empty section says "nothing worth it this week".
+- An empty section says "nothing worth it this week". Leave out the "Checked, not worth it" list when it's empty.
 - Leave out the locked-in line if `savings_log` is empty.
 - Add notes for failed sections and thin history.
 - End with: "Tell me which you took and I'll log the savings. `ocado-shopper` can put them in the trolley."
