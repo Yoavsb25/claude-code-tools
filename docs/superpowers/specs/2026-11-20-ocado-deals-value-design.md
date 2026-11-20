@@ -134,3 +134,8 @@ The user wants to discover new products on sale, not only their usual items. In 
 - **New find (replaces the ≥30% rule):** on offer and within 10% of, or below, the everyday own-brand unit price for its type; or, with no own-brand equivalent, ≥40% off its own price. Max 8.
 - **Checked, not worth it:** up to 5 one-line notes on offers ≥25% off their own price that failed every rule, with unit price against the usual or own-brand price (e.g. prawns 3 for £12 → £20/kg vs usual £13.75/kg).
 - **Brand filter:** products already bought always pass, and an unreadable review count never causes a skip.
+
+## Addendum — 2.2.0 (2026-11-20)
+
+- **What it is:** every row in New this week, the watch list and Checked shows a few plain words on what the product is, because the user often doesn't recognise products by name.
+- **Watch list:** `watch_list` in `usual.json` (seeded with meat, fish and prosciutto). Each run collects offers for each term from the matching Fresh & Chilled category filter plus `/search?q=<term>`, and scores them with the New find rule. Up to 3 per term go in a "Your watch list" section. The user can say "watch X" or "stop watching X" to change it.

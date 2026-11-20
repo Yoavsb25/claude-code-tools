@@ -24,6 +24,10 @@ Evals: `evals.json`. Each eval was run by reading the fixture against the skill'
 | 16 | Rejected multi-buy shown as "checked, not worth it" | FAIL — would list it as 25% off | PASS (2.1.0) — prawns £20.00/kg vs usual £13.75/kg |
 | 17 | Usual product never dropped by the review filter | n/a — no baseline | PASS (2.1.0) — bagels stock-up, 6 packs |
 
+| 18 | 'What it is' description on new finds | FAIL | PASS (2.2.0) |
+| 19 | Watch list (fish, prosciutto) section; rejected watch item goes to checked | FAIL | PASS (2.2.0) — salmon and prosciutto shown, cod in checked |
+| 20 | "watch X / stop watching X" updates only watch_list | FAIL | PASS (2.2.0) |
+
 Eval 1 assertions were tightened after review (layout per section, Chrome load on fresh baseline, yearly/one-off split); the 20 Nov live run predates that wording — its output had all three sections with the required columns except the stock-up unit-price column, now added to the layout.
 
-**1.0.0: 1/17 pass. 2.1.0: 16/16 fixture evals pass (eval 5 re-worded for the new discovery rule); eval 1 (live) passed on 20 Nov under the original wording — re-run live to confirm the tightened assertions.**
+**1.0.0: 1/20 pass. 2.2.0: 19/19 fixture evals pass (eval 5 re-worded for the new discovery rule); eval 1 (live) passed on 20 Nov under the original wording — re-run live to confirm the tightened assertions.**

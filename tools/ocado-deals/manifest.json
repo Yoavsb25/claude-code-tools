@@ -1,7 +1,7 @@
 {
   "name": "ocado-deals",
-  "version": "2.1.0",
-  "description": "Finds Ocado offers that actually save money \u2014 compares unit prices against what you usually buy, suggests swaps and stock-ups, and surfaces big brands at own-brand prices.",
+  "version": "2.2.0",
+  "description": "Finds Ocado offers that actually save money \u2014 compares unit prices with what you usually buy, suggests swaps and stock-ups, and watches categories you care about.",
   "type": "skill",
   "category": "shopping",
   "complexity": "intermediate",

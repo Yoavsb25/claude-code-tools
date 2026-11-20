@@ -172,6 +172,38 @@
         "the bagels appear under Stock up this week at 28p vs 42p each",
         "suggested quantity is an even number of packs (multi-buy of 2) covering 4–8 weeks (≈ 6 packs)"
       ]
+    },
+    {
+      "id": 18,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Ocado Large Free Range Eggs 12\", \"type\": \"eggs, large free range\", \"pack\": \"12 per pack\", \"unit_price\": 0.28, \"unit\": \"each\", \"orders\": 10, \"units_per_week\": 1.2}], \"savings_log\": []} Offers this week: Mr Kipling Viennese Whirls 6 per pack half price £1.25 (no own-brand equivalent).",
+      "expected_output": "New this week row includes a short plain-English description of the product.",
+      "assertions": [
+        "the Viennese Whirls row has a 'What it is' description of a few words (e.g. 'buttery piped biscuits with jam & buttercream')",
+        "the description doesn't repeat the product name"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Ocado Large Free Range Eggs 12\", \"type\": \"eggs, large free range\", \"pack\": \"12 per pack\", \"unit_price\": 0.28, \"unit\": \"each\", \"orders\": 10, \"units_per_week\": 1.2}], \"savings_log\": [], \"watch_list\": [\"fish\", \"prosciutto\"]} Offers this week: Russell's Salmon Fillets 240g 41% off £4.00 (£16.67/kg; Ocado salmon fillets everyday £18.40/kg). Unearthed Prosciutto 80g half price £1.75 (£21.88/kg; M&S prosciutto everyday £25.00/kg). Brand Q Cod Fillets 300g 30% off £5.60 (£18.67/kg; Ocado cod fillets everyday £12.00/kg).",
+      "expected_output": "A 'Your watch list' section grouped by fish and prosciutto: salmon and prosciutto shown with descriptions; cod rejected (in Checked, not worth it).",
+      "assertions": [
+        "report has a 'Your watch list' section with groups for fish and prosciutto",
+        "Russell's salmon appears under fish (£16.67/kg vs own-brand £18.40/kg) with a 'What it is' description",
+        "Unearthed Prosciutto appears under prosciutto (£21.88/kg vs own-brand £25.00/kg)",
+        "Brand Q cod is NOT in the watch list section; it appears in Checked, not worth it (£18.67/kg vs own-brand £12.00/kg)",
+        "watch-list items are not repeated in New this week",
+        "at most 3 items per watch-list group"
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "(Following any report) Watch lamb too, and stop watching prosciutto.",
+      "expected_output": "usual.json watch_list updated: 'lamb' added, 'prosciutto' removed; reply confirms the list.",
+      "assertions": [
+        "watch_list in usual.json contains 'lamb' and not 'prosciutto'",
+        "the reply states the current watch list",
+        "no other usual.json fields change"
+      ]
     }
   ]
 }
