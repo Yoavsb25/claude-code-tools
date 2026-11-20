@@ -1,0 +1,146 @@
+{
+  "skill_name": "ocado-deals",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "what Ocado offers are worth it this week?",
+      "expected_output": "Live run: loads usual.json (refreshing from order history if stale), scans offers, prints the three-section report.",
+      "assertions": [
+        "Chrome tools are loaded and an Ocado tab is used even when usual.json is fresh (no refresh)",
+        "report has exactly three sections: Swaps, Stock up this week, New this week",
+        "Swap rows show both unit prices and £/year; Stock-up rows show offer vs usual unit price, quantity, spend now and a one-off saving; New rows show unit price and % below typical",
+        "header shows yearly total and one-off total separately, plus the baseline weekly spend",
+        "no non-grocery items (household, toiletries, pet, clothing) appear",
+        "nothing is added to the trolley"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Brand X Instant Coffee 200g\", \"type\": \"coffee, instant\", \"pack\": \"200g\", \"unit_price\": 50.0, \"unit\": \"kg\", \"orders\": 12, \"units_per_week\": 1.0}], \"savings_log\": []} Offers this week: Brand X Instant Coffee 200g now £9.90, was £10.00. Everyday price: Ocado Instant Coffee 200g £5.00 (£25.00/kg). Which offers are worth it?",
+      "expected_output": "The £9.90 offer is not recommended; Ocado coffee is suggested as a swap saving about £260/year.",
+      "assertions": [
+        "the Brand X £9.90 offer is NOT presented as a deal or stock-up (1% off)",
+        "Ocado Instant Coffee appears under Swaps",
+        "saving shown is about £260/year ((£10.00 − £5.00) × 1/week × 52)",
+        "comparison is by unit price (£50.00/kg vs £25.00/kg), not by was-price"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Brand Y Stock Cubes 8pk\", \"type\": \"stock cubes, chicken\", \"pack\": \"8 per pack\", \"unit_price\": 0.5, \"unit\": \"each\", \"orders\": 3, \"units_per_week\": 0.23}], \"savings_log\": []} Offer: Ocado Chicken Stock Cubes 8pk £0.40 (vs usual £0.50 per pack). Is it worth switching?",
+      "expected_output": "Not shown as a swap: 20% cheaper but saves only about £1.20/year, below the £20/year threshold.",
+      "assertions": [
+        "the stock cube alternative is NOT listed under Swaps",
+        "if mentioned at all, it is explained as below the £1/week or £20/year threshold"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Lurpak Slightly Salted Butter 500g\", \"type\": \"butter, salted\", \"pack\": \"500g\", \"unit_price\": 9.0, \"unit\": \"kg\", \"orders\": 6, \"units_per_week\": 0.5}], \"savings_log\": []} Everyday price: Ocado Salted Butter 500g £2.80 (£5.60/kg). Usual Lurpak price £4.50. Any savings?",
+      "expected_output": "Swap shown: Lurpak → Ocado butter, about £44/year.",
+      "assertions": [
+        "Ocado Salted Butter appears under Swaps",
+        "unit prices £9.00/kg vs £5.60/kg are shown",
+        "saving shown is about £44/year ((4.50 − 2.80) × 0.5 × 52 = £44.20)"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Ocado Large Free Range Eggs 12\", \"type\": \"eggs, large free range\", \"pack\": \"12 per pack\", \"unit_price\": 0.28, \"unit\": \"each\", \"orders\": 10, \"units_per_week\": 1.2}], \"savings_log\": []} Offers this week: Ocado Beef Burgers 1kg £1.00 (normally £6.50, everyday own-brand burgers £6.50/kg). What's worth it?",
+      "expected_output": "Burgers appear under New this week, about 85% below typical.",
+      "assertions": [
+        "Ocado Beef Burgers appear under New this week",
+        "the row shows £1.00/kg and roughly 85% below the typical £6.50/kg",
+        "the burgers are NOT listed as a swap or stock-up"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Napolina Extra Virgin Olive Oil 1L\", \"type\": \"olive oil, extra virgin\", \"pack\": \"1L\", \"unit_price\": 9.0, \"unit\": \"l\", \"orders\": 4, \"units_per_week\": 0.33}], \"savings_log\": []} Offers this week: Napolina Extra Virgin Olive Oil 1L half price £4.50. What's worth it?",
+      "expected_output": "Stock-up row: buy 2 (≈6 weeks' supply), £4.50 each, saves about £9.",
+      "assertions": [
+        "olive oil appears under Stock up this week, not under Swaps",
+        "suggested quantity is 2 (4–8 weeks at 0.33/week)",
+        "row shows the money spent now and the total saving (about £9.00 for 2)"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Refresh my Ocado history and tell me what offers are worth it. (Simulate: opening ocado.com/orders redirects to sso.ocado.com/login.)",
+      "expected_output": "Skill stops and asks the user to log in to Ocado in Chrome.",
+      "assertions": [
+        "the user is asked to log in to Ocado themselves",
+        "no credentials are typed by Claude",
+        "no report is produced from an empty or missing baseline"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Refresh my Ocado history and show offers. (Simulate: ocado.com/orders lists exactly 1 order containing: 2х Ocado Semi Skimmed Milk 4 pints, 2.27L (75.0p per litre), £1.70 each; 1х Brand Z Granola 500g (£9.00 per kilo), £4.50.) Offers this week: Ocado Granola 500g everyday £2.00 (£4.00/kg).",
+      "expected_output": "All grocery lines from the single order are kept as the baseline; granola swap is found; report notes thin history; no stock-ups.",
+      "assertions": [
+        "usual.json items include both the milk and the granola (orders: 1) — not an empty list",
+        "Ocado Granola appears under Swaps: (£4.50 − £2.00) × 1 pack/week × 52 ≈ £130/year",
+        "report states the history is thin (only 1 order)",
+        "Stock up this week says none are possible until an item has been bought in at least 2 orders"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"M&S Avocados\", \"type\": \"avocado\", \"pack\": \"2 per pack\", \"unit_price\": 5.5, \"unit\": \"kg\", \"orders\": 6, \"units_per_week\": 1.0}], \"savings_log\": []} Offers this week: Ocado Ripe Avocado £0.60 each (no weight given). Is it a cheaper swap?",
+      "expected_output": "Comparison skipped: per-each vs per-kg with no weight; not guessed.",
+      "assertions": [
+        "no £/year saving is computed for the avocado",
+        "the skill says it can't compare per-each with per-kg without a weight (or omits it)"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 12, \"orders\": 12, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Lurpak Slightly Salted Butter 500g\", \"type\": \"butter, salted\", \"pack\": \"500g\", \"unit_price\": 9.0, \"unit\": \"kg\", \"orders\": 6, \"units_per_week\": 0.5}], \"savings_log\": [{\"date\": \"2026-11-01\", \"item\": \"Lurpak \\u2192 Ocado butter\", \"kind\": \"swap\", \"saving_per_year\": 41.0, \"one_off\": 0}, {\"date\": \"2026-11-08\", \"item\": \"Olive oil x3\", \"kind\": \"stock-up\", \"saving_per_year\": 0, \"one_off\": 13.5}]} No offers match this week. Show the report.",
+      "expected_output": "Header shows baseline and locked-in savings; sections say nothing worth it this week.",
+      "assertions": [
+        "header shows 'Baseline £60.00/week'",
+        "header shows '£41/year locked in + £13.50 one-off from 2 accepted suggestions since 1 Nov 2026' (or equivalent split)",
+        "empty sections say 'nothing worth it this week'"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "(Following eval 4's report) I took the butter swap.",
+      "expected_output": "One savings_log entry appended for the butter swap; new locked-in total confirmed.",
+      "assertions": [
+        "exactly one entry is appended to savings_log in usual.json",
+        "entry has kind 'swap', saving_per_year ≈ 44.20 and one_off 0",
+        "the reply states the new locked-in total"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Show Ocado offers worth it. (Simulate: every offer page and search returns HTTP 200 but the card parser finds 0 products.)",
+      "expected_output": "Report says the offer scan failed (0 products parsed) and names the sections; does not print 'nothing worth it this week'.",
+      "assertions": [
+        "report says the scan failed / parsed 0 products, naming the sections",
+        "the phrase 'nothing worth it this week' is NOT used for sections whose scan failed"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Brand X Instant Coffee 200g\", \"type\": \"coffee, instant\", \"pack\": \"200g\", \"unit_price\": 50.0, \"unit\": \"kg\", \"orders\": 10, \"units_per_week\": 1.0}], \"savings_log\": []} Offers this week: Brand X Instant Coffee 200g now £9.90, was £10.00. No everyday prices are given — find them yourself.",
+      "expected_output": "The 1% offer does not count as an offer hit; the skill runs the everyday-swap search for instant coffee.",
+      "assertions": [
+        "an Ocado search for the 'coffee, instant' type is run despite the Brand X offer",
+        "the £9.90 offer is not listed"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "Use this as ~/.claude/ocado-deals/usual.json (do not refresh): {\"updated\": \"2026-11-15\", \"weeks_covered\": 10, \"orders\": 10, \"baseline_weekly_spend\": 60.0, \"items\": [{\"name\": \"Lurpak Slightly Salted Butter 500g\", \"type\": \"butter, salted\", \"pack\": \"500g\", \"unit_price\": 9.0, \"unit\": \"kg\", \"orders\": 6, \"units_per_week\": 0.5}], \"savings_log\": []} Offers this week: Brand B Salted Butter 500g half price £2.00 (everyday £4.00, £8.00/kg). Lurpak not on offer.",
+      "expected_output": "Brand B is not a Swap (everyday £8.00/kg saves only £13/yr < £20); its half-price offer (56% below usual, butter keeps) is a Stock-up with a one-off saving only.",
+      "assertions": [
+        "Brand B appears in at most one section",
+        "no yearly saving is claimed from the temporary £2.00 price",
+        "it is listed under Stock up this week with a one-off saving, not under Swaps"
+      ]
+    }
+  ]
+}
