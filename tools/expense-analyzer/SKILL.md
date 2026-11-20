@@ -1,15 +1,19 @@
 ---
 name: expense-analyzer
-description: Manually invoked expense analysis skill. Use when the user says "analyze my expenses", "expense report", "what did I spend on", "monthly spending", "show me my expenses", or references a transaction CSV file for analysis. Processes Wise/Revolut CSV exports and produces a detailed markdown report with category totals, top transactions, and flagged unusual or large spends.
+description: Manually invoked expense analysis skill. Use when the user says "analyze my expenses", "expense report", "what did I spend on", "monthly spending", "show me my expenses", or references a transaction CSV file for analysis. Reads Monzo (joint account, auto-synced via the wealth dashboard, no download) and Wise/Revolut CSV exports, and produces a detailed markdown report with category totals, top transactions, and flagged unusual or large spends.
 ---
 
 # Expense Analyzer
 
-Generate a markdown expense report from a Wise CSV transaction export.
+Generate a markdown expense report from Monzo (via the wealth dashboard DB) or a Wise CSV transaction export.
 
 ## Steps
 
-1. **Identify the file** — the user will reference a CSV path. Default is `finence/transaction-history.csv`. If unclear, ask.
+1. **Identify the source**:
+   - **November 2026 onwards → Monzo (default).** Use the literal source `monzo`. It reads the joint Monzo account from the wealth dashboard's DB (`~/Developer/wealth-dashboard/data/wealth.db`, read-only), which syncs daily at 07:00. No download needed. Only the joint account is used; the personal one is unused.
+   - **Earlier months → Wise CSV.** Data lives in `~/Desktop/Money/Expenses/` (monthly CSVs); the full Wise export is `~/Desktop/Money/Wise/Wise_Transaction_History.csv`. If unclear, ask.
+   - October 2026 is mixed: Wise plus Monzo joint from 5 Oct. Run both and combine if asked.
+   - Before a Monzo report, check freshness: `grep monzo ~/Developer/wealth-dashboard/data/sync.log | tail -1`. If it isn't `ok` from today, tell the user (usually: Reconnect on the dashboard's Accounts page, then approve in the Monzo app).
 
 2. **Infer the month filter** — in order of priority:
    - If the user names a month explicitly (e.g. "March", "last month"), use that.
@@ -17,20 +21,29 @@ Generate a markdown expense report from a Wise CSV transaction export.
    - If no month can be inferred, omit `--month` to analyze the full file.
    - Map to `--month YYYY-MM` using the current year (e.g. "april" → `--month 2026-04`).
 
-3. **Check for a previous month's CSV** — look in the same directory for a file named after the prior month (e.g. if current is `april_transactions.csv`, look for `march_transactions.csv`). If found, pass it with `--compare <path>` for month-over-month comparison.
+3. **Previous month for comparison** — if the previous month is also Monzo, pass `--compare monzo`. Otherwise **check for a previous month's CSV** — look in the same directory for a file named after the prior month (e.g. if current is `april_transactions.csv`, look for `march_transactions.csv`). If found, pass it with `--compare <path>` for month-over-month comparison.
 
 4. **Run the script** (stdlib only, no venv needed):
    ```bash
-   python3 ~/.claude/skills/expense-analyzer/scripts/analyze.py <file_path> [--month YYYY-MM] [--compare <prev_csv_path>]
+   python3 ~/.claude/skills/expense-analyzer/scripts/analyze.py <file_path|monzo> [--month YYYY-MM] [--compare <prev_csv_path|monzo>]
    ```
 
 5. **Save the report**:
-   - If a month filter was used: `finence/reports/expense-report-YYYY-MM.md` (e.g. `expense-report-2026-04.md`)
-   - Otherwise: `finence/reports/expense-report-YYYY-MM-DD.md` (today's date as fallback)
+   - If a month filter was used: `~/Desktop/Money/Expenses/reports/expense-report-YYYY-MM.md` (e.g. `expense-report-2026-04.md`)
+   - Otherwise: `~/Desktop/Money/Expenses/reports/expense-report-YYYY-MM-DD.md` (today's date as fallback)
 
 6. **Reply** with a short summary: total spend, top category, and one notable flagged item (if any). Just 2–3 sentences — the detail is in the file.
 
 ## What the script handles
+
+Monzo (`monzo` source):
+- Applies the dashboard's merchant re-categorisation rules (e.g. Trading 212 → investment)
+- Skips pot moves, transfers between own accounts, incoming money, and non-spending categories (investment, general, income, savings)
+- Cancels a refund against the charge it reverses (same merchant, exact amount)
+- Maps Monzo categories to the Wise-era names (eating_out → Eating out, holidays → Trips, transfers → Personal transfers…) so months compare cleanly
+- Avg/month history combines the Wise CSVs and Monzo
+
+Wise CSV:
 
 - Filters to `Direction=OUT` only (skips incoming transfers, rewards, currency conversions)
 - Deduplicates multi-currency rows for the same transaction (keeps GBP row when both EUR and GBP exist)

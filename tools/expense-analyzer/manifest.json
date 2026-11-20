@@ -1,15 +1,30 @@
 {
   "name": "expense-analyzer",
-  "version": "1.0.0",
-  "description": "Analyzes Wise/Revolut CSV transaction exports and produces a detailed markdown expense report with category totals, top transactions, and flagged unusual spends",
+  "version": "1.1.0",
+  "description": "Markdown expense reports from Monzo (read-only via the wealth-dashboard DB, no download) or Wise/Revolut CSVs: category totals, top transactions, flagged unusual spends",
   "type": "skill",
   "category": "finance",
   "complexity": "intermediate",
-  "tags": ["finance", "expenses", "wise", "revolut", "python", "csv"],
+  "tags": [
+    "finance",
+    "expenses",
+    "monzo",
+    "wise",
+    "revolut",
+    "python",
+    "csv",
+    "sqlite"
+  ],
   "install": {
     "files": [
-      { "src": "SKILL.md", "dest": "~/.claude/skills/expense-analyzer.md" },
-      { "src": "scripts/analyze.py", "dest": "~/.claude/skills/expense-analyzer/scripts/analyze.py" }
+      {
+        "src": "SKILL.md",
+        "dest": "~/.claude/skills/expense-analyzer.md"
+      },
+      {
+        "src": "scripts/analyze.py",
+        "dest": "~/.claude/skills/expense-analyzer/scripts/analyze.py"
+      }
     ]
   },
   "requirements": {
