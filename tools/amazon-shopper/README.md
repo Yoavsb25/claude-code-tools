@@ -8,7 +8,7 @@ Searches Amazon UK for an item, picks the best match (rating ≥3.5, ≥20 revie
 
 ## Usage (via Claude skill)
 
-Copy `SKILL.md` into your project's `.claude/skills/amazon-shopper/` and say "buy [item]" or invoke it from `run-todos` for qualifying buy tasks.
+Copy `SKILL.md` into your project's `.claude/skills/amazon-shopper/` and say "buy [item]".
 
 ## Key rules
 - **Basket only** — never attempts checkout or payment

@@ -1,6 +1,6 @@
 ---
 name: amazon-shopper
-description: Use when a run-todos buy/order task is classified as Amazon-appropriate — physical goods, electronics, clothing, accessories, home items (not food/grocery, not flights/services/bookings).
+description: Use when the user wants to buy a physical item on Amazon — electronics, clothing, accessories, home items (not groceries, flights, services or bookings).
 disable-model-invocation: true
 ---
 
@@ -133,5 +133,5 @@ If add failed: `❌ Could not add to basket — <reason>. URL: <url>`
 - **Basket only** — never attempt checkout or payment.
 - **Never proceed on vague tasks** — stop at Step 1 if key specs are missing.
 - **Use `browser_run_code` for search** — never navigate item-by-item during research.
-- **One item per invocation** — `run-todos` invokes this skill once per qualifying buy task.
+- **One item per invocation** — for several items, run it once per item.
 - **Avoid unbranded generics for electronics** — prefer known brands even if rated.

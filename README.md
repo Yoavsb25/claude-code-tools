@@ -15,10 +15,8 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 
 | Name | Type | Category | Complexity | Description |
 |------|------|----------|------------|-------------|
-| [add-todo](./tools/add-todo/) | skill | productivity | simple | Adds tasks to your Apple Reminders app via natural language directly from Claude Code |
 | [ibkr-setup](./tools/ibkr-setup/) | skill | finance | simple | One-time setup for your IBKR investment profile — captures risk tolerance, time horizon, sector preferences, and target allocation. |
 | [linkedin-experience-writer](./tools/linkedin-experience-writer/) | skill | career | simple | Writes polished LinkedIn experience bullets for a single project a tech professional worked on, with 2 alternative phrasings per bullet so the user can choose the best fit |
-| [run-todos](./tools/run-todos/) | skill | productivity | simple | Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically |
 | [tfl-refund](./tools/tfl-refund/) | skill | finance | simple | Guides you through claiming a TfL refund for overcharges, incomplete journeys, or maximum fares |
 | [amazon-shopper](./tools/amazon-shopper/) | skill | shopping | intermediate | Searches Amazon for products, compares options, and adds the best match to your basket using Claude Code and Playwright |
 | [expense-analyzer](./tools/expense-analyzer/) | skill | finance | intermediate | Markdown expense reports from Monzo (read-only via the wealth-dashboard DB, no download) or Wise/Revolut CSVs: category totals, top transactions, flagged unusual spends |
@@ -33,7 +31,6 @@ Built for **[Claude Code](https://claude.ai/code)** users who want AI that does 
 | [ocado-deals](./tools/ocado-deals/) | skill | shopping | intermediate | Finds Ocado offers that actually save money — compares unit prices with what you usually buy, suggests swaps and stock-ups, and watches categories you care about. |
 | [ocado-shopper](./tools/ocado-shopper/) | skill | shopping | intermediate | Smart Ocado grocery shopper — reads a weekly list from Apple Notes, finds best-value products, and fills the trolley |
 | [oyster-audit](./tools/oyster-audit/) | skill | finance | intermediate | Audits TfL Oyster card travel history against correct fares and detects potential refunds |
-| [process-emails](./tools/process-emails/) | skill | productivity | intermediate | Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note |
 | [product-manager](./tools/product-manager/) | skill | productivity | intermediate | Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization |
 | [repo-guardian](./tools/repo-guardian/) | skill | developer-tools | intermediate | Staff-level repo governance for Python/GitHub projects — generates a tiered, actionable checklist covering pre-commit hooks, CI quality gates, PR templates, and security scanning |
 | [resume-tailor](./tools/resume-tailor/) | skill | career | intermediate | Tailors a resume to a specific job posting by pulling from work documentation and saving a polished markdown output |

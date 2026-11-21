@@ -1,24 +1,30 @@
 {
   "name": "yoav-tools",
   "owner": { "name": "Yoavsb25" },
-  "metadata": { "description": "Skill bundles from this registry: enable a bundle per project instead of copying skills." },
+  "metadata": { "description": "Skill bundles from this registry: enable a bundle where you need it instead of copying skills." },
   "plugins": [
     {
-      "name": "life",
-      "description": "Life admin: todos, email-to-todo, groceries, Amazon, flights, stays, expenses, TfL fares, folder tidy-up.",
+      "name": "home",
+      "description": "Groceries: Ocado shopping list and weekly deals.",
       "source": "./tools",
       "strict": false,
-      "skills": ["./add-todo", "./run-todos", "./process-emails", "./amazon-shopper", "./ocado-shopper", "./ocado-deals",
-                 "./flight-finder", "./stay-finder", "./expense-analyzer", "./trip-expense-report", "./folder-organizer",
-                 "./tube-fare-auditor", "./tfl-refund"]
+      "skills": ["./ocado-shopper", "./ocado-deals"]
     },
     {
-      "name": "build",
-      "description": "Building software: architecture, product, UI/UX, security, testing and stack choices.",
+      "name": "money",
+      "description": "Expenses: monthly expense analysis and trip expense reports.",
       "source": "./tools",
       "strict": false,
-      "skills": ["./software-architect", "./product-manager", "./ui-ux-expert", "./security-architect",
-                 "./testing-strategist", "./tech-stack-selector"]
+      "skills": ["./expense-analyzer", "./trip-expense-report"]
+    },
+    {
+      "name": "extras",
+      "description": "Occasional skills: flights, stays, Amazon, TfL fares and refunds, folder tidy-up, and software-building advisers.",
+      "source": "./tools",
+      "strict": false,
+      "skills": ["./flight-finder", "./stay-finder", "./amazon-shopper", "./tube-fare-auditor", "./tfl-refund",
+                 "./folder-organizer", "./software-architect", "./product-manager", "./ui-ux-expert",
+                 "./security-architect", "./testing-strategist", "./tech-stack-selector"]
     },
     {
       "name": "career",

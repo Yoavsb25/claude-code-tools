@@ -1,35 +1,7 @@
 {
-  "generated": "2026-11-20T17:07:10.506Z",
-  "count": 35,
+  "generated": "2026-11-21T20:11:43.573Z",
+  "count": 32,
   "tools": [
-    {
-      "name": "add-todo",
-      "version": "1.0.0",
-      "description": "Adds tasks to your Apple Reminders app via natural language directly from Claude Code",
-      "type": "skill",
-      "category": "productivity",
-      "complexity": "simple",
-      "tags": [
-        "macos",
-        "reminders",
-        "automation",
-        "tasks"
-      ],
-      "install": {
-        "files": [
-          {
-            "src": "SKILL.md",
-            "dest": "~/.claude/skills/add-todo.md"
-          }
-        ]
-      },
-      "requirements": {
-        "platform": "macos",
-        "mcp_servers": [],
-        "env_vars": []
-      },
-      "path": "tools/add-todo"
-    },
     {
       "name": "amazon-shopper",
       "version": "1.0.0",
@@ -782,38 +754,6 @@
       "path": "tools/oyster-audit"
     },
     {
-      "name": "process-emails",
-      "version": "1.0.0",
-      "description": "Fully-automatic email-to-todo pipeline — reads unread Gmail, extracts action items, and writes them to the Claude Tasks Apple Note",
-      "type": "skill",
-      "category": "productivity",
-      "complexity": "intermediate",
-      "tags": [
-        "automation",
-        "email",
-        "gmail",
-        "macos",
-        "todos",
-        "notes"
-      ],
-      "install": {
-        "files": [
-          {
-            "src": "SKILL.md",
-            "dest": "~/.claude/skills/process-emails.md"
-          }
-        ]
-      },
-      "requirements": {
-        "platform": "macos",
-        "mcp_servers": [
-          "gmail"
-        ],
-        "env_vars": []
-      },
-      "path": "tools/process-emails"
-    },
-    {
       "name": "product-manager",
       "version": "1.0.0",
       "description": "Product thinking partner for PRDs, user stories, roadmaps, and feature prioritization",
@@ -953,34 +893,6 @@
         "python": ">=3.9"
       },
       "path": "tools/rnd-catalogue"
-    },
-    {
-      "name": "run-todos",
-      "version": "1.0.0",
-      "description": "Fetches your Apple Reminders todo list and runs them as Claude Code tasks automatically",
-      "type": "skill",
-      "category": "productivity",
-      "complexity": "simple",
-      "tags": [
-        "macos",
-        "reminders",
-        "automation",
-        "tasks"
-      ],
-      "install": {
-        "files": [
-          {
-            "src": "SKILL.md",
-            "dest": "~/.claude/skills/run-todos.md"
-          }
-        ]
-      },
-      "requirements": {
-        "platform": "macos",
-        "mcp_servers": [],
-        "env_vars": []
-      },
-      "path": "tools/run-todos"
     },
     {
       "name": "security-architect",
