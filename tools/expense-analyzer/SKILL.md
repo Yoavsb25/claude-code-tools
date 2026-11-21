@@ -10,10 +10,12 @@ Generate a markdown expense report from Monzo (via the wealth dashboard DB) or a
 ## Steps
 
 1. **Identify the source**:
-   - **November 2026 onwards → Monzo (default).** Use the literal source `monzo`. It reads the joint Monzo account from the wealth dashboard's DB (`~/Developer/wealth-dashboard/data/wealth.db`, read-only), which syncs daily at 07:00. No download needed. Only the joint account is used; the personal one is unused.
-   - **Earlier months → Wise CSV.** Data lives in `~/Desktop/Money/Expenses/` (monthly CSVs); the full Wise export is `~/Desktop/Money/Wise/Wise_Transaction_History.csv`. If unclear, ask.
+   - **November 2026 onwards → Monzo (default).** Use the literal source `monzo`. It reads the joint Monzo account from the wealth dashboard's DB (`~/GitHub/wealth-dashboard/data/wealth.db`, read-only; override with `WEALTH_DB`), which syncs daily at 07:00. No download needed. Only the joint account is used; the personal one is unused.
+   - **Earlier months → Wise CSV.** Monthly CSVs live in `~/Documents/2 Money/Accounts/Wise/Monthly Exports/`; the full export is `~/Documents/2 Money/Accounts/Wise/Wise_Transaction_History.csv`. If unclear, ask.
+   - **Wise export type:** the "statement" CSV (signed amounts, no Direction or Category columns) won't parse, and the script finds nothing. Ask for the "transaction history" export instead of converting it.
+   - **Reimbursed work trips:** ask whether any trips (clusters of foreign-currency payments) were reimbursed by an employer. Exclude those items, and don't count the reimbursement as income in the month it arrives.
    - October 2026 is mixed: Wise plus Monzo joint from 5 Oct. Run both and combine if asked.
-   - Before a Monzo report, check freshness: `grep monzo ~/Developer/wealth-dashboard/data/sync.log | tail -1`. If it isn't `ok` from today, tell the user (usually: Reconnect on the dashboard's Accounts page, then approve in the Monzo app).
+   - Before a Monzo report, check freshness: `grep monzo ~/GitHub/wealth-dashboard/data/sync.log | tail -1`. If it isn't `ok` from today, tell the user (usually: Reconnect on the dashboard's Accounts page, then approve in the Monzo app).
 
 2. **Infer the month filter** — in order of priority:
    - If the user names a month explicitly (e.g. "March", "last month"), use that.
@@ -25,12 +27,12 @@ Generate a markdown expense report from Monzo (via the wealth dashboard DB) or a
 
 4. **Run the script** (stdlib only, no venv needed):
    ```bash
-   python3 ~/.claude/skills/expense-analyzer/scripts/analyze.py <file_path|monzo> [--month YYYY-MM] [--compare <prev_csv_path|monzo>]
+   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze.py" <file_path|monzo> [--month YYYY-MM] [--compare <prev_csv_path|monzo>]
    ```
 
 5. **Save the report**:
-   - If a month filter was used: `~/Desktop/Money/Expenses/reports/expense-report-YYYY-MM.md` (e.g. `expense-report-2026-04.md`)
-   - Otherwise: `~/Desktop/Money/Expenses/reports/expense-report-YYYY-MM-DD.md` (today's date as fallback)
+   - If a month filter was used: `~/Documents/2 Money/Budget & Reports/expense-report-YYYY-MM.md` (e.g. `expense-report-2026-04.md`)
+   - Otherwise: `~/Documents/2 Money/Budget & Reports/expense-report-YYYY-MM-DD.md` (today's date as fallback)
 
 6. **Reply** with a short summary: total spend, top category, and one notable flagged item (if any). Just 2–3 sentences — the detail is in the file.
 

@@ -76,7 +76,7 @@ Once the user confirms the content, run the automation script. Ensure dependenci
 first (this only needs to happen once — subsequent runs skip it):
 
 ```bash
-cd ~/.claude/skills/linkedin-project-adder/scripts && npm install --silent 2>/dev/null; node add_project.js '<JSON>'
+cd "${CLAUDE_SKILL_DIR}/scripts" && npm install --silent 2>/dev/null; node add_project.js '<JSON>'
 ```
 
 Where `<JSON>` is a single-line JSON string with these fields:

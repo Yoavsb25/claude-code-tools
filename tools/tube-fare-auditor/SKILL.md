@@ -20,7 +20,7 @@ If the user hasn't provided files yet, ask for them before proceeding. They can 
 ## Step 1: Run the audit script
 
 ```bash
-python ~/.claude/skills/tube-fare-auditor/scripts/audit.py \
+python "${CLAUDE_SKILL_DIR}/scripts/audit.py" \
   --oyster <path_to_oyster_csv> \
   [--oyster <path_to_second_oyster_csv>] \
   [--statement <path_to_card_statement_csv>] \

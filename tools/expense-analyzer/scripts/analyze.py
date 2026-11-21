@@ -144,9 +144,10 @@ def load_transactions(filepath, month_filter=None):
 
 
 MONZO_DB = os.environ.get(
-    "WEALTH_DB", os.path.expanduser("~/Developer/wealth-dashboard/data/wealth.db"))
+    "WEALTH_DB", os.path.expanduser("~/GitHub/wealth-dashboard/data/wealth.db"))
 MONZO_ACCOUNT = "monzo"  # joint account
-EXPENSES_DIR = os.path.expanduser("~/Desktop/Money/Expenses")
+EXPENSES_DIR = os.environ.get(
+    "EXPENSES_DIR", os.path.expanduser("~/Documents/2 Money/Accounts/Wise/Monthly Exports"))
 # Not spending, on top of the dashboard's own non-counting categories (income, savings, ...).
 MONZO_SKIP = {"investment", "general", "income", "savings", "not_spending"}
 # Monzo category keys -> the names used in the Wise-era reports.
