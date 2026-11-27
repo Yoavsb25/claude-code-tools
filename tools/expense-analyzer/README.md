@@ -9,7 +9,8 @@ Processes Wise or Revolut CSV transaction exports and produces a detailed markdo
 - Converts non-GBP amounts using the exchange rate in the export
 - Skips internal categories (`Money added`, `Rewards`, `General`) and sub-penny amounts
 - Flags large transactions (>£100) and anything ≥£50 AND >2× its category average
-- Optional month-over-month comparison via `--compare`
+- Optional month-over-month comparison via `--compare` (`auto` prefers last month's saved report, which already combines every source)
+- Monzo: lists payments left out of the totals with the reason, shows how fresh the data is, and warns when a usual category looks incomplete
 
 ## Report sections
 

@@ -15,7 +15,7 @@ Generate a markdown expense report from Monzo (via the wealth dashboard DB) or a
    - **Wise export type:** the "statement" CSV (signed amounts, no Direction or Category columns) won't parse, and the script finds nothing. Ask for the "transaction history" export instead of converting it.
    - **Reimbursed work trips:** ask whether any trips (clusters of foreign-currency payments) were reimbursed by an employer. Exclude those items, and don't count the reimbursement as income in the month it arrives.
    - October 2026 is mixed: Wise plus Monzo joint from 5 Oct. Run both and combine if asked.
-   - Before a Monzo report, check freshness: `grep monzo ~/GitHub/wealth-dashboard/data/sync.log | tail -1`. If it isn't `ok` from today, tell the user (usually: Reconnect on the dashboard's Accounts page, then approve in the Monzo app).
+   - Before a Monzo report, make the data fresh: run `cd ~/GitHub/wealth-dashboard && .venv/bin/python -m wealth.sync --if-stale` (does nothing if today's sync already ran; launchd runs it at 07:00 and at login). Then check `sqlite3 -readonly ~/GitHub/wealth-dashboard/data/wealth.db "SELECT status, message, started_at FROM sync_runs WHERE account_id='monzo' ORDER BY id DESC LIMIT 1"`. If it isn't `ok`, tell the user why (`needs_reauth`: Reconnect on the dashboard's Accounts page, then approve in the Monzo app) and that the report stops at the last good sync.
 
 2. **Infer the month filter** — in order of priority:
    - If the user names a month explicitly (e.g. "March", "last month"), use that.
@@ -23,24 +23,25 @@ Generate a markdown expense report from Monzo (via the wealth dashboard DB) or a
    - If no month can be inferred, omit `--month` to analyze the full file.
    - Map to `--month YYYY-MM` using the current year (e.g. "april" → `--month 2026-04`).
 
-3. **Previous month for comparison** — if the previous month is also Monzo, pass `--compare monzo`. Otherwise **check for a previous month's CSV** — look in the same directory for a file named after the prior month (e.g. if current is `april_transactions.csv`, look for `march_transactions.csv`). If found, pass it with `--compare <path>` for month-over-month comparison.
+3. **Previous month for comparison** — with `--month`, pass `--compare auto`. It uses last month's saved report (`expense-report-YYYY-MM.md` in Budget & Reports) when it exists, because that already combines every source and any manual exclusions; otherwise it falls back to the same source (Monzo). Never use `--compare monzo` when the previous month mixed sources (e.g. October 2026): it only sees the Monzo slice. Without a saved report for a Wise month, look for the prior month's CSV in the same directory and pass `--compare <path>`.
 
 4. **Run the script** (stdlib only, no venv needed):
    ```bash
-   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze.py" <file_path|monzo> [--month YYYY-MM] [--compare <prev_csv_path|monzo>]
+   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze.py" <file_path|monzo> [--month YYYY-MM] [--compare auto|<prev_report.md>|<prev_csv_path>|monzo]
    ```
 
 5. **Save the report**:
    - If a month filter was used: `~/Documents/2 Money/Budget & Reports/expense-report-YYYY-MM.md` (e.g. `expense-report-2026-04.md`)
    - Otherwise: `~/Documents/2 Money/Budget & Reports/expense-report-YYYY-MM-DD.md` (today's date as fallback)
 
-6. **Reply** with a short summary: total spend, top category, and one notable flagged item (if any). Just 2–3 sentences — the detail is in the file.
+6. **Reply** with a short summary: total spend, top category, and one notable flagged item (if any). Just 2–3 sentences — the detail is in the file. Also mention, if present: anything under **Left Out** that might be real spending (ask; if yes, re-categorise it on the dashboard's Spending page or with `wealth.db.set_merchant_rule`, then re-run), and any **Possibly Missing Spend** category (suggest checking Wise).
 
 ## What the script handles
 
 Monzo (`monzo` source):
 - Applies the dashboard's merchant re-categorisation rules (e.g. Trading 212 → investment)
-- Skips pot moves, transfers between own accounts, incoming money, and non-spending categories (investment, general, income, savings)
+- Skips pot moves, transfers between own accounts, incoming money, and non-spending categories (investment, income, savings, not_spending), listing each skipped non-zero payment under **Left Out**
+- Counts Monzo's "general" as **Uncategorised** (it's real spend Monzo couldn't classify, unlike Wise's "General")
 - Cancels a refund against the charge it reverses (same merchant, exact amount)
 - Maps Monzo categories to the Wise-era names (eating_out → Eating out, holidays → Trips, transfers → Personal transfers…) so months compare cleanly
 - Avg/month history combines the Wise CSVs and Monzo
@@ -56,8 +57,10 @@ Wise CSV:
 
 ## Report sections
 
-1. Summary (total spend; includes vs-previous-month delta if `--compare` was used)
+1. Summary (total spend; vs-previous-month delta if `--compare` was used; for Monzo, "Data through" the last successful sync while the month is in progress)
 2. By Category table (total / optional delta vs prev month / count / avg)
 3. Top 10 transactions
-4. Flagged unusual expenses
-5. Full per-category breakdown with individual line items
+4. Possibly Missing Spend (a usual category, avg ≥ £100/month and not Trips, below 60% of its pro-rated average)
+5. Flagged unusual expenses
+6. Left Out (Monzo: payments not counted, with the reason)
+7. Full per-category breakdown with individual line items
